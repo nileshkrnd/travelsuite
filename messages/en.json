@@ -1,0 +1,73 @@
+{
+  "common": {
+    "appName": "TravelSuite",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "backToLogin": "Back to login",
+    "comingSoon": "{label} support is coming soon"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in to your account",
+      "subtitle": "Enter your credentials to access the {tenant} admin panel",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "invalidCredentials": "We couldn't find an account with those credentials.",
+      "devRoleSwitcherLabel": "Dev: sign in as",
+      "success": "Welcome back, {name}"
+    },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "subtitle": "Enter the email associated with your account and we'll send you a link to reset your password.",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@company.com",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "successTitle": "Check your email",
+      "successBody": "If an account exists for {email}, we've sent a password reset link to it.",
+      "resend": "Didn't get it? Resend"
+    },
+    "resetPassword": {
+      "title": "Set a new password",
+      "subtitle": "Choose a new password for your account.",
+      "passwordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "submit": "Reset password",
+      "submitting": "Resetting…",
+      "successTitle": "Password updated",
+      "successBody": "Your password has been reset. You can now sign in with your new password.",
+      "continueToLogin": "Continue to login"
+    },
+    "validation": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Enter a valid email address",
+      "passwordRequired": "Password is required",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "passwordsMustMatch": "Passwords do not match"
+    }
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "users": "Users & Roles",
+    "bookings": "Bookings",
+    "inventory": "Inventory",
+    "agents": "Agents",
+    "corporate": "Corporate",
+    "billing": "Billing & Invoices",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "topbar": {
+    "currency": "Currency",
+    "language": "Language",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Log out"
+  }
+}
