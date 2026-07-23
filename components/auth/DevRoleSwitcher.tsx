@@ -7,9 +7,10 @@ import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authenticate } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
+import { useRolesStore } from "@/lib/store/roles.store";
+import { useUsersStore } from "@/lib/store/users.store";
 import { roleHomePath } from "@/config/permissions";
-import { MOCK_PASSWORD, users } from "@/mock/data/users";
-import { ROLES, ROLE_LABELS } from "@/types";
+import { MOCK_PASSWORD } from "@/mock/data/users";
 
 /**
  * Phase 1 only: lets reviewers jump straight into any role's dashboard
@@ -20,17 +21,20 @@ import { ROLES, ROLE_LABELS } from "@/types";
 export function DevRoleSwitcher() {
   const t = useTranslations("auth.login");
   const login = useSessionStore((s) => s.login);
+  const roles = useRolesStore((s) => s.roles);
+  const users = useUsersStore((s) => s.users);
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [pendingRole, setPendingRole] = useState<string | null>(null);
+  const [pendingRoleId, setPendingRoleId] = useState<string | null>(null);
 
-  async function signInAs(role: (typeof ROLES)[number]) {
-    const user = users.find((u) => u.role === role);
-    if (!user) return;
-    setPendingRole(role);
+  async function signInAs(roleId: string) {
+    const user = users.find((u) => u.roleId === roleId);
+    const roleDef = roles.find((r) => r.id === roleId);
+    if (!user || !roleDef) return;
+    setPendingRoleId(roleId);
     const authed = await authenticate(user.email, MOCK_PASSWORD);
     login(authed);
-    router.push(roleHomePath(authed.role));
+    router.push(roleHomePath(roleDef));
   }
 
   return (
@@ -48,19 +52,22 @@ export function DevRoleSwitcher() {
       </button>
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-1.5">
-          {ROLES.map((role) => (
-            <Button
-              key={role}
-              type="button"
-              variant="outline"
-              size="sm"
-              className="justify-start text-xs"
-              disabled={pendingRole !== null}
-              onClick={() => signInAs(role)}
-            >
-              {pendingRole === role ? "…" : ROLE_LABELS[role]}
-            </Button>
-          ))}
+          {roles.map((roleDef) => {
+            const hasUser = users.some((u) => u.roleId === roleDef.id);
+            return (
+              <Button
+                key={roleDef.id}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-start text-xs"
+                disabled={pendingRoleId !== null || !hasUser}
+                onClick={() => signInAs(roleDef.id)}
+              >
+                {pendingRoleId === roleDef.id ? "…" : roleDef.name}
+              </Button>
+            );
+          })}
         </div>
       )}
     </div>

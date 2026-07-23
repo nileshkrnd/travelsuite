@@ -2,7 +2,9 @@
 
 import { Construction, ShieldAlert } from "lucide-react";
 import { useSessionStore } from "@/lib/store/session.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { can, type ModuleKey } from "@/config/permissions";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 interface ComingSoonPlaceholderProps {
   module: ModuleKey;
@@ -13,25 +15,27 @@ interface ComingSoonPlaceholderProps {
 
 export function ComingSoonPlaceholder({ module, title, phase = "a later step" }: ComingSoonPlaceholderProps) {
   const user = useSessionStore((s) => s.user);
-  const allowed = user ? can(user.role, module, "view") : false;
+  const roles = useRolesStore((s) => s.roles);
+  const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const allowed = can(roleDef, module, "view");
 
   if (!allowed) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 p-6 text-center">
-        <ShieldAlert className="h-8 w-8 text-muted-foreground" />
-        <p className="font-medium">Access restricted</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Your role doesn&apos;t have access to {title}.
-        </p>
-      </div>
+      <EmptyState
+        icon={ShieldAlert}
+        tone="muted"
+        heading="Access restricted"
+        description={`Your role doesn't have access to ${title}.`}
+      />
     );
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 p-6 text-center">
-      <Construction className="h-8 w-8 text-muted-foreground" />
-      <p className="font-medium">{title}</p>
-      <p className="max-w-sm text-sm text-muted-foreground">This module ships in {phase}.</p>
-    </div>
+    <EmptyState
+      icon={Construction}
+      tone="primary"
+      heading="Nothing here yet"
+      description={`${title} ships in ${phase}.`}
+    />
   );
 }

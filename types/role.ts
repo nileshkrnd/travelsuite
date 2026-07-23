@@ -1,28 +1,22 @@
-export type Role =
-  | "company_employee"
-  | "hotelier"
-  | "supplier"
-  | "dmc"
-  | "agent"
-  | "sub_agent"
-  | "corporate_customer";
+import type { ModuleKey, PermissionAction } from "@/config/permissions";
 
-export const ROLES: Role[] = [
-  "company_employee",
-  "hotelier",
-  "supplier",
-  "dmc",
-  "agent",
-  "sub_agent",
-  "corporate_customer",
-];
+/**
+ * Closed set used only for booking-visibility scoping (lib/services/bookings.service.ts).
+ * Every RoleDef — seeded or custom — carries one, independent of its free-text name.
+ */
+export type ScopeKind = "all" | "agent" | "subAgent" | "hotelier" | "supplier" | "dmc" | "corporate";
 
-export const ROLE_LABELS: Record<Role, string> = {
-  company_employee: "Company Employee",
-  hotelier: "Hotelier",
-  supplier: "Supplier",
-  dmc: "DMC",
-  agent: "Agent",
-  sub_agent: "Sub-Agent",
-  corporate_customer: "Corporate Customer",
-};
+export interface RoleDef {
+  id: string;
+  tenantId: string;
+  /** Free text, editable by Super Admin, e.g. "Regional Manager". */
+  name: string;
+  /** camelCase, URL-safe — derived from name at creation. See lib/slug.ts. */
+  slug: string;
+  description?: string;
+  /** Seeded roles: name/slug locked, cannot be deleted. */
+  isSystem: boolean;
+  scopeKind: ScopeKind;
+  permissions: Partial<Record<ModuleKey, PermissionAction[]>>;
+  createdAt: string;
+}

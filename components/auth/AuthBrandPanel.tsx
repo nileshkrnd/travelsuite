@@ -22,6 +22,11 @@ export function AuthBrandPanel() {
       style={{ backgroundColor: tenant.branding.primaryColor, color: foreground }}
     >
       <div
+        className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full blur-3xl"
+        style={{ backgroundColor: `${foreground}22` }}
+        aria-hidden
+      />
+      <div
         className="pointer-events-none absolute inset-0 opacity-[0.08]"
         style={{
           backgroundImage: `radial-gradient(${foreground} 1px, transparent 1px)`,
@@ -35,15 +40,20 @@ export function AuthBrandPanel() {
         showName
         className="relative"
       />
-      <div className="relative space-y-8">
-        <p className="text-2xl font-medium leading-snug">
+      <div className="relative space-y-9">
+        <p className="text-3xl leading-[1.15] font-semibold tracking-tight">
           The admin panel that keeps every partner in {tenant.branding.name.split(" ")[0]}&apos;s
           network moving.
         </p>
         <ul className="space-y-4">
           {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-            <li key={text} className="flex items-start gap-3 text-sm opacity-90">
-              <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+            <li key={text} className="flex items-center gap-3 text-sm opacity-90">
+              <span
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${foreground}1a` }}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </span>
               <span>{text}</span>
             </li>
           ))}

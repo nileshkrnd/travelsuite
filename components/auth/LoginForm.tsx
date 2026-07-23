@@ -7,14 +7,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { CircleAlert, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticate, InvalidCredentialsError } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
+import { PasswordInput } from "./PasswordInput";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import Link from "next/link";
 
@@ -46,20 +48,18 @@ export function LoginForm() {
     setServerError(null);
     try {
       const user = await authenticate(values.email, values.password);
+      const roleDef = useRolesStore.getState().roles.find((r) => r.id === user.roleId);
+      if (!roleDef) throw new InvalidCredentialsError();
       login(user);
       toast.success(t("success", { name: user.name }));
-      router.push(roleHomePath(user.role));
+      router.push(roleHomePath(roleDef));
     } catch (err) {
-      if (err instanceof InvalidCredentialsError) {
-        setServerError(t("invalidCredentials"));
-      } else {
-        setServerError(t("invalidCredentials"));
-      }
+      setServerError(err instanceof InvalidCredentialsError ? t("invalidCredentials") : t("invalidCredentials"));
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
@@ -67,15 +67,27 @@ export function LoginForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+        {serverError && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+          >
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{serverError}</p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">{t("emailLabel")}</Label>
           <Input
             id="email"
             type="email"
             autoComplete="email"
+            autoFocus
             placeholder={t("emailPlaceholder")}
             aria-invalid={!!errors.email}
+            className="h-10"
             {...register("email")}
           />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
@@ -91,12 +103,12 @@ export function LoginForm() {
               {t("forgotPassword")}
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             placeholder={t("passwordPlaceholder")}
             aria-invalid={!!errors.password}
+            className="h-10"
             {...register("password")}
           />
           {errors.password && (
@@ -104,17 +116,16 @@ export function LoginForm() {
           )}
         </div>
 
-        {serverError && (
-          <p role="alert" className="text-sm text-destructive">
-            {serverError}
-          </p>
-        )}
-
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>
       </form>
+
+      <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+        <ShieldCheck className="h-3.5 w-3.5" />
+        Your connection to {tenant.branding.name} is secure
+      </p>
 
       <DevRoleSwitcher />
     </div>

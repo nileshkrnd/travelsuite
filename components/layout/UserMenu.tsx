@@ -15,15 +15,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSessionStore } from "@/lib/store/session.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { initials } from "@/lib/utils";
 
 export function UserMenu() {
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
+  const roles = useRolesStore((s) => s.roles);
   const router = useRouter();
   const t = useTranslations("topbar");
 
-  if (!user) return null;
+  const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+
+  if (!user || !roleDef) return null;
 
   return (
     <DropdownMenu>
@@ -41,11 +45,11 @@ export function UserMenu() {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push(`/${user.role}/settings`)}>
+        <DropdownMenuItem onClick={() => router.push(`/${roleDef.slug}/settings`)}>
           <UserIcon className="h-4 w-4" />
           {t("profile")}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push(`/${user.role}/settings`)}>
+        <DropdownMenuItem onClick={() => router.push(`/${roleDef.slug}/settings`)}>
           <Settings className="h-4 w-4" />
           {t("settings")}
         </DropdownMenuItem>

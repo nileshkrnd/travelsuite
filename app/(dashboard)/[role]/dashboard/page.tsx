@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { KpiCard } from "@/components/shared/KpiCard";
 import { BookingsTrendChart } from "@/components/dashboard/BookingsTrendChart";
@@ -11,7 +12,7 @@ import { TopDestinationsChart } from "@/components/dashboard/TopDestinationsChar
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ICONS } from "@/lib/icon-registry";
-import { DASHBOARD_KPIS } from "@/config/dashboardWidgets";
+import { getDashboardWidgets } from "@/config/dashboardWidgets";
 import {
   getDashboardKpis,
   getBookingsTrend,
@@ -24,11 +25,11 @@ import {
 } from "@/lib/services/bookings.service";
 import { getRecentActivity } from "@/lib/services/activity.service";
 import type { ActivityItem } from "@/types";
-import { ROLE_LABELS } from "@/types";
 
 export default function DashboardPage() {
   const user = useSessionStore((s) => s.user);
   const tenantId = useTenantStore((s) => s.tenantId);
+  const roles = useRolesStore((s) => s.roles);
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<DashboardKpis | null>(null);
   const [trend, setTrend] = useState<BookingsTrendPoint[]>([]);
@@ -36,15 +37,17 @@ export default function DashboardPage() {
   const [destinations, setDestinations] = useState<TopDestinationPoint[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
+  const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+
   useEffect(() => {
-    if (!user) return;
+    if (!user || !roleDef) return;
     let cancelled = false;
 
     Promise.all([
-      getDashboardKpis(tenantId, user.role, user.id),
-      getBookingsTrend(tenantId, user.role, user.id),
-      getRevenueByCurrency(tenantId, user.role, user.id),
-      getTopDestinations(tenantId, user.role, user.id),
+      getDashboardKpis(tenantId, roleDef.scopeKind, user.id),
+      getBookingsTrend(tenantId, roleDef.scopeKind, user.id),
+      getRevenueByCurrency(tenantId, roleDef.scopeKind, user.id),
+      getTopDestinations(tenantId, roleDef.scopeKind, user.id),
       getRecentActivity(tenantId),
     ]).then(([kpisRes, trendRes, revenueRes, destinationsRes, activityRes]) => {
       if (cancelled) return;
@@ -59,18 +62,18 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, user]);
+  }, [tenantId, user, roleDef]);
 
-  if (!user) return null;
+  if (!user || !roleDef) return null;
 
-  const widgets = DASHBOARD_KPIS[user.role];
+  const widgets = getDashboardWidgets(roleDef);
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title={`Welcome back, ${user.name.split(" ")[0]}`}
-        description={`${ROLE_LABELS[user.role]} · here's what's happening today`}
-        actions={<QuickActions role={user.role} />}
+        description={`${roleDef.name} · here's what's happening today`}
+        actions={<QuickActions roleDef={roleDef} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

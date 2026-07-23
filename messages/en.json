@@ -54,14 +54,19 @@
   },
   "sidebar": {
     "dashboard": "Dashboard",
-    "users": "Users & Roles",
     "bookings": "Bookings",
     "inventory": "Inventory",
     "agents": "Agents",
     "corporate": "Corporate",
     "billing": "Billing & Invoices",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "masters": "Masters",
+    "tenantProfile": "Tenant",
+    "company": "Company",
+    "branch": "Branch",
+    "employee": "Employee",
+    "roles": "Roles"
   },
   "topbar": {
     "currency": "Currency",

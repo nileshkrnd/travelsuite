@@ -18,6 +18,10 @@ import {
   ShieldCheck,
   UserPlus,
   Plus,
+  Layers,
+  Building,
+  GitBranch,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,4 +46,8 @@ export const ICONS: Record<string, LucideIcon> = {
   ShieldCheck,
   UserPlus,
   Plus,
+  Layers,
+  Building,
+  GitBranch,
+  KeyRound,
 };

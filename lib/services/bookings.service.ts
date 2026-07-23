@@ -1,15 +1,15 @@
 import { mockDelay } from "@/lib/utils";
 import { bookings } from "@/mock/data/bookings";
-import { users } from "@/mock/data/users";
+import { useUsersStore } from "@/lib/store/users.store";
 import { exchangeRatesToUsd } from "@/mock/data/exchangeRates";
-import type { Booking, CurrencyCode, Money, Role } from "@/types";
+import type { Booking, CurrencyCode, Money, ScopeKind } from "@/types";
 
-function scopeToRole(list: Booking[], role: Role, userId?: string): Booking[] {
+function scopeToKind(list: Booking[], scopeKind: ScopeKind, userId?: string): Booking[] {
   if (!userId) return list;
-  switch (role) {
+  switch (scopeKind) {
     case "agent":
       return list.filter((b) => b.agentId === userId);
-    case "sub_agent":
+    case "subAgent":
       return list.filter((b) => b.subAgentId === userId);
     case "hotelier":
       return list.filter((b) => b.hotelierId === userId);
@@ -17,7 +17,7 @@ function scopeToRole(list: Booking[], role: Role, userId?: string): Booking[] {
       return list.filter((b) => b.supplierId === userId);
     case "dmc":
       return list.filter((b) => b.dmcId === userId);
-    case "corporate_customer":
+    case "corporate":
       return list.filter((b) => b.corporateId === userId);
     default:
       return list;
@@ -35,12 +35,12 @@ function toUsd(money: Money): number {
   return money.value / exchangeRatesToUsd[money.currencyCode];
 }
 
-export async function getBookings(tenantId: string, role: Role, userId?: string): Promise<Booking[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings?role=${role}&userId=${userId}`).then(r => r.json())`
+export async function getBookings(tenantId: string, scopeKind: ScopeKind, userId?: string): Promise<Booking[]> {
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings?userId=${userId}`).then(r => r.json())`
   await mockDelay();
-  return scopeToRole(
+  return scopeToKind(
     bookings.filter((b) => b.tenantId === tenantId),
-    role,
+    scopeKind,
     userId
   );
 }
@@ -52,14 +52,14 @@ export interface BookingsTrendPoint {
 
 export async function getBookingsTrend(
   tenantId: string,
-  role: Role,
+  scopeKind: ScopeKind,
   userId?: string
 ): Promise<BookingsTrendPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/trend?role=${role}&userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/trend?userId=${userId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToRole(
+  const scoped = scopeToKind(
     bookings.filter((b) => b.tenantId === tenantId),
-    role,
+    scopeKind,
     userId
   );
   const anchor = new Date("2026-07-22T00:00:00.000Z");
@@ -86,14 +86,14 @@ export interface RevenueByCurrencyPoint {
 
 export async function getRevenueByCurrency(
   tenantId: string,
-  role: Role,
+  scopeKind: ScopeKind,
   userId?: string
 ): Promise<RevenueByCurrencyPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/revenue-by-currency?role=${role}&userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/revenue-by-currency?userId=${userId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToRole(
+  const scoped = scopeToKind(
     bookings.filter((b) => b.tenantId === tenantId && b.status !== "cancelled"),
-    role,
+    scopeKind,
     userId
   );
   const totals = new Map<CurrencyCode, number>();
@@ -110,15 +110,15 @@ export interface TopDestinationPoint {
 
 export async function getTopDestinations(
   tenantId: string,
-  role: Role,
+  scopeKind: ScopeKind,
   userId?: string,
   limit = 5
 ): Promise<TopDestinationPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/top-destinations?role=${role}&userId=${userId}&limit=${limit}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/top-destinations?userId=${userId}&limit=${limit}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToRole(
+  const scoped = scopeToKind(
     bookings.filter((b) => b.tenantId === tenantId),
-    role,
+    scopeKind,
     userId
   );
   const counts = new Map<string, number>();
@@ -148,20 +148,20 @@ export interface DashboardKpis {
 
 export async function getDashboardKpis(
   tenantId: string,
-  role: Role,
+  scopeKind: ScopeKind,
   userId?: string
 ): Promise<DashboardKpis> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/dashboard/kpis?role=${role}&userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/dashboard/kpis?userId=${userId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToRole(
+  const scoped = scopeToKind(
     bookings.filter((b) => b.tenantId === tenantId),
-    role,
+    scopeKind,
     userId
   );
   const nonCancelled = scoped.filter((b) => b.status !== "cancelled");
   const totalRevenueUsd = nonCancelled.reduce((sum, b) => sum + toUsd(b.amount), 0);
   const avgBookingValueUsd = nonCancelled.length ? totalRevenueUsd / nonCancelled.length : 0;
-  const seed = userId ?? role;
+  const seed = userId ?? scopeKind;
 
   return {
     totalBookings: scoped.length,
@@ -172,7 +172,7 @@ export async function getDashboardKpis(
     commissionEarned: { value: Math.round(totalRevenueUsd * 0.08), currencyCode: "USD" },
     walletBalance: { value: seededInt(`${seed}-wallet`, 4200, 28000), currencyCode: "USD" },
     creditLimit: { value: seededInt(`${seed}-credit`, 10000, 50000), currencyCode: "USD" },
-    activeUsers: users.filter((u) => u.tenantId === tenantId && u.status === "active").length,
+    activeUsers: useUsersStore.getState().users.filter((u) => u.tenantId === tenantId && u.status === "active").length,
     servicesListed: seededInt(`${seed}-services`, 8, 32),
     destinationPackages: seededInt(`${seed}-packages`, 4, 20),
     occupancyRate: seededInt(`${seed}-occupancy`, 55, 95),

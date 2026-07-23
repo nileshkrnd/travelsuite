@@ -1,5 +1,3 @@
-import type { Role } from "./role";
-
 export type UserStatus = "active" | "invited" | "deactivated";
 
 export interface User {
@@ -7,7 +5,9 @@ export interface User {
   tenantId: string;
   name: string;
   email: string;
-  role: Role;
+  roleId: string;
+  companyId?: string;
+  branchId?: string;
   department?: string;
   avatarUrl?: string;
   status: UserStatus;
