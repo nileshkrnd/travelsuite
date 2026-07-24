@@ -90,6 +90,7 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
             <h3 className="mb-1 text-sm font-semibold text-foreground">Basic details</h3>
             <dl>
               <DetailRow label="Tenant name">{tenant.branding.name}</DetailRow>
+              <DetailRow label="Holding group">{tenant.groupName}</DetailRow>
               <DetailRow label="Tenant code">{tenant.slug}</DetailRow>
               <DetailRow label="Status">
                 <Badge variant={tenant.status === "active" ? "default" : "secondary"}>{tenant.status}</Badge>

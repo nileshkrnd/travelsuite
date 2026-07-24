@@ -1,10 +1,31 @@
 import type { RoleDef } from "@/types";
+import type { ModuleKey, PermissionAction } from "@/config/permissions";
+import { allLeafModuleKeys } from "@/config/permissions";
 import { toCamelSlug } from "@/lib/slug";
 import { DEFAULT_TENANT_ID } from "./tenants";
 
 const ALL_ACTIONS = ["view", "create", "edit", "delete", "approve"] as const;
 
-function seedRole(input: Omit<RoleDef, "id" | "tenantId" | "slug" | "isSystem" | "createdAt"> & { id: string }): RoleDef {
+/** Grants the given actions (default: all) on every module key passed in. */
+function grant(
+  keys: ModuleKey[],
+  actions: readonly PermissionAction[] = ALL_ACTIONS
+): Partial<Record<ModuleKey, PermissionAction[]>> {
+  return Object.fromEntries(keys.map((key) => [key, [...actions]])) as Partial<
+    Record<ModuleKey, PermissionAction[]>
+  >;
+}
+
+/** Shallow-merges several `grant()` results into one permissions map. */
+function mergePermissions(
+  ...grants: Partial<Record<ModuleKey, PermissionAction[]>>[]
+): Partial<Record<ModuleKey, PermissionAction[]>> {
+  return Object.assign({}, ...grants);
+}
+
+function seedRole(
+  input: Omit<RoleDef, "id" | "tenantId" | "slug" | "isSystem" | "createdAt"> & { id: string }
+): RoleDef {
   return {
     ...input,
     tenantId: DEFAULT_TENANT_ID,
@@ -14,134 +35,254 @@ function seedRole(input: Omit<RoleDef, "id" | "tenantId" | "slug" | "isSystem" |
   };
 }
 
+// Module-key groups, mirroring the accordion groups in config/permissions.ts MENU_ITEMS.
+const ADMINISTRATION_KEYS: ModuleKey[] = [
+  "company",
+  "branch",
+  "department",
+  "employee",
+  "roles",
+  "permissions",
+  "users",
+  "approvalMatrix",
+  "holidays",
+  "mastersHub",
+  "tenantProfile",
+  "region",
+  "currency",
+];
+const PARTNERS_KEYS: ModuleKey[] = ["agency", "subAgency", "corporateAccounts", "supplier"];
+const HRMS_KEYS: ModuleKey[] = [
+  "hrmsDashboard",
+  "hrmsEmployees",
+  "attendance",
+  "leave",
+  "payroll",
+  "recruitment",
+  "performance",
+  "letters",
+  "gratuity",
+  "settlement",
+];
+const SALES_KEYS: ModuleKey[] = [
+  "salesDashboard",
+  "salesCustomers",
+  "salesLeads",
+  "quotations",
+  "salesBookings",
+  "flight",
+  "hotel",
+  "transfer",
+  "tours",
+  "activities",
+  "insurance",
+  "visa",
+  "carRental",
+];
+const BOOK_OFFLINE_KEYS: ModuleKey[] = [
+  "offlineFlight",
+  "offlineHotel",
+  "offlineTransfer",
+  "offlineRail",
+  "offlineMiscellaneous",
+];
+const BOOK_ONLINE_KEYS: ModuleKey[] = ["onlineFlight", "onlineHotel", "onlineTransfer"];
+const BACK_OFFICE_KEYS: ModuleKey[] = [
+  "backOfficeDashboard",
+  "quotationBuilder",
+  "packageBuilder",
+  "bookingQueue",
+  "pendingBooking",
+  "confirmedBooking",
+  "holdBooking",
+  "cancelledBooking",
+  "amendments",
+];
+const MID_OFFICE_KEYS: ModuleKey[] = [
+  "midOfficeDashboard",
+  "reservationQueue",
+  "ticketing",
+  "hotelOps",
+  "flightOps",
+  "transferOps",
+  "visaOps",
+  "qcQueue",
+  "refunds",
+  "reissue",
+];
+const EXTRANET_KEYS: ModuleKey[] = [
+  "extranetDashboard",
+  "contracts",
+  "extranetInventory",
+  "rates",
+  "promotions",
+  "stopSales",
+  "blackoutDates",
+  "extranetBookings",
+];
+const ACCOUNTS_KEYS: ModuleKey[] = [
+  "accountsDashboard",
+  "chartOfAccounts",
+  "journal",
+  "payments",
+  "receipts",
+  "invoices",
+  "bank",
+  "accountsReports",
+];
+const CRM_KEYS: ModuleKey[] = [
+  "crmDashboard",
+  "crmLeads",
+  "opportunities",
+  "crmCustomers",
+  "campaigns",
+  "supportTickets",
+];
+const B2B_KEYS: ModuleKey[] = ["b2bDashboard", "b2bBooking", "b2bWallet", "b2bStatements", "b2bReports"];
+const CORPORATE_KEYS: ModuleKey[] = [
+  "corporateDashboard",
+  "corporateEmployees",
+  "corporateBookings",
+  "corporateApprovals",
+  "corporatePolicies",
+  "corporateReports",
+];
+const REPORTS_KEYS: ModuleKey[] = [
+  "reportSales",
+  "reportFinance",
+  "reportOperations",
+  "reportHr",
+  "reportCrm",
+  "reportInventory",
+  "reportAssets",
+];
+
 export const roles: RoleDef[] = [
   seedRole({
     id: "role_super_admin",
     name: "Super Admin",
-    description: "Full control of the tenant, including org structure and role/permission management.",
+    description: "Full control of the platform — every module, every tenant, every action.",
     category: "internal",
-    permissions: {
-      dashboard: [...ALL_ACTIONS],
-      employee: [...ALL_ACTIONS],
-      users: [...ALL_ACTIONS],
-      bookings: [...ALL_ACTIONS],
-      inventory: [...ALL_ACTIONS],
-      agents: [...ALL_ACTIONS],
-      corporate: [...ALL_ACTIONS],
-      billing: [...ALL_ACTIONS],
-      reports: [...ALL_ACTIONS],
-      settings: [...ALL_ACTIONS],
-      company: [...ALL_ACTIONS],
-      branch: [...ALL_ACTIONS],
-      region: [...ALL_ACTIONS],
-      currency: [...ALL_ACTIONS],
-      roles: [...ALL_ACTIONS],
-      tenantProfile: [...ALL_ACTIONS],
-      agency: [...ALL_ACTIONS],
-      subAgency: [...ALL_ACTIONS],
-      corporateAccounts: [...ALL_ACTIONS],
-      supplier: [...ALL_ACTIONS],
-    },
+    permissions: grant(allLeafModuleKeys()),
   }),
   seedRole({
     id: "role_administrator",
-    name: "Administrator",
-    description: "Runs day-to-day operations — org structure, employees, bookings, billing.",
+    name: "Admin",
+    description: "Runs day-to-day operations — org structure, partners, users, and reporting.",
     category: "internal",
-    permissions: {
-      dashboard: ["view"],
-      employee: ["view", "create", "edit", "delete"],
-      users: ["view", "create", "edit", "delete"],
-      company: ["view", "create", "edit"],
-      branch: ["view", "create", "edit"],
-      region: ["view", "create", "edit"],
-      currency: ["view", "create", "edit"],
-      bookings: ["view", "create", "edit", "approve"],
-      agents: ["view", "edit"],
-      corporate: ["view", "approve"],
-      billing: ["view", "create", "edit"],
-      reports: ["view"],
-      settings: ["view", "edit"],
-    },
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(ADMINISTRATION_KEYS),
+      grant(PARTNERS_KEYS),
+      grant(["settings"], ["view", "edit"]),
+      grant(REPORTS_KEYS, ["view"])
+    ),
   }),
   seedRole({
-    id: "role_accountant",
-    name: "Accountant",
-    description: "Manages billing and invoicing, reviews financial reports.",
+    id: "role_hr",
+    name: "HR",
+    description: "Manages the employee lifecycle — attendance, leave, payroll, and recruitment.",
     category: "internal",
-    permissions: {
-      dashboard: ["view"],
-      billing: ["view", "create", "edit", "delete"],
-      reports: ["view"],
-      bookings: ["view"],
-      settings: ["view"],
-    },
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(HRMS_KEYS),
+      grant(["employee"]),
+      grant(["company", "branch", "department"], ["view"]),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
   seedRole({
-    id: "role_cashier",
-    name: "Cashier",
-    description: "Records payments against bookings and invoices.",
+    id: "role_sales",
+    name: "Sales",
+    description: "Front-line selling — leads, quotations, and bookings across every product line.",
     category: "internal",
-    permissions: {
-      dashboard: ["view"],
-      billing: ["view", "create"],
-      bookings: ["view"],
-      settings: ["view"],
-    },
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(SALES_KEYS),
+      grant(BOOK_OFFLINE_KEYS),
+      grant(BOOK_ONLINE_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
   seedRole({
-    id: "role_agency_user",
-    name: "Agency User",
-    description: "B2B travel agency staff — books on behalf of clients, manages sub-agencies.",
-    category: "agency",
-    permissions: {
-      dashboard: ["view"],
-      bookings: ["view", "create", "edit"],
-      agents: ["view", "create", "edit"],
-      billing: ["view"],
-      reports: ["view"],
-      settings: ["view", "edit"],
-    },
+    id: "role_back_office",
+    name: "Back Office",
+    description: "Builds quotations and packages, and processes the booking queue end to end.",
+    category: "internal",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(BACK_OFFICE_KEYS),
+      grant(BOOK_OFFLINE_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
   seedRole({
-    id: "role_subagency_user",
-    name: "SubAgency User",
-    description: "Sub-agency staff — reports up to a parent agency, books on behalf of clients.",
-    category: "subAgency",
-    permissions: {
-      dashboard: ["view"],
-      bookings: ["view", "create", "edit"],
-      billing: ["view"],
-      settings: ["view"],
-    },
+    id: "role_mid_office",
+    name: "Mid Office",
+    description: "Ticketing and reservation operations — confirmations, QC, refunds, and reissues.",
+    category: "internal",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(MID_OFFICE_KEYS),
+      grant(BOOK_ONLINE_KEYS, ["view"]),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
   seedRole({
-    id: "role_corporate_employee",
-    name: "Corporate Employee",
-    description: "Books travel on behalf of their company, subject to travel policy approval.",
-    category: "corporate",
-    permissions: {
-      dashboard: ["view"],
-      bookings: ["view", "create"],
-      corporate: ["view", "create", "approve"],
-      billing: ["view"],
-      reports: ["view"],
-      settings: ["view", "edit"],
-    },
+    id: "role_accounts",
+    name: "Accounts",
+    description: "Bookkeeping and finance — chart of accounts, journals, payments, and receipts.",
+    category: "internal",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(ACCOUNTS_KEYS),
+      grant(["reportFinance"], ["view"]),
+      grant(["settings"], ["view", "edit"])
+    ),
+  }),
+  seedRole({
+    id: "role_crm",
+    name: "CRM",
+    description: "Owns customer relationships — leads, opportunities, campaigns, and support.",
+    category: "internal",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(CRM_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
   seedRole({
     id: "role_supplier",
-    name: "Supplier",
-    description: "Inventory partner — hoteliers, DMCs, tour operators, and other service providers.",
+    name: "Extranet Supplier",
+    description: "Inventory partner — manages contracts, rates, and availability via the extranet.",
     category: "supplier",
-    permissions: {
-      dashboard: ["view"],
-      bookings: ["view"],
-      inventory: ["view", "create", "edit", "delete"],
-      billing: ["view"],
-      reports: ["view"],
-      settings: ["view", "edit"],
-    },
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(EXTRANET_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
+  }),
+  seedRole({
+    id: "role_agency_user",
+    name: "B2B Agent",
+    description: "Travel agency staff booking through the B2B portal, with wallet and statements.",
+    category: "agency",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(B2B_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
+  }),
+  seedRole({
+    id: "role_corporate_employee",
+    name: "Corporate User",
+    description: "Books travel on behalf of their company, subject to travel policy approval.",
+    category: "corporate",
+    permissions: mergePermissions(
+      grant(["dashboard"], ["view"]),
+      grant(CORPORATE_KEYS),
+      grant(["settings"], ["view", "edit"])
+    ),
   }),
 ];
 

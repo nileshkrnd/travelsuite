@@ -11,25 +11,27 @@ import { Building2, CircleAlert, Loader2, Lock, Mail, ShieldCheck } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authenticate, InvalidCredentialsError } from "@/lib/services/auth.service";
+import { authenticate, authenticateByEmail, InvalidCredentialsError } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, findTenantBySlug } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { PasswordInput } from "./PasswordInput";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
+import { DemoCredentials } from "./DemoCredentials";
 import Link from "next/link";
 import type { Tenant } from "@/types";
 
-function useLoginSchema(requireTenantCode: boolean) {
+function useLoginSchema(isLocked: boolean) {
   const t = useTranslations("auth.validation");
   return z.object({
-    tenantCode: requireTenantCode
-      ? z
-          .string()
-          .min(1, t("tenantCodeRequired"))
-          .refine((value) => !!findTenantBySlug(value), t("tenantCodeUnknown"))
-      : z.string().optional(),
+    // Locked (tenant-scoped) routes never render the field, so its contents don't matter.
+    // On the generic /login route the tenant code is optional — when left blank, the
+    // account is resolved by email alone (see authenticateByEmail).
+    tenantCode: isLocked
+      ? z.string().optional()
+      : z.string().optional().refine((value) => !value || !!findTenantBySlug(value), t("tenantCodeUnknown")),
     email: z.string().min(1, t("emailRequired")).email(t("emailInvalid")),
     password: z.string().min(1, t("passwordRequired")),
   });
@@ -45,12 +47,13 @@ interface LoginFormProps {
 export function LoginForm({ lockedTenant }: LoginFormProps) {
   const t = useTranslations("auth.login");
   const tenant = useTenantStore((s) => s.tenant);
+  const setTenant = useTenantStore((s) => s.setTenant);
   const setTenantBySlug = useTenantStore((s) => s.setTenantBySlug);
   const resetToDefaultBranding = useTenantStore((s) => s.resetToDefaultBranding);
   const login = useSessionStore((s) => s.login);
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  const schema = useLoginSchema(!lockedTenant);
+  const schema = useLoginSchema(!!lockedTenant);
 
   const {
     register,
@@ -76,12 +79,20 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
   async function onSubmit(values: LoginValues) {
     setServerError(null);
     try {
-      const tenantCode = lockedTenant?.slug ?? values.tenantCode ?? "";
-      const user = await authenticate(tenantCode, values.email, values.password);
+      const tenantCode = lockedTenant?.slug ?? values.tenantCode?.trim() ?? "";
+      const user = tenantCode
+        ? await authenticate(tenantCode, values.email, values.password)
+        : await authenticateByEmail(values.email, values.password);
       const roleDef = useRolesStore.getState().roles.find((r) => r.id === user.roleId);
       if (!roleDef) throw new InvalidCredentialsError();
       login(user);
       toast.success(t("success", { name: user.name }));
+
+      if (user.roleId === SUPER_ADMIN_ROLE_ID) {
+        router.push("/select-tenant");
+        return;
+      }
+      setTenant(user.tenantId);
       router.push(roleHomePath(roleDef));
     } catch (err) {
       setServerError(err instanceof InvalidCredentialsError ? t("invalidCredentials") : t("invalidCredentials"));
@@ -182,6 +193,7 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
         Your connection to {tenant.branding.name} is secure
       </p>
 
+      {!lockedTenant && <DemoCredentials />}
       <DevRoleSwitcher />
     </div>
   );

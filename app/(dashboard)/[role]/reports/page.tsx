@@ -1,5 +1,15 @@
-import { ComingSoonPlaceholder } from "@/components/shared/ComingSoonPlaceholder";
+"use client";
+
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function ReportsPage() {
-  return <ComingSoonPlaceholder module="reports" title="Reports" phase="Step 4" />;
+  const { role } = useParams<{ role: string }>();
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(`/${role}/reports/sales`);
+  }, [role, router]);
+
+  return null;
 }

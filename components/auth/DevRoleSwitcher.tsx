@@ -7,10 +7,12 @@ import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authenticate } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { roleHomePath } from "@/config/permissions";
 import { MOCK_PASSWORD } from "@/mock/data/users";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { tenants } from "@/mock/data/tenants";
 
 /**
@@ -22,6 +24,7 @@ import { tenants } from "@/mock/data/tenants";
 export function DevRoleSwitcher() {
   const t = useTranslations("auth.login");
   const login = useSessionStore((s) => s.login);
+  const setTenant = useTenantStore((s) => s.setTenant);
   const roles = useRolesStore((s) => s.roles);
   const users = useUsersStore((s) => s.users);
   const router = useRouter();
@@ -36,6 +39,11 @@ export function DevRoleSwitcher() {
     setPendingRoleId(roleId);
     const authed = await authenticate(userTenant.slug, user.email, MOCK_PASSWORD);
     login(authed);
+    if (roleId === SUPER_ADMIN_ROLE_ID) {
+      router.push("/select-tenant");
+      return;
+    }
+    setTenant(authed.tenantId);
     router.push(roleHomePath(roleDef));
   }
 

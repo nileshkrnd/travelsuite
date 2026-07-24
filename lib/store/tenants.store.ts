@@ -6,6 +6,7 @@ import { tenants as seedTenants, DEFAULT_BRANDING } from "@/mock/data/tenants";
 export interface NewTenantInput {
   name: string;
   slug: string;
+  groupName?: string;
   defaultCurrency: CurrencyCode;
   address: TenantAddress;
   contact: TenantContact;
@@ -20,10 +21,11 @@ interface TenantsState {
 const EMPTY_ADDRESS: TenantAddress = { line1: "", country: "", city: "", zip: "", timezone: "UTC" };
 const EMPTY_CONTACT: TenantContact = { email: "", dialCode: "", phone: "" };
 
-/** Backfills address/contact on tenants persisted before those fields existed. */
+/** Backfills address/contact/groupName on tenants persisted before those fields existed. */
 function withDefaults(tenant: Tenant): Tenant {
   return {
     ...tenant,
+    groupName: tenant.groupName || tenant.branding?.name || "Ungrouped",
     address: tenant.address ?? EMPTY_ADDRESS,
     contact: tenant.contact ?? EMPTY_CONTACT,
   };
@@ -40,6 +42,7 @@ export const useTenantsStore = create<TenantsState>()(
         const tenant: Tenant = {
           id: `tenant_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
           slug: input.slug,
+          groupName: input.groupName?.trim() || input.name,
           branding: { name: input.name, logoUrl: "", primaryColor: DEFAULT_BRANDING.primaryColor },
           defaultCurrency: input.defaultCurrency,
           supportedCurrencies: [input.defaultCurrency],
@@ -72,11 +75,8 @@ export const useTenantsStore = create<TenantsState>()(
     }),
     {
       name: "travelsuite.tenants",
-      version: 1,
-      migrate: (persistedState) => {
-        const state = persistedState as TenantsState;
-        return { ...state, tenants: (state.tenants ?? []).map(withDefaults) };
-      },
+      version: 3,
+      migrate: () => ({ tenants: seedTenants.map(withDefaults) }),
     }
   )
 );

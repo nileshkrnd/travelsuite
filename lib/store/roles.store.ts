@@ -79,6 +79,10 @@ export const useRolesStore = create<RolesState>()(
         }));
       },
     }),
-    { name: "travelsuite.roles" }
+    {
+      name: "travelsuite.roles",
+      version: 3,
+      migrate: () => ({ roles: seedRoles }),
+    }
   )
 );

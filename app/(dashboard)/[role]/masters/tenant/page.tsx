@@ -36,7 +36,7 @@ import { useTenantsStore } from "@/lib/store/tenants.store";
 import { can } from "@/config/permissions";
 import type { RoleDef, Tenant } from "@/types";
 
-type SortKey = "name" | "slug" | "status" | "createdAt";
+type SortKey = "name" | "slug" | "groupName" | "status" | "createdAt";
 
 function StatCard({
   icon: Icon,
@@ -87,14 +87,31 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
     let result = tenants;
     if (term) {
       result = result.filter(
-        (t) => t.branding.name.toLowerCase().includes(term) || t.slug.toLowerCase().includes(term)
+        (t) =>
+          t.branding.name.toLowerCase().includes(term) ||
+          t.slug.toLowerCase().includes(term) ||
+          t.groupName.toLowerCase().includes(term)
       );
     }
     if (sortKey) {
       result = [...result].sort((a, b) => {
-        const av = sortKey === "name" ? a.branding.name : sortKey === "slug" ? a.slug : a[sortKey];
-        const bv = sortKey === "name" ? b.branding.name : sortKey === "slug" ? b.slug : b[sortKey];
-        const cmp = av.localeCompare(bv);
+        const av =
+          sortKey === "name"
+            ? a.branding.name
+            : sortKey === "slug"
+              ? a.slug
+              : sortKey === "groupName"
+                ? a.groupName
+                : a[sortKey];
+        const bv =
+          sortKey === "name"
+            ? b.branding.name
+            : sortKey === "slug"
+              ? b.slug
+              : sortKey === "groupName"
+                ? b.groupName
+                : b[sortKey];
+        const cmp = String(av).localeCompare(String(bv));
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
@@ -171,6 +188,14 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
+                <SortableTableHead
+                  sortKey="groupName"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
+                  Holding group
+                </SortableTableHead>
                 <SortableTableHead sortKey="slug" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Tenant code
                 </SortableTableHead>
@@ -204,6 +229,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
                   <TableCell>
                     <TenantLogo branding={tenant.branding} size="sm" showName />
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{tenant.groupName}</TableCell>
                   <TableCell>
                     <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
                       {tenant.slug}

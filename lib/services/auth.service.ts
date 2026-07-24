@@ -23,6 +23,22 @@ export async function authenticate(tenantCode: string, email: string, password: 
   return user;
 }
 
+/**
+ * Platform-level login (generic /login with no tenant code): resolves the
+ * account by email alone, regardless of which tenant it belongs to. Used so
+ * Super Admin — and any demo user — can sign in without knowing a tenant
+ * code up front, then pick/confirm the tenant afterwards.
+ */
+export async function authenticateByEmail(email: string, password: string): Promise<User> {
+  // TODO(Phase 2): replace with `await fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }).then(r => r.json())`
+  await mockDelay();
+  const user = await getUserByEmail(email);
+  if (!user || password !== MOCK_PASSWORD) {
+    throw new InvalidCredentialsError();
+  }
+  return user;
+}
+
 export async function requestPasswordReset(_email: string): Promise<{ ok: true }> {
   // TODO(Phase 2): replace with `await fetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: _email }) })`
   await mockDelay();

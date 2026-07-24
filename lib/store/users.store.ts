@@ -85,6 +85,10 @@ export const useUsersStore = create<UsersState>()(
         }));
       },
     }),
-    { name: "travelsuite.users" }
+    {
+      name: "travelsuite.users",
+      version: 2,
+      migrate: () => ({ users: seedUsers }),
+    }
   )
 );

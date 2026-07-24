@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { Layers, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { initials } from "@/lib/utils";
 
 export function UserMenu() {
@@ -26,6 +27,7 @@ export function UserMenu() {
   const t = useTranslations("topbar");
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const isSuperAdmin = user?.roleId === SUPER_ADMIN_ROLE_ID;
 
   if (!user || !roleDef) return null;
 
@@ -42,6 +44,7 @@ export function UserMenu() {
           <DropdownMenuLabel>
             <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
             <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
+            <p className="truncate text-xs font-normal text-muted-foreground">{roleDef.name}</p>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -53,6 +56,12 @@ export function UserMenu() {
           <Settings className="h-4 w-4" />
           {t("settings")}
         </DropdownMenuItem>
+        {isSuperAdmin && (
+          <DropdownMenuItem onClick={() => router.push("/select-tenant")}>
+            <Layers className="h-4 w-4" />
+            {t("switchTenant")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

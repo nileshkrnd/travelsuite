@@ -33,56 +33,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRolesStore } from "@/lib/store/roles.store";
-import { can, type ModuleKey, type PermissionAction } from "@/config/permissions";
+import { allLeafModuleKeys, can, flatMenuItems, type ModuleKey, type PermissionAction } from "@/config/permissions";
 import type { RoleDef } from "@/types";
 
-const MODULE_LABELS: Record<ModuleKey, string> = {
-  dashboard: "Dashboard",
-  bookings: "Bookings",
-  inventory: "Inventory",
-  agents: "Agents",
-  corporate: "Corporate",
-  billing: "Billing",
-  reports: "Reports",
-  settings: "Settings",
-  masters: "Masters",
-  tenantProfile: "Tenant",
-  region: "Region",
-  currency: "Currency",
-  company: "Company",
-  branch: "Branch",
-  employee: "Employee",
-  users: "Users",
-  roles: "Roles",
-  partners: "Partners",
-  agency: "Agency",
-  subAgency: "SubAgency",
-  corporateAccounts: "Corporate Accounts",
-  supplier: "Supplier",
-};
+function humanizeKey(key: string) {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
+}
 
-const PERMISSION_MODULES: ModuleKey[] = [
-  "dashboard",
-  "bookings",
-  "inventory",
-  "agents",
-  "corporate",
-  "billing",
-  "reports",
-  "settings",
-  "tenantProfile",
-  "region",
-  "currency",
-  "company",
-  "branch",
-  "employee",
-  "users",
-  "roles",
-  "agency",
-  "subAgency",
-  "corporateAccounts",
-  "supplier",
-];
+const MODULE_LABELS: Partial<Record<ModuleKey, string>> = Object.fromEntries(
+  flatMenuItems().map((item) => [item.key, humanizeKey(item.key)])
+) as Partial<Record<ModuleKey, string>>;
+
+const PERMISSION_MODULES: ModuleKey[] = allLeafModuleKeys();
 
 const ACTIONS: PermissionAction[] = ["view", "create", "edit", "delete", "approve"];
 const ACTION_LABELS: Record<PermissionAction, string> = {
@@ -192,7 +157,7 @@ function RoleDialog({
                 <TableBody>
                   {PERMISSION_MODULES.map((module) => (
                     <TableRow key={module}>
-                      <TableCell className="font-medium">{MODULE_LABELS[module]}</TableCell>
+                      <TableCell className="font-medium">{MODULE_LABELS[module] ?? humanizeKey(module)}</TableCell>
                       {ACTIONS.map((action) => (
                         <TableCell key={action} className="text-center">
                           <Checkbox

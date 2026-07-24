@@ -30,6 +30,11 @@ export interface Tenant {
   id: string;
   slug: string;
   branding: TenantBranding;
+  /**
+   * Holding / group this workspace belongs to (e.g. "Regency Group Holding").
+   * Standalone tenants use their own name as the group.
+   */
+  groupName: string;
   defaultCurrency: CurrencyCode;
   supportedCurrencies: CurrencyCode[];
   defaultLocale: string;

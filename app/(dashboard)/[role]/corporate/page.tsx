@@ -1,5 +1,15 @@
-import { ComingSoonPlaceholder } from "@/components/shared/ComingSoonPlaceholder";
+"use client";
+
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function CorporatePage() {
-  return <ComingSoonPlaceholder module="corporate" title="Corporate" phase="Step 4" />;
+  const { role } = useParams<{ role: string }>();
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(`/${role}/corporate/dashboard`);
+  }, [role, router]);
+
+  return null;
 }

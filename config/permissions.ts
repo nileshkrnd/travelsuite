@@ -51,6 +51,18 @@ export type ModuleKey =
   | "insurance"
   | "visa"
   | "carRental"
+  // Book Offline
+  | "bookOffline"
+  | "offlineFlight"
+  | "offlineHotel"
+  | "offlineTransfer"
+  | "offlineRail"
+  | "offlineMiscellaneous"
+  // Book Online
+  | "bookOnline"
+  | "onlineFlight"
+  | "onlineHotel"
+  | "onlineTransfer"
   // Back Office
   | "backOffice"
   | "backOfficeDashboard"
@@ -231,6 +243,30 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "insurance", labelKey: "sidebar.insurance", icon: "Shield", path: "sales/insurance" },
       { key: "visa", labelKey: "sidebar.visa", icon: "Stamp", path: "sales/visa" },
       { key: "carRental", labelKey: "sidebar.carRental", icon: "CarFront", path: "sales/car-rental" },
+    ],
+  },
+  {
+    key: "bookOffline",
+    labelKey: "sidebar.bookOffline",
+    icon: "BookMarked",
+    path: "book-offline",
+    children: [
+      { key: "offlineFlight", labelKey: "sidebar.offlineFlight", icon: "Plane", path: "book-offline/flight" },
+      { key: "offlineHotel", labelKey: "sidebar.offlineHotel", icon: "BedDouble", path: "book-offline/hotel" },
+      { key: "offlineTransfer", labelKey: "sidebar.offlineTransfer", icon: "Car", path: "book-offline/transfer" },
+      { key: "offlineRail", labelKey: "sidebar.offlineRail", icon: "TrainFront", path: "book-offline/rail" },
+      { key: "offlineMiscellaneous", labelKey: "sidebar.offlineMiscellaneous", icon: "MoreHorizontal", path: "book-offline/miscellaneous" },
+    ],
+  },
+  {
+    key: "bookOnline",
+    labelKey: "sidebar.bookOnline",
+    icon: "Globe",
+    path: "book-online",
+    children: [
+      { key: "onlineFlight", labelKey: "sidebar.onlineFlight", icon: "Plane", path: "book-online/flight" },
+      { key: "onlineHotel", labelKey: "sidebar.onlineHotel", icon: "BedDouble", path: "book-online/hotel" },
+      { key: "onlineTransfer", labelKey: "sidebar.onlineTransfer", icon: "Car", path: "book-online/transfer" },
     ],
   },
   {

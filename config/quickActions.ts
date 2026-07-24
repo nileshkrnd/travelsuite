@@ -15,20 +15,23 @@ const QUICK_ACTIONS_BY_ROLE_ID: Record<string, QuickAction[]> = {
   ],
   role_administrator: [
     { label: "Register User", icon: "UserPlus", module: "users" },
-    { label: "Review Bookings", icon: "ClipboardCheck", module: "bookings" },
+    { label: "New Employee", icon: "UserCog", module: "employee" },
   ],
-  role_accountant: [{ label: "Review Billing", icon: "Receipt", module: "billing" }],
-  role_cashier: [{ label: "Record Payment", icon: "Plus", module: "billing" }],
-  role_agency_user: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
-  role_subagency_user: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
-  role_corporate_employee: [{ label: "Approve Request", icon: "ClipboardCheck", module: "corporate" }],
-  role_supplier: [{ label: "Add Service", icon: "Plus", module: "inventory" }],
+  role_hr: [{ label: "New Employee", icon: "UserPlus", module: "hrmsEmployees" }],
+  role_sales: [{ label: "New Quotation", icon: "Plus", module: "quotations" }],
+  role_back_office: [{ label: "New Quotation", icon: "FilePlus", module: "quotationBuilder" }],
+  role_mid_office: [{ label: "Reservation Queue", icon: "ListOrdered", module: "reservationQueue" }],
+  role_accounts: [{ label: "New Invoice", icon: "Plus", module: "invoices" }],
+  role_crm: [{ label: "New Lead", icon: "Target", module: "crmLeads" }],
+  role_agency_user: [{ label: "New Booking", icon: "Plus", module: "b2bBooking" }],
+  role_corporate_employee: [{ label: "New Booking", icon: "Plus", module: "corporateBookings" }],
+  role_supplier: [{ label: "Manage Rates", icon: "BadgeDollarSign", module: "rates" }],
 };
 
 const QUICK_ACTIONS_BY_CATEGORY: Record<RoleCategory, QuickAction[]> = {
   internal: QUICK_ACTIONS_BY_ROLE_ID.role_administrator,
   agency: QUICK_ACTIONS_BY_ROLE_ID.role_agency_user,
-  subAgency: QUICK_ACTIONS_BY_ROLE_ID.role_subagency_user,
+  subAgency: QUICK_ACTIONS_BY_ROLE_ID.role_agency_user,
   corporate: QUICK_ACTIONS_BY_ROLE_ID.role_corporate_employee,
   supplier: QUICK_ACTIONS_BY_ROLE_ID.role_supplier,
 };
