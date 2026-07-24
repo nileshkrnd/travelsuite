@@ -63,6 +63,8 @@
     "settings": "Settings",
     "masters": "Masters",
     "tenantProfile": "Tenant",
+    "region": "Region",
+    "currency": "Currency",
     "company": "Company",
     "branch": "Branch",
     "users": "Users",

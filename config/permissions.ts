@@ -13,6 +13,8 @@ export type ModuleKey =
   | "settings"
   | "masters"
   | "tenantProfile"
+  | "region"
+  | "currency"
   | "company"
   | "branch"
   | "users"
@@ -48,6 +50,8 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "masters",
     children: [
       { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
+      { key: "region", labelKey: "sidebar.region", icon: "Globe", path: "masters/region" },
+      { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
       { key: "company", labelKey: "sidebar.company", icon: "Building2", path: "masters/company" },
       { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
       { key: "users", labelKey: "sidebar.users", icon: "Users", path: "masters/users" },

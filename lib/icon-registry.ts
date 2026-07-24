@@ -27,6 +27,8 @@ import {
   GitFork,
   Landmark,
   Store,
+  Globe,
+  Coins,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,4 +62,6 @@ export const ICONS: Record<string, LucideIcon> = {
   GitFork,
   Landmark,
   Store,
+  Globe,
+  Coins,
 };

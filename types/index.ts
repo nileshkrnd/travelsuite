@@ -6,6 +6,8 @@ export * from "./booking";
 export * from "./activity";
 export * from "./company";
 export * from "./branch";
+export * from "./region";
+export * from "./currency";
 export * from "./agency";
 export * from "./subAgency";
 export * from "./corporate";
