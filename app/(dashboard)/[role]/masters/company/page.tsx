@@ -1,21 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { toast } from "sonner";
-import { Plus, Building2, MoreHorizontal } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Plus,
+  Building2,
+  MoreHorizontal,
+  Search,
+  Eye,
+  Pencil,
+  Power,
+  PowerOff,
+  CheckCircle2,
+  CircleDashed,
+} from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Card } from "@/components/ui/card";
+import { SortableTableHead, type SortDirection } from "@/components/shared/SortableTableHead";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,84 +31,84 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCompaniesStore } from "@/lib/store/companies.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { contrastForeground } from "@/lib/color";
+import { initials } from "@/lib/utils";
 import { can } from "@/config/permissions";
 import type { Company, RoleDef } from "@/types";
 
-const schema = z.object({ name: z.string().min(1, "Company name is required") });
-type FormValues = z.infer<typeof schema>;
+type SortKey = "name" | "code" | "status" | "createdAt";
 
-function CompanyDialog({
-  open,
-  onOpenChange,
-  company,
+function StatCard({
+  icon: Icon,
+  label,
+  value,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  company?: Company;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
 }) {
-  const addCompany = useCompaniesStore((s) => s.addCompany);
-  const updateCompany = useCompaniesStore((s) => s.updateCompany);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    values: { name: company?.name ?? "" },
-  });
-
-  async function onSubmit(values: FormValues) {
-    if (company) {
-      updateCompany(company.id, { name: values.name });
-      toast.success("Company updated");
-    } else {
-      addCompany({ name: values.name });
-      toast.success("Company created");
-    }
-    onOpenChange(false);
-    reset();
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{company ? "Edit company" : "Add company"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="companyName">Company name</Label>
-            <Input id="companyName" autoFocus {...register("name")} />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-            <Button type="submit" disabled={isSubmitting}>
-              {company ? "Save" : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Card>
+      <CardContent className="flex items-center gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function CompanyList({ roleDef }: { roleDef: RoleDef }) {
+  const { role } = useParams<{ role: string }>();
+  const router = useRouter();
   const companies = useCompaniesStore((s) => s.companies);
   const updateCompany = useCompaniesStore((s) => s.updateCompany);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Company | undefined>();
-  const canEdit = can(roleDef, "company", "edit");
+  const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canCreate = can(roleDef, "company", "create");
+  const canEdit = can(roleDef, "company", "edit");
 
-  function openAdd() {
-    setEditing(undefined);
-    setDialogOpen(true);
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
   }
-  function openEdit(company: Company) {
-    setEditing(company);
-    setDialogOpen(true);
+
+  const visibleCompanies = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    let result = companies;
+    if (term) {
+      result = result.filter(
+        (c) => c.name.toLowerCase().includes(term) || c.code.toLowerCase().includes(term)
+      );
+    }
+    if (sortKey) {
+      result = [...result].sort((a, b) => {
+        const cmp = a[sortKey].localeCompare(b[sortKey]);
+        return sortDirection === "asc" ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [companies, search, sortKey, sortDirection]);
+
+  const activeCount = companies.filter((c) => c.status === "active").length;
+
+  function toggleStatus(company: Company) {
+    updateCompany(company.id, { status: company.status === "active" ? "inactive" : "active" });
+  }
+
+  function goToView(company: Company) {
+    router.push(`/${role}/masters/company/${company.id}`);
   }
 
   return (
@@ -110,13 +118,34 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
         description="Companies operating under your tenant."
         actions={
           canCreate ? (
-            <Button onClick={openAdd}>
+            <Button nativeButton={false} render={<Link href={`/${role}/masters/company/new`} />}>
               <Plus className="h-4 w-4" />
               Add company
             </Button>
           ) : undefined
         }
       />
+
+      {companies.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
+          <StatCard icon={Building2} label="Total companies" value={companies.length} />
+          <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
+          <StatCard icon={CircleDashed} label="Inactive" value={companies.length - activeCount} />
+        </div>
+      )}
+
+      {companies.length > 0 && (
+        <div className="relative sm:w-64">
+          <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or code..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="ps-9"
+          />
+        </div>
+      )}
+
       <Card>
         {companies.length === 0 ? (
           <EmptyState
@@ -126,46 +155,108 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
             description="Add your first company to get started."
             size="compact"
           />
+        ) : visibleCompanies.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            tone="muted"
+            heading="No matching companies"
+            description="Try a different search term."
+            size="compact"
+          />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-14">Sr. No</TableHead>
+                <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Name
+                </SortableTableHead>
+                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Company code
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="status"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
+                  Status
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="createdAt"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
+                  Created
+                </SortableTableHead>
+                <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {companies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
+              {visibleCompanies.map((company, index) => (
+                <TableRow key={company.id} onClick={() => goToView(company)} className="cursor-pointer">
+                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>
-                    <Badge variant={company.status === "active" ? "default" : "secondary"}>{company.status}</Badge>
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold"
+                        style={{ backgroundColor: accentColor, color: contrastForeground(accentColor) }}
+                        aria-hidden
+                      >
+                        {initials(company.name)}
+                      </div>
+                      <span className="font-medium">{company.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                      {company.code}
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={company.status === "active" ? "default" : "secondary"} className="gap-1">
+                      {company.status === "active" ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <CircleDashed className="h-3 w-3" />
+                      )}
+                      {company.status}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(company.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
-                    {canEdit && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(company)}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              updateCompany(company.id, {
-                                status: company.status === "active" ? "inactive" : "active",
-                              })
-                            }
-                          >
-                            {company.status === "active" ? "Deactivate" : "Activate"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem render={<Link href={`/${role}/masters/company/${company.id}`} />}>
+                          <Eye className="h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        {canEdit && (
+                          <>
+                            <DropdownMenuItem
+                              render={<Link href={`/${role}/masters/company/${company.id}/edit`} />}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Modify
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleStatus(company)}>
+                              {company.status === "active" ? (
+                                <PowerOff className="h-4 w-4" />
+                              ) : (
+                                <Power className="h-4 w-4" />
+                              )}
+                              {company.status === "active" ? "Deactivate" : "Activate"}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -173,7 +264,6 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
           </Table>
         )}
       </Card>
-      <CompanyDialog open={dialogOpen} onOpenChange={setDialogOpen} company={editing} />
     </div>
   );
 }

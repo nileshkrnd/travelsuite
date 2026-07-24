@@ -10,11 +10,28 @@ export interface NewEmployeeInput {
   roleId: string;
   companyId?: string;
   branchId?: string;
+  agencyId?: string;
+  subAgencyId?: string;
+  corporateId?: string;
+  supplierId?: string;
   department?: string;
 }
 
 export type EmployeePatch = Partial<
-  Pick<User, "name" | "email" | "roleId" | "companyId" | "branchId" | "department" | "status">
+  Pick<
+    User,
+    | "name"
+    | "email"
+    | "roleId"
+    | "companyId"
+    | "branchId"
+    | "agencyId"
+    | "subAgencyId"
+    | "corporateId"
+    | "supplierId"
+    | "department"
+    | "status"
+  >
 >;
 
 interface UsersState {
@@ -44,6 +61,10 @@ export const useUsersStore = create<UsersState>()(
           roleId: input.roleId,
           companyId: input.companyId,
           branchId: input.branchId,
+          agencyId: input.agencyId,
+          subAgencyId: input.subAgencyId,
+          corporateId: input.corporateId,
+          supplierId: input.supplierId,
           department: input.department,
           status: "invited",
           createdAt: new Date().toISOString(),

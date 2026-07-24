@@ -22,6 +22,7 @@ export const roles: RoleDef[] = [
     category: "internal",
     permissions: {
       dashboard: [...ALL_ACTIONS],
+      employee: [...ALL_ACTIONS],
       users: [...ALL_ACTIONS],
       bookings: [...ALL_ACTIONS],
       inventory: [...ALL_ACTIONS],
@@ -49,6 +50,7 @@ export const roles: RoleDef[] = [
     category: "internal",
     permissions: {
       dashboard: ["view"],
+      employee: ["view", "create", "edit", "delete"],
       users: ["view", "create", "edit", "delete"],
       company: ["view", "create", "edit"],
       branch: ["view", "create", "edit"],

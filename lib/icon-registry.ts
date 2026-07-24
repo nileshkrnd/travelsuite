@@ -29,6 +29,7 @@ import {
   Store,
   Globe,
   Coins,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,4 +65,5 @@ export const ICONS: Record<string, LucideIcon> = {
   Store,
   Globe,
   Coins,
+  UserCog,
 };

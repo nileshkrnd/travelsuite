@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
-  GitBranch,
+  UserCog,
   MoreHorizontal,
   Search,
   Eye,
@@ -13,7 +13,7 @@ import {
   Power,
   PowerOff,
   CheckCircle2,
-  CircleDashed,
+  MailQuestion,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -22,6 +22,7 @@ import { SortableTableHead, type SortDirection } from "@/components/shared/Sorta
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,13 +32,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useBranchesStore } from "@/lib/store/branches.store";
+import { useUsersStore } from "@/lib/store/users.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
-import { getCountry } from "@/config/countries";
+import { useBranchesStore } from "@/lib/store/branches.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { can } from "@/config/permissions";
-import type { Branch, RoleDef } from "@/types";
+import { initials } from "@/lib/utils";
+import type { RoleDef, User } from "@/types";
 
-type SortKey = "name" | "code" | "status" | "createdAt";
+type SortKey = "name" | "status" | "createdAt";
 
 function StatCard({
   icon: Icon,
@@ -63,20 +67,28 @@ function StatCard({
   );
 }
 
-function BranchList({ roleDef }: { roleDef: RoleDef }) {
+function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
-  const branches = useBranchesStore((s) => s.branches);
-  const updateBranch = useBranchesStore((s) => s.updateBranch);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const users = useUsersStore((s) => s.users);
+  const setUserStatus = useUsersStore((s) => s.setUserStatus);
+  const roles = useRolesStore((s) => s.roles);
   const companies = useCompaniesStore((s) => s.companies);
+  const branches = useBranchesStore((s) => s.branches);
+
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const canCreate = can(roleDef, "branch", "create");
-  const canEdit = can(roleDef, "branch", "edit");
 
-  const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
+  const canEdit = can(roleDef, "employee", "edit");
+  const canCreate = can(roleDef, "employee", "create");
+  const canDelete = can(roleDef, "employee", "delete");
+
+  const roleFor = (id: string) => roles.find((r) => r.id === id);
+  const companyName = (id?: string) => companies.find((c) => c.id === id)?.name ?? "—";
+  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -87,15 +99,21 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
     }
   }
 
-  const visibleBranches = useMemo(() => {
+  const employees = useMemo(
+    () => users.filter((u) => u.tenantId === tenantId && roleFor(u.roleId)?.category === "internal"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [users, tenantId, roles]
+  );
+
+  const visibleEmployees = useMemo(() => {
     const term = search.trim().toLowerCase();
-    let result = branches;
+    let result = employees;
     if (companyFilter !== "all") {
-      result = result.filter((b) => b.companyId === companyFilter);
+      result = result.filter((u) => u.companyId === companyFilter);
     }
     if (term) {
       result = result.filter(
-        (b) => b.name.toLowerCase().includes(term) || b.code.toLowerCase().includes(term)
+        (u) => u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
       );
     }
     if (sortKey) {
@@ -105,42 +123,43 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
       });
     }
     return result;
-  }, [branches, search, companyFilter, sortKey, sortDirection]);
+  }, [employees, search, companyFilter, sortKey, sortDirection]);
 
-  const activeCount = branches.filter((b) => b.status === "active").length;
+  const activeCount = employees.filter((u) => u.status === "active").length;
+  const invitedCount = employees.filter((u) => u.status === "invited").length;
 
-  function toggleStatus(branch: Branch) {
-    updateBranch(branch.id, { status: branch.status === "active" ? "inactive" : "active" });
+  function toggleStatus(user: User) {
+    setUserStatus(user.id, user.status === "deactivated" ? "active" : "deactivated");
   }
 
-  function goToView(branch: Branch) {
-    router.push(`/${role}/masters/branch/${branch.id}`);
+  function goToView(user: User) {
+    router.push(`/${role}/masters/employee/${user.id}`);
   }
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title="Branch"
-        description="Branches within each company."
+        title="Employee"
+        description="Internal staff registered under your companies and branches."
         actions={
           canCreate ? (
             <Button
               nativeButton={false}
-              render={<Link href={`/${role}/masters/branch/new`} />}
+              render={<Link href={`/${role}/masters/employee/new`} />}
               disabled={companies.length === 0}
             >
               <Plus className="h-4 w-4" />
-              Add branch
+              Register employee
             </Button>
           ) : undefined
         }
       />
 
-      {branches.length > 0 && (
+      {employees.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
-          <StatCard icon={GitBranch} label="Total branches" value={branches.length} />
+          <StatCard icon={UserCog} label="Total employees" value={employees.length} />
           <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
-          <StatCard icon={CircleDashed} label="Inactive" value={branches.length - activeCount} />
+          <StatCard icon={MailQuestion} label="Invited" value={invitedCount} />
         </div>
       )}
 
@@ -149,18 +168,16 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
           <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or code..."
+              placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="ps-9"
             />
           </div>
-          <Select value={companyFilter} onValueChange={(value) => setCompanyFilter(value ?? "all")}>
+          <Select value={companyFilter} onValueChange={(v) => setCompanyFilter(v ?? "all")}>
             <SelectTrigger className="w-56">
               <SelectValue>
-                {(value: string | null) =>
-                  !value || value === "all" ? "All companies" : companyName(value)
-                }
+                {(value: string | null) => (!value || value === "all" ? "All companies" : companyName(value))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -178,25 +195,25 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
       <Card>
         {companies.length === 0 ? (
           <EmptyState
-            icon={GitBranch}
+            icon={UserCog}
             tone="muted"
             heading="Add a company first"
-            description="Branches belong to a company — create one under Masters → Company."
+            description="Employees belong to a company and branch — create one under Masters → Company."
             size="compact"
           />
-        ) : branches.length === 0 ? (
+        ) : employees.length === 0 ? (
           <EmptyState
-            icon={GitBranch}
+            icon={UserCog}
             tone="primary"
-            heading="No branches yet"
-            description="Add a branch to get started."
+            heading="No employees yet"
+            description="Register your first employee to get started."
             size="compact"
           />
-        ) : visibleBranches.length === 0 ? (
+        ) : visibleEmployees.length === 0 ? (
           <EmptyState
             icon={Search}
             tone="muted"
-            heading="No matching branches"
+            heading="No matching employees"
             description="Try a different search term or company filter."
             size="compact"
           />
@@ -208,11 +225,9 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
-                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
-                  Branch code
-                </SortableTableHead>
+                <TableHead>Role</TableHead>
                 <TableHead>Company</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>Branch</TableHead>
                 <SortableTableHead
                   sortKey="status"
                   activeKey={sortKey}
@@ -233,62 +248,69 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleBranches.map((branch, index) => (
-                <TableRow key={branch.id} onClick={() => goToView(branch)} className="cursor-pointer">
+              {visibleEmployees.map((user, index) => (
+                <TableRow key={user.id} onClick={() => goToView(user)} className="cursor-pointer">
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell className="font-medium">{branch.name}</TableCell>
                   <TableCell>
-                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
-                      {branch.code}
-                    </code>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar size="sm">
+                        <AvatarFallback>{initials(user.name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{user.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                    </div>
                   </TableCell>
-                  <TableCell>{companyName(branch.companyId)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {branch.city}, {getCountry(branch.country)?.name ?? branch.country}
-                  </TableCell>
+                  <TableCell>{roleFor(user.roleId)?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{companyName(user.companyId)}</TableCell>
+                  <TableCell className="text-muted-foreground">{branchName(user.branchId)}</TableCell>
                   <TableCell>
-                    <Badge variant={branch.status === "active" ? "default" : "secondary"} className="gap-1">
-                      {branch.status === "active" ? (
-                        <CheckCircle2 className="h-3 w-3" />
-                      ) : (
-                        <CircleDashed className="h-3 w-3" />
-                      )}
-                      {branch.status}
+                    <Badge
+                      variant={
+                        user.status === "active" ? "default" : user.status === "invited" ? "secondary" : "outline"
+                      }
+                    >
+                      {user.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(branch.createdAt).toLocaleDateString()}
+                    {new Date(user.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem render={<Link href={`/${role}/masters/branch/${branch.id}`} />}>
-                          <Eye className="h-4 w-4" />
-                          View
-                        </DropdownMenuItem>
-                        {canEdit && (
-                          <>
+                    {(canEdit || canDelete) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem render={<Link href={`/${role}/masters/employee/${user.id}`} />}>
+                            <Eye className="h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          {canEdit && (
                             <DropdownMenuItem
-                              render={<Link href={`/${role}/masters/branch/${branch.id}/edit`} />}
+                              render={<Link href={`/${role}/masters/employee/${user.id}/edit`} />}
                             >
                               <Pencil className="h-4 w-4" />
                               Modify
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleStatus(branch)}>
-                              {branch.status === "active" ? (
-                                <PowerOff className="h-4 w-4" />
-                              ) : (
-                                <Power className="h-4 w-4" />
-                              )}
-                              {branch.status === "active" ? "Deactivate" : "Activate"}
+                          )}
+                          {canDelete && user.status !== "deactivated" && (
+                            <DropdownMenuItem variant="destructive" onClick={() => toggleStatus(user)}>
+                              <PowerOff className="h-4 w-4" />
+                              Deactivate
                             </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          )}
+                          {canDelete && user.status === "deactivated" && (
+                            <DropdownMenuItem onClick={() => toggleStatus(user)}>
+                              <Power className="h-4 w-4" />
+                              Reactivate
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -300,6 +322,6 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
   );
 }
 
-export default function BranchMasterPage() {
-  return <AccessGate module="branch">{(roleDef) => <BranchList roleDef={roleDef} />}</AccessGate>;
+export default function EmployeeMasterPage() {
+  return <AccessGate module="employee">{(roleDef) => <EmployeeList roleDef={roleDef} />}</AccessGate>;
 }

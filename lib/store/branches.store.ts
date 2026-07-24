@@ -6,6 +6,7 @@ import { useTenantStore } from "@/lib/store/tenant.store";
 
 export interface NewBranchInput {
   name: string;
+  code: string;
   companyId: string;
   city: string;
   country: string;
@@ -14,8 +15,16 @@ export interface NewBranchInput {
 interface BranchesState {
   branches: Branch[];
   addBranch: (input: NewBranchInput) => Branch;
-  updateBranch: (id: string, patch: Partial<Pick<Branch, "name" | "companyId" | "city" | "country" | "status">>) => void;
+  updateBranch: (
+    id: string,
+    patch: Partial<Pick<Branch, "name" | "code" | "companyId" | "city" | "country" | "status">>
+  ) => void;
   deleteBranch: (id: string) => void;
+}
+
+/** Backfills the code field on branches persisted before it existed. */
+function withDefaults(branch: Branch): Branch {
+  return { ...branch, code: branch.code ?? "" };
 }
 
 export const useBranchesStore = create<BranchesState>()(
@@ -29,6 +38,7 @@ export const useBranchesStore = create<BranchesState>()(
           tenantId: useTenantStore.getState().tenantId,
           companyId: input.companyId,
           name: input.name,
+          code: input.code,
           city: input.city,
           country: input.country,
           status: "active",
@@ -48,6 +58,13 @@ export const useBranchesStore = create<BranchesState>()(
         set((state) => ({ branches: state.branches.filter((b) => b.id !== id) }));
       },
     }),
-    { name: "travelsuite.branches" }
+    {
+      name: "travelsuite.branches",
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as BranchesState;
+        return { ...state, branches: (state.branches ?? []).map(withDefaults) };
+      },
+    }
   )
 );

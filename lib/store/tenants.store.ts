@@ -17,6 +17,18 @@ interface TenantsState {
   updateTenant: (id: string, patch: Partial<Omit<Tenant, "id">>) => void;
 }
 
+const EMPTY_ADDRESS: TenantAddress = { line1: "", country: "", city: "", zip: "", timezone: "UTC" };
+const EMPTY_CONTACT: TenantContact = { email: "", dialCode: "", phone: "" };
+
+/** Backfills address/contact on tenants persisted before those fields existed. */
+function withDefaults(tenant: Tenant): Tenant {
+  return {
+    ...tenant,
+    address: tenant.address ?? EMPTY_ADDRESS,
+    contact: tenant.contact ?? EMPTY_CONTACT,
+  };
+}
+
 /** The registry of every tenant Super Admin has registered — distinct from tenant.store.ts,
  *  which tracks only the one tenant currently active for theming/login preview. */
 export const useTenantsStore = create<TenantsState>()(
@@ -50,14 +62,21 @@ export const useTenantsStore = create<TenantsState>()(
                   ...t,
                   ...patch,
                   branding: { ...t.branding, ...patch.branding },
-                  address: { ...t.address, ...patch.address },
-                  contact: { ...t.contact, ...patch.contact },
+                  address: { ...(t.address ?? EMPTY_ADDRESS), ...patch.address },
+                  contact: { ...(t.contact ?? EMPTY_CONTACT), ...patch.contact },
                 }
               : t
           ),
         }));
       },
     }),
-    { name: "travelsuite.tenants" }
+    {
+      name: "travelsuite.tenants",
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as TenantsState;
+        return { ...state, tenants: (state.tenants ?? []).map(withDefaults) };
+      },
+    }
   )
 );

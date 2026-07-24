@@ -71,6 +71,7 @@
     "currency": "Currency",
     "company": "Company",
     "branch": "Branch",
+    "employee": "Employee",
     "users": "Users",
     "roles": "Roles",
     "partners": "Partners",
