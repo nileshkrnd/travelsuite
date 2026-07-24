@@ -1,20 +1,23 @@
 import { mockDelay } from "@/lib/utils";
 import { MOCK_PASSWORD } from "@/mock/data/users";
+import { findTenantBySlug } from "@/lib/store/tenant.store";
 import type { User } from "@/types";
 import { getUserByEmail } from "./users.service";
 
 export class InvalidCredentialsError extends Error {}
 
 /**
- * Phase 1 mock: looks up the user by email and checks against a single shared
- * mock password. Role is derived from the matched account, never chosen by
- * the caller.
+ * Phase 1 mock: resolves the tenant by its code (slug), looks up the user by
+ * email within that tenant, and checks against a single shared mock password.
+ * Role is derived from the matched account, never chosen by the caller.
  */
-export async function authenticate(email: string, password: string): Promise<User> {
-  // TODO(Phase 2): replace with `await fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }).then(r => r.json())`
+export async function authenticate(tenantCode: string, email: string, password: string): Promise<User> {
+  // TODO(Phase 2): replace with `await fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ tenantCode, email, password }) }).then(r => r.json())`
   await mockDelay();
+  const tenant = findTenantBySlug(tenantCode);
+  if (!tenant) throw new InvalidCredentialsError();
   const user = await getUserByEmail(email);
-  if (!user || password !== MOCK_PASSWORD) {
+  if (!user || user.tenantId !== tenant.id || password !== MOCK_PASSWORD) {
     throw new InvalidCredentialsError();
   }
   return user;

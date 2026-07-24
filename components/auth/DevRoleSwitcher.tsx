@@ -11,6 +11,7 @@ import { useRolesStore } from "@/lib/store/roles.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { roleHomePath } from "@/config/permissions";
 import { MOCK_PASSWORD } from "@/mock/data/users";
+import { tenants } from "@/mock/data/tenants";
 
 /**
  * Phase 1 only: lets reviewers jump straight into any role's dashboard
@@ -30,9 +31,10 @@ export function DevRoleSwitcher() {
   async function signInAs(roleId: string) {
     const user = users.find((u) => u.roleId === roleId);
     const roleDef = roles.find((r) => r.id === roleId);
-    if (!user || !roleDef) return;
+    const userTenant = user ? tenants.find((t) => t.id === user.tenantId) : undefined;
+    if (!user || !roleDef || !userTenant) return;
     setPendingRoleId(roleId);
-    const authed = await authenticate(user.email, MOCK_PASSWORD);
+    const authed = await authenticate(userTenant.slug, user.email, MOCK_PASSWORD);
     login(authed);
     router.push(roleHomePath(roleDef));
   }

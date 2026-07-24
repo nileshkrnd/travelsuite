@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { tenants } from "@/mock/data/tenants";
+import { useTenantsStore } from "@/lib/store/tenants.store";
 
 /**
  * Phase 1 only: lets reviewers preview every tenant's branding (logo
@@ -23,6 +23,7 @@ import { tenants } from "@/mock/data/tenants";
 export function DevTenantSwitcher() {
   const tenantId = useTenantStore((s) => s.tenantId);
   const setTenant = useTenantStore((s) => s.setTenant);
+  const tenants = useTenantsStore((s) => s.tenants);
 
   return (
     <DropdownMenu>

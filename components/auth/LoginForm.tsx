@@ -1,28 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { CircleAlert, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Building2, CircleAlert, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticate, InvalidCredentialsError } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
-import { useTenantStore } from "@/lib/store/tenant.store";
+import { useTenantStore, findTenantBySlug } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
 import { PasswordInput } from "./PasswordInput";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import Link from "next/link";
+import type { Tenant } from "@/types";
 
-function useLoginSchema() {
+function useLoginSchema(requireTenantCode: boolean) {
   const t = useTranslations("auth.validation");
   return z.object({
+    tenantCode: requireTenantCode
+      ? z
+          .string()
+          .min(1, t("tenantCodeRequired"))
+          .refine((value) => !!findTenantBySlug(value), t("tenantCodeUnknown"))
+      : z.string().optional(),
     email: z.string().min(1, t("emailRequired")).email(t("emailInvalid")),
     password: z.string().min(1, t("passwordRequired")),
   });
@@ -30,24 +37,47 @@ function useLoginSchema() {
 
 type LoginValues = z.infer<ReturnType<typeof useLoginSchema>>;
 
-export function LoginForm() {
+interface LoginFormProps {
+  /** When provided (tenant-scoped route), the tenant is already known from the URL — the Tenant Code field is hidden. */
+  lockedTenant?: Tenant;
+}
+
+export function LoginForm({ lockedTenant }: LoginFormProps) {
   const t = useTranslations("auth.login");
   const tenant = useTenantStore((s) => s.tenant);
+  const setTenantBySlug = useTenantStore((s) => s.setTenantBySlug);
+  const resetToDefaultBranding = useTenantStore((s) => s.resetToDefaultBranding);
   const login = useSessionStore((s) => s.login);
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  const schema = useLoginSchema();
+  const schema = useLoginSchema(!lockedTenant);
 
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({ resolver: zodResolver(schema) });
+
+  const tenantCodeValue = useWatch({ control, name: "tenantCode" });
+
+  // Generic /login (no tenant in the URL) always starts from the neutral default branding.
+  useEffect(() => {
+    if (lockedTenant) return;
+    resetToDefaultBranding();
+  }, [lockedTenant, resetToDefaultBranding]);
+
+  // Live-preview the tenant's theme as a valid tenant code is typed.
+  useEffect(() => {
+    if (lockedTenant || !tenantCodeValue) return;
+    setTenantBySlug(tenantCodeValue);
+  }, [lockedTenant, tenantCodeValue, setTenantBySlug]);
 
   async function onSubmit(values: LoginValues) {
     setServerError(null);
     try {
-      const user = await authenticate(values.email, values.password);
+      const tenantCode = lockedTenant?.slug ?? values.tenantCode ?? "";
+      const user = await authenticate(tenantCode, values.email, values.password);
       const roleDef = useRolesStore.getState().roles.find((r) => r.id === user.roleId);
       if (!roleDef) throw new InvalidCredentialsError();
       login(user);
@@ -78,6 +108,27 @@ export function LoginForm() {
           </div>
         )}
 
+        {!lockedTenant && (
+          <div className="space-y-2">
+            <Label htmlFor="tenantCode">{t("tenantCodeLabel")}</Label>
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+              <Input
+                id="tenantCode"
+                autoComplete="organization"
+                autoFocus
+                placeholder={t("tenantCodePlaceholder")}
+                aria-invalid={!!errors.tenantCode}
+                className="h-10 ps-9"
+                {...register("tenantCode")}
+              />
+            </div>
+            {errors.tenantCode && (
+              <p className="text-sm text-destructive">{errors.tenantCode.message}</p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">{t("emailLabel")}</Label>
           <div className="relative">
@@ -86,7 +137,7 @@ export function LoginForm() {
               id="email"
               type="email"
               autoComplete="email"
-              autoFocus
+              autoFocus={!!lockedTenant}
               placeholder={t("emailPlaceholder")}
               aria-invalid={!!errors.email}
               className="h-10 ps-9"

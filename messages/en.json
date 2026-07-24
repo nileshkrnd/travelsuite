@@ -11,6 +11,8 @@
     "login": {
       "title": "Sign in to your account",
       "subtitle": "Enter your credentials to access the {tenant} admin panel",
+      "tenantCodeLabel": "Tenant code",
+      "tenantCodePlaceholder": "e.g. horizonTravel",
       "emailLabel": "Email address",
       "emailPlaceholder": "you@company.com",
       "passwordLabel": "Password",
@@ -45,6 +47,8 @@
       "continueToLogin": "Continue to login"
     },
     "validation": {
+      "tenantCodeRequired": "Tenant code is required",
+      "tenantCodeUnknown": "We don't recognize that tenant code",
       "emailRequired": "Email is required",
       "emailInvalid": "Enter a valid email address",
       "passwordRequired": "Password is required",
