@@ -12,10 +12,8 @@ export interface Booking {
   travelDate: string;
   amount: Money;
   customerName: string;
-  agentId?: string;
-  subAgentId?: string;
-  hotelierId?: string;
-  supplierId?: string;
-  dmcId?: string;
+  agencyId?: string;
+  subAgencyId?: string;
   corporateId?: string;
+  supplierId?: string;
 }

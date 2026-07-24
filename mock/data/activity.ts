@@ -9,7 +9,7 @@ const TEMPLATES: { module: ModuleKey; action: string }[] = [
   { module: "inventory", action: "updated inventory availability" },
   { module: "corporate", action: "approved a travel request" },
   { module: "billing", action: "generated an invoice" },
-  { module: "employee", action: "invited a new team member" },
+  { module: "users", action: "invited a new team member" },
   { module: "agents", action: "updated a commission structure" },
   { module: "bookings", action: "cancelled a booking" },
   { module: "reports", action: "exported a report" },

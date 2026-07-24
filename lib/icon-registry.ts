@@ -22,6 +22,11 @@ import {
   Building,
   GitBranch,
   KeyRound,
+  Handshake,
+  Users2,
+  GitFork,
+  Landmark,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,4 +55,9 @@ export const ICONS: Record<string, LucideIcon> = {
   Building,
   GitBranch,
   KeyRound,
+  Handshake,
+  Users2,
+  GitFork,
+  Landmark,
+  Store,
 };

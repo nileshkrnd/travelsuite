@@ -65,8 +65,13 @@
     "tenantProfile": "Tenant",
     "company": "Company",
     "branch": "Branch",
-    "employee": "Employee",
-    "roles": "Roles"
+    "users": "Users",
+    "roles": "Roles",
+    "partners": "Partners",
+    "agency": "Agency",
+    "subAgency": "SubAgency",
+    "corporateAccounts": "Corporate",
+    "supplier": "Supplier"
   },
   "topbar": {
     "currency": "Currency",

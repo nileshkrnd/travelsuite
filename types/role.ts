@@ -1,10 +1,12 @@
 import type { ModuleKey, PermissionAction } from "@/config/permissions";
 
 /**
- * Closed set used only for booking-visibility scoping (lib/services/bookings.service.ts).
- * Every RoleDef — seeded or custom — carries one, independent of its free-text name.
+ * Which organization type a role belongs to. Drives three things at once:
+ * booking-visibility scoping (lib/services/bookings.service.ts), which org-FK
+ * a user of that role needs (types/user.ts), and which Partners screen the
+ * role's org lives under. "internal" roles see the whole tenant.
  */
-export type ScopeKind = "all" | "agent" | "subAgent" | "hotelier" | "supplier" | "dmc" | "corporate";
+export type RoleCategory = "internal" | "agency" | "subAgency" | "corporate" | "supplier";
 
 export interface RoleDef {
   id: string;
@@ -16,7 +18,7 @@ export interface RoleDef {
   description?: string;
   /** Seeded roles: name/slug locked, cannot be deleted. */
   isSystem: boolean;
-  scopeKind: ScopeKind;
+  category: RoleCategory;
   permissions: Partial<Record<ModuleKey, PermissionAction[]>>;
   createdAt: string;
 }

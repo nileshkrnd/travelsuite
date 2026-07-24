@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { CircleAlert, Loader2, ShieldCheck } from "lucide-react";
+import { CircleAlert, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +59,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="space-y-7">
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-7 duration-500">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
@@ -80,16 +80,19 @@ export function LoginForm() {
 
         <div className="space-y-2">
           <Label htmlFor="email">{t("emailLabel")}</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            placeholder={t("emailPlaceholder")}
-            aria-invalid={!!errors.email}
-            className="h-10"
-            {...register("email")}
-          />
+          <div className="relative">
+            <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder={t("emailPlaceholder")}
+              aria-invalid={!!errors.email}
+              className="h-10 ps-9"
+              {...register("email")}
+            />
+          </div>
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
@@ -105,6 +108,7 @@ export function LoginForm() {
           </div>
           <PasswordInput
             id="password"
+            icon={Lock}
             autoComplete="current-password"
             placeholder={t("passwordPlaceholder")}
             aria-invalid={!!errors.password}

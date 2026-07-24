@@ -19,15 +19,15 @@ const CUSTOMER_NAMES = [
   "Mei Lin",
 ];
 
-type BookingOwnerField = "agentId" | "subAgentId" | "hotelierId" | "supplierId" | "dmcId" | "corporateId";
+type BookingOwnerField = "agencyId" | "subAgencyId" | "corporateId" | "supplierId";
 
-const ROLE_OWNERS: { field: BookingOwnerField; id: string }[] = [
-  { field: "agentId", id: "user_agent_1" },
-  { field: "subAgentId", id: "user_subagent_1" },
-  { field: "hotelierId", id: "user_hotelier_1" },
-  { field: "supplierId", id: "user_supplier_1" },
-  { field: "dmcId", id: "user_dmc_1" },
-  { field: "corporateId", id: "user_corporate_1" },
+const ORG_OWNERS: { field: BookingOwnerField; id: string }[] = [
+  { field: "agencyId", id: "agency_travelwise" },
+  { field: "subAgencyId", id: "subagency_petrova" },
+  { field: "corporateId", id: "corporate_acme" },
+  { field: "supplierId", id: "supplier_grand_piazza" },
+  { field: "supplierId", id: "supplier_swift_transfers" },
+  { field: "supplierId", id: "supplier_roma_dmc" },
 ];
 
 const ANCHOR = new Date("2026-07-22T00:00:00.000Z");
@@ -44,7 +44,7 @@ function generateBookings(): Booking[] {
     const travelDate = new Date(bookingDate);
     travelDate.setUTCDate(travelDate.getUTCDate() + 14 + (i % 10));
 
-    const owner = ROLE_OWNERS[i % ROLE_OWNERS.length];
+    const owner = ORG_OWNERS[i % ORG_OWNERS.length];
     const value = 380 + ((i * 137) % 3400);
 
     const booking: Booking = {

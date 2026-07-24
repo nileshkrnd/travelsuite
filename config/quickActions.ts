@@ -1,5 +1,5 @@
 import type { ModuleKey } from "@/config/permissions";
-import type { RoleDef, ScopeKind } from "@/types";
+import type { RoleCategory, RoleDef } from "@/types";
 
 export interface QuickAction {
   label: string;
@@ -10,31 +10,29 @@ export interface QuickAction {
 
 const QUICK_ACTIONS_BY_ROLE_ID: Record<string, QuickAction[]> = {
   role_super_admin: [
-    { label: "Register Employee", icon: "UserPlus", module: "employee" },
+    { label: "Register User", icon: "UserPlus", module: "users" },
     { label: "New Role", icon: "KeyRound", module: "roles" },
   ],
-  role_company_employee: [
-    { label: "Register Employee", icon: "UserPlus", module: "employee" },
+  role_administrator: [
+    { label: "Register User", icon: "UserPlus", module: "users" },
     { label: "Review Bookings", icon: "ClipboardCheck", module: "bookings" },
   ],
-  role_hotelier: [{ label: "Add Room Inventory", icon: "Plus", module: "inventory" }],
+  role_accountant: [{ label: "Review Billing", icon: "Receipt", module: "billing" }],
+  role_cashier: [{ label: "Record Payment", icon: "Plus", module: "billing" }],
+  role_agency_user: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
+  role_subagency_user: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
+  role_corporate_employee: [{ label: "Approve Request", icon: "ClipboardCheck", module: "corporate" }],
   role_supplier: [{ label: "Add Service", icon: "Plus", module: "inventory" }],
-  role_dmc: [{ label: "Add Destination Package", icon: "Plus", module: "inventory" }],
-  role_agent: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
-  role_sub_agent: [{ label: "New Booking", icon: "Plus", module: "bookings" }],
-  role_corporate_customer: [{ label: "Approve Request", icon: "ClipboardCheck", module: "corporate" }],
 };
 
-const QUICK_ACTIONS_BY_SCOPE: Record<ScopeKind, QuickAction[]> = {
-  all: QUICK_ACTIONS_BY_ROLE_ID.role_company_employee,
-  agent: QUICK_ACTIONS_BY_ROLE_ID.role_agent,
-  subAgent: QUICK_ACTIONS_BY_ROLE_ID.role_sub_agent,
-  hotelier: QUICK_ACTIONS_BY_ROLE_ID.role_hotelier,
+const QUICK_ACTIONS_BY_CATEGORY: Record<RoleCategory, QuickAction[]> = {
+  internal: QUICK_ACTIONS_BY_ROLE_ID.role_administrator,
+  agency: QUICK_ACTIONS_BY_ROLE_ID.role_agency_user,
+  subAgency: QUICK_ACTIONS_BY_ROLE_ID.role_subagency_user,
+  corporate: QUICK_ACTIONS_BY_ROLE_ID.role_corporate_employee,
   supplier: QUICK_ACTIONS_BY_ROLE_ID.role_supplier,
-  dmc: QUICK_ACTIONS_BY_ROLE_ID.role_dmc,
-  corporate: QUICK_ACTIONS_BY_ROLE_ID.role_corporate_customer,
 };
 
 export function getQuickActions(roleDef: RoleDef): QuickAction[] {
-  return QUICK_ACTIONS_BY_ROLE_ID[roleDef.id] ?? QUICK_ACTIONS_BY_SCOPE[roleDef.scopeKind] ?? [];
+  return QUICK_ACTIONS_BY_ROLE_ID[roleDef.id] ?? QUICK_ACTIONS_BY_CATEGORY[roleDef.category] ?? [];
 }

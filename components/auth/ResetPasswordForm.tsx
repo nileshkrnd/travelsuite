@@ -6,10 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "./PasswordInput";
 import { resetPassword } from "@/lib/services/auth.service";
 
 function useResetPasswordSchema() {
@@ -64,7 +64,7 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 duration-500">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
@@ -73,11 +73,13 @@ export function ResetPasswordForm() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="password">{t("passwordLabel")}</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+            icon={Lock}
             autoComplete="new-password"
+            autoFocus
             aria-invalid={!!errors.password}
+            className="h-10"
             {...register("password")}
           />
           {errors.password && (
@@ -87,11 +89,12 @@ export function ResetPasswordForm() {
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">{t("confirmPasswordLabel")}</Label>
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
+            icon={Lock}
             autoComplete="new-password"
             aria-invalid={!!errors.confirmPassword}
+            className="h-10"
             {...register("confirmPassword")}
           />
           {errors.confirmPassword && (
@@ -99,7 +102,7 @@ export function ResetPasswordForm() {
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>

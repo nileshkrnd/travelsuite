@@ -15,8 +15,13 @@ export type ModuleKey =
   | "tenantProfile"
   | "company"
   | "branch"
-  | "employee"
-  | "roles";
+  | "users"
+  | "roles"
+  | "partners"
+  | "agency"
+  | "subAgency"
+  | "corporateAccounts"
+  | "supplier";
 
 export interface MenuItem {
   key: ModuleKey;
@@ -45,14 +50,26 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
       { key: "company", labelKey: "sidebar.company", icon: "Building2", path: "masters/company" },
       { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
-      { key: "employee", labelKey: "sidebar.employee", icon: "Users", path: "masters/employee" },
+      { key: "users", labelKey: "sidebar.users", icon: "Users", path: "masters/users" },
       { key: "roles", labelKey: "sidebar.roles", icon: "KeyRound", path: "masters/roles" },
+    ],
+  },
+  {
+    key: "partners",
+    labelKey: "sidebar.partners",
+    icon: "Handshake",
+    path: "partners",
+    children: [
+      { key: "agency", labelKey: "sidebar.agency", icon: "Users2", path: "masters/agency" },
+      { key: "subAgency", labelKey: "sidebar.subAgency", icon: "GitFork", path: "masters/subAgency" },
+      { key: "corporateAccounts", labelKey: "sidebar.corporateAccounts", icon: "Landmark", path: "masters/corporateAccounts" },
+      { key: "supplier", labelKey: "sidebar.supplier", icon: "Store", path: "masters/supplier" },
     ],
   },
   { key: "settings", labelKey: "sidebar.settings", icon: "Settings", path: "settings" },
 ];
 
-/** Flat lookup by ModuleKey, including nested Masters children — used by Topbar/menu lookups. */
+/** Flat lookup by ModuleKey, including nested Masters/Partners children — used by Topbar/menu lookups. */
 export function findMenuItem(key: ModuleKey): MenuItem | undefined {
   for (const item of MENU_ITEMS) {
     if (item.key === key) return item;
@@ -62,7 +79,7 @@ export function findMenuItem(key: ModuleKey): MenuItem | undefined {
   return undefined;
 }
 
-/** Flat list of every leaf item (Masters children included, group node excluded) — used for path resolution. */
+/** Flat list of every leaf item (group children included, group nodes excluded) — used for path resolution. */
 export function flatMenuItems(): MenuItem[] {
   return MENU_ITEMS.flatMap((item) => (item.children ? item.children : [item]));
 }

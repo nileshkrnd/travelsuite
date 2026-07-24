@@ -18,6 +18,7 @@ import {
   getBookingsTrend,
   getRevenueByCurrency,
   getTopDestinations,
+  getScopeOrgId,
   type DashboardKpis,
   type BookingsTrendPoint,
   type RevenueByCurrencyPoint,
@@ -43,11 +44,13 @@ export default function DashboardPage() {
     if (!user || !roleDef) return;
     let cancelled = false;
 
+    const orgId = getScopeOrgId(user, roleDef);
+
     Promise.all([
-      getDashboardKpis(tenantId, roleDef.scopeKind, user.id),
-      getBookingsTrend(tenantId, roleDef.scopeKind, user.id),
-      getRevenueByCurrency(tenantId, roleDef.scopeKind, user.id),
-      getTopDestinations(tenantId, roleDef.scopeKind, user.id),
+      getDashboardKpis(tenantId, roleDef.category, orgId),
+      getBookingsTrend(tenantId, roleDef.category, orgId),
+      getRevenueByCurrency(tenantId, roleDef.category, orgId),
+      getTopDestinations(tenantId, roleDef.category, orgId),
       getRecentActivity(tenantId),
     ]).then(([kpisRes, trendRes, revenueRes, destinationsRes, activityRes]) => {
       if (cancelled) return;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ModuleKey, PermissionAction } from "@/config/permissions";
-import type { RoleDef, ScopeKind } from "@/types";
+import type { RoleCategory, RoleDef } from "@/types";
 import { roles as seedRoles } from "@/mock/data/roles";
 import { toCamelSlug, uniqueSlug } from "@/lib/slug";
 import { useTenantStore } from "@/lib/store/tenant.store";
@@ -9,11 +9,11 @@ import { useTenantStore } from "@/lib/store/tenant.store";
 export interface NewRoleInput {
   name: string;
   description?: string;
-  scopeKind: ScopeKind;
+  category: RoleCategory;
   permissions: Partial<Record<ModuleKey, PermissionAction[]>>;
 }
 
-export type RolePatch = Partial<Pick<RoleDef, "name" | "description" | "permissions" | "scopeKind">>;
+export type RolePatch = Partial<Pick<RoleDef, "name" | "description" | "permissions" | "category">>;
 
 interface RolesState {
   roles: RoleDef[];
@@ -39,7 +39,7 @@ export const useRolesStore = create<RolesState>()(
           slug,
           description: input.description,
           isSystem: false,
-          scopeKind: input.scopeKind,
+          category: input.category,
           permissions: input.permissions,
           createdAt: new Date().toISOString(),
         };
@@ -51,13 +51,13 @@ export const useRolesStore = create<RolesState>()(
         set((state) => ({
           roles: state.roles.map((r) => {
             if (r.id !== id) return r;
-            // System roles keep their name/slug locked — only permissions/description/scope change.
+            // System roles keep their name/slug locked — only permissions/description/category change.
             if (r.isSystem) {
               return {
                 ...r,
                 description: patch.description ?? r.description,
                 permissions: patch.permissions ?? r.permissions,
-                scopeKind: patch.scopeKind ?? r.scopeKind,
+                category: patch.category ?? r.category,
               };
             }
             const nextName = patch.name ?? r.name;

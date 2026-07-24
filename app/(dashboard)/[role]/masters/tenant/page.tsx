@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { Check, Palette } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { currencyMeta } from "@/mock/data/exchangeRates";
 import { LOCALE_LABELS } from "@/config/i18n/locales";
+import { THEME_PRESETS } from "@/config/themePresets";
+import { cn } from "@/lib/utils";
 import type { CurrencyCode } from "@/types";
 
 const schema = z.object({
@@ -27,6 +31,9 @@ type FormValues = z.infer<typeof schema>;
 function TenantForm() {
   const tenant = useTenantStore((s) => s.tenant);
   const updateTenant = useTenantStore((s) => s.updateTenant);
+  const [showCustom, setShowCustom] = useState(
+    () => !THEME_PRESETS.some((p) => p.primaryColor.toLowerCase() === tenant.branding.primaryColor.toLowerCase())
+  );
 
   const {
     register,
@@ -65,23 +72,68 @@ function TenantForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="primaryColor">Brand color</Label>
-              <div className="flex items-center gap-2">
-                <Controller
-                  control={control}
-                  name="primaryColor"
-                  render={({ field }) => (
-                    <input
-                      type="color"
-                      value={field.value}
-                      onChange={field.onChange}
-                      className="h-8 w-12 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                      aria-label="Brand color picker"
-                    />
-                  )}
-                />
-                <Input id="primaryColor" className="h-8 flex-1" {...register("primaryColor")} />
-              </div>
+              <Label>Theme</Label>
+              <Controller
+                control={control}
+                name="primaryColor"
+                render={({ field }) => (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {THEME_PRESETS.map((preset) => {
+                      const active = !showCustom && field.value.toLowerCase() === preset.primaryColor.toLowerCase();
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          title={preset.name}
+                          aria-label={preset.name}
+                          onClick={() => {
+                            field.onChange(preset.primaryColor);
+                            setShowCustom(false);
+                          }}
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background transition-all",
+                            active ? "ring-foreground" : "ring-transparent hover:ring-border"
+                          )}
+                          style={{ backgroundColor: preset.primaryColor }}
+                        >
+                          {active && <Check className="h-4 w-4 text-white drop-shadow" />}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      title="Custom color"
+                      aria-label="Custom color"
+                      onClick={() => setShowCustom(true)}
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed text-muted-foreground ring-2 ring-offset-2 ring-offset-background transition-all",
+                        showCustom ? "border-foreground text-foreground ring-foreground" : "ring-transparent hover:ring-border"
+                      )}
+                    >
+                      <Palette className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              />
+
+              {showCustom && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Controller
+                    control={control}
+                    name="primaryColor"
+                    render={({ field }) => (
+                      <input
+                        type="color"
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="h-8 w-12 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                        aria-label="Custom brand color picker"
+                      />
+                    )}
+                  />
+                  <Input id="primaryColor" className="h-8 flex-1" {...register("primaryColor")} />
+                </div>
+              )}
               {errors.primaryColor && <p className="text-sm text-destructive">{errors.primaryColor.message}</p>}
             </div>
 

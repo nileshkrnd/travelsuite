@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { Loader2, MailCheck } from "lucide-react";
+import { Loader2, Mail, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 duration-500">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
@@ -76,18 +76,23 @@ export function ForgotPasswordForm() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">{t("emailLabel")}</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder={t("emailPlaceholder")}
-            aria-invalid={!!errors.email}
-            {...register("email")}
-          />
+          <div className="relative">
+            <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder={t("emailPlaceholder")}
+              aria-invalid={!!errors.email}
+              className="h-10 ps-9"
+              {...register("email")}
+            />
+          </div>
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>

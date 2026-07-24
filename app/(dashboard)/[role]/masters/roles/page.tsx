@@ -49,8 +49,13 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   tenantProfile: "Tenant",
   company: "Company",
   branch: "Branch",
-  employee: "Employee",
+  users: "Users",
   roles: "Roles",
+  partners: "Partners",
+  agency: "Agency",
+  subAgency: "SubAgency",
+  corporateAccounts: "Corporate Accounts",
+  supplier: "Supplier",
 };
 
 const PERMISSION_MODULES: ModuleKey[] = [
@@ -65,8 +70,12 @@ const PERMISSION_MODULES: ModuleKey[] = [
   "tenantProfile",
   "company",
   "branch",
-  "employee",
+  "users",
   "roles",
+  "agency",
+  "subAgency",
+  "corporateAccounts",
+  "supplier",
 ];
 
 const ACTIONS: PermissionAction[] = ["view", "create", "edit", "delete", "approve"];
@@ -131,7 +140,7 @@ function RoleDialog({
       });
       toast.success("Role updated");
     } else {
-      addRole({ name: values.name, description: values.description, scopeKind: "all", permissions });
+      addRole({ name: values.name, description: values.description, category: "internal", permissions });
       toast.success("Role created");
     }
     onOpenChange(false);

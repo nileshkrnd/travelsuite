@@ -2,23 +2,35 @@ import { mockDelay } from "@/lib/utils";
 import { bookings } from "@/mock/data/bookings";
 import { useUsersStore } from "@/lib/store/users.store";
 import { exchangeRatesToUsd } from "@/mock/data/exchangeRates";
-import type { Booking, CurrencyCode, Money, ScopeKind } from "@/types";
+import type { Booking, CurrencyCode, Money, RoleCategory, RoleDef, User } from "@/types";
 
-function scopeToKind(list: Booking[], scopeKind: ScopeKind, userId?: string): Booking[] {
-  if (!userId) return list;
-  switch (scopeKind) {
-    case "agent":
-      return list.filter((b) => b.agentId === userId);
-    case "subAgent":
-      return list.filter((b) => b.subAgentId === userId);
-    case "hotelier":
-      return list.filter((b) => b.hotelierId === userId);
-    case "supplier":
-      return list.filter((b) => b.supplierId === userId);
-    case "dmc":
-      return list.filter((b) => b.dmcId === userId);
+/** Which of a user's org-FKs applies, based on their role's category. `undefined` for internal roles (tenant-wide visibility). */
+export function getScopeOrgId(user: User, roleDef: RoleDef): string | undefined {
+  switch (roleDef.category) {
+    case "agency":
+      return user.agencyId;
+    case "subAgency":
+      return user.subAgencyId;
     case "corporate":
-      return list.filter((b) => b.corporateId === userId);
+      return user.corporateId;
+    case "supplier":
+      return user.supplierId;
+    default:
+      return undefined;
+  }
+}
+
+function scopeToCategory(list: Booking[], category: RoleCategory, orgId?: string): Booking[] {
+  if (!orgId) return category === "internal" ? list : [];
+  switch (category) {
+    case "agency":
+      return list.filter((b) => b.agencyId === orgId);
+    case "subAgency":
+      return list.filter((b) => b.subAgencyId === orgId);
+    case "corporate":
+      return list.filter((b) => b.corporateId === orgId);
+    case "supplier":
+      return list.filter((b) => b.supplierId === orgId);
     default:
       return list;
   }
@@ -35,13 +47,13 @@ function toUsd(money: Money): number {
   return money.value / exchangeRatesToUsd[money.currencyCode];
 }
 
-export async function getBookings(tenantId: string, scopeKind: ScopeKind, userId?: string): Promise<Booking[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings?userId=${userId}`).then(r => r.json())`
+export async function getBookings(tenantId: string, category: RoleCategory, orgId?: string): Promise<Booking[]> {
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings?orgId=${orgId}`).then(r => r.json())`
   await mockDelay();
-  return scopeToKind(
+  return scopeToCategory(
     bookings.filter((b) => b.tenantId === tenantId),
-    scopeKind,
-    userId
+    category,
+    orgId
   );
 }
 
@@ -52,15 +64,15 @@ export interface BookingsTrendPoint {
 
 export async function getBookingsTrend(
   tenantId: string,
-  scopeKind: ScopeKind,
-  userId?: string
+  category: RoleCategory,
+  orgId?: string
 ): Promise<BookingsTrendPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/trend?userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/trend?orgId=${orgId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToKind(
+  const scoped = scopeToCategory(
     bookings.filter((b) => b.tenantId === tenantId),
-    scopeKind,
-    userId
+    category,
+    orgId
   );
   const anchor = new Date("2026-07-22T00:00:00.000Z");
   const points: BookingsTrendPoint[] = [];
@@ -86,15 +98,15 @@ export interface RevenueByCurrencyPoint {
 
 export async function getRevenueByCurrency(
   tenantId: string,
-  scopeKind: ScopeKind,
-  userId?: string
+  category: RoleCategory,
+  orgId?: string
 ): Promise<RevenueByCurrencyPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/revenue-by-currency?userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/revenue-by-currency?orgId=${orgId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToKind(
+  const scoped = scopeToCategory(
     bookings.filter((b) => b.tenantId === tenantId && b.status !== "cancelled"),
-    scopeKind,
-    userId
+    category,
+    orgId
   );
   const totals = new Map<CurrencyCode, number>();
   for (const b of scoped) {
@@ -110,16 +122,16 @@ export interface TopDestinationPoint {
 
 export async function getTopDestinations(
   tenantId: string,
-  scopeKind: ScopeKind,
-  userId?: string,
+  category: RoleCategory,
+  orgId?: string,
   limit = 5
 ): Promise<TopDestinationPoint[]> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/top-destinations?userId=${userId}&limit=${limit}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/bookings/top-destinations?orgId=${orgId}&limit=${limit}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToKind(
+  const scoped = scopeToCategory(
     bookings.filter((b) => b.tenantId === tenantId),
-    scopeKind,
-    userId
+    category,
+    orgId
   );
   const counts = new Map<string, number>();
   for (const b of scoped) counts.set(b.destination, (counts.get(b.destination) ?? 0) + 1);
@@ -148,20 +160,20 @@ export interface DashboardKpis {
 
 export async function getDashboardKpis(
   tenantId: string,
-  scopeKind: ScopeKind,
-  userId?: string
+  category: RoleCategory,
+  orgId?: string
 ): Promise<DashboardKpis> {
-  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/dashboard/kpis?userId=${userId}`).then(r => r.json())`
+  // TODO(Phase 2): replace with `await fetch(`/api/tenants/${tenantId}/dashboard/kpis?orgId=${orgId}`).then(r => r.json())`
   await mockDelay();
-  const scoped = scopeToKind(
+  const scoped = scopeToCategory(
     bookings.filter((b) => b.tenantId === tenantId),
-    scopeKind,
-    userId
+    category,
+    orgId
   );
   const nonCancelled = scoped.filter((b) => b.status !== "cancelled");
   const totalRevenueUsd = nonCancelled.reduce((sum, b) => sum + toUsd(b.amount), 0);
   const avgBookingValueUsd = nonCancelled.length ? totalRevenueUsd / nonCancelled.length : 0;
-  const seed = userId ?? scopeKind;
+  const seed = orgId ?? category;
 
   return {
     totalBookings: scoped.length,
