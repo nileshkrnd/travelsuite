@@ -19,7 +19,7 @@ const QUICK_ACTIONS_BY_ROLE_ID: Record<string, QuickAction[]> = {
     { label: "New Role", icon: "KeyRound", module: "roles" },
   ],
   role_hr: [{ label: "New Employee", icon: "UserPlus", module: "hrmsEmployees" }],
-  role_sales: [{ label: "New Quotation", icon: "Plus", module: "quotations" }],
+  role_sales: [{ label: "Book Offline Flight", icon: "Plane", module: "offlineFlight" }],
   role_back_office: [{ label: "New Quotation", icon: "FilePlus", module: "quotationBuilder" }],
   role_mid_office: [{ label: "Reservation Queue", icon: "ListOrdered", module: "reservationQueue" }],
   role_accounts: [{ label: "New Invoice", icon: "Plus", module: "invoices" }],

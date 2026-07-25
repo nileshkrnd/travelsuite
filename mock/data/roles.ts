@@ -48,21 +48,7 @@ const HRMS_KEYS: ModuleKey[] = [
   "gratuity",
   "settlement",
 ];
-const SALES_KEYS: ModuleKey[] = [
-  "salesDashboard",
-  "salesCustomers",
-  "salesLeads",
-  "quotations",
-  "salesBookings",
-  "flight",
-  "hotel",
-  "transfer",
-  "tours",
-  "activities",
-  "insurance",
-  "visa",
-  "carRental",
-];
+const SALES_KEYS: ModuleKey[] = ["salesDashboard"];
 const BOOK_OFFLINE_KEYS: ModuleKey[] = [
   "offlineFlight",
   "offlineHotel",
@@ -165,7 +151,7 @@ export const roles: RoleDef[] = [
   seedRole({
     id: "role_sales",
     name: "POS",
-    description: "Point of Sales — front-desk bookings, quotations, and walk-in customers across every product line.",
+    description: "Point of Sales — dashboard plus Book Offline and Book Online desks.",
     category: "internal",
     permissions: mergePermissions(
       grant(["dashboard"], ["view"]),

@@ -20,6 +20,7 @@ export type ModuleKey =
   | "tenantProfile"
   | "region"
   | "currency"
+  | "product"
   | "partners"
   | "agency"
   | "subAgency"
@@ -193,6 +194,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
       { key: "region", labelKey: "sidebar.region", icon: "Globe", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
+      { key: "product", labelKey: "sidebar.product", icon: "Package", path: "masters/product" },
     ],
   },
   {
@@ -232,18 +234,6 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "sales",
     children: [
       { key: "salesDashboard", labelKey: "sidebar.salesDashboard", icon: "LayoutDashboard", path: "sales/dashboard" },
-      { key: "salesCustomers", labelKey: "sidebar.salesCustomers", icon: "Users", path: "sales/customers" },
-      { key: "salesLeads", labelKey: "sidebar.salesLeads", icon: "Target", path: "sales/leads" },
-      { key: "quotations", labelKey: "sidebar.quotations", icon: "FileText", path: "sales/quotations" },
-      { key: "salesBookings", labelKey: "sidebar.salesBookings", icon: "CalendarCheck", path: "sales/bookings" },
-      { key: "flight", labelKey: "sidebar.flight", icon: "Plane", path: "sales/flight" },
-      { key: "hotel", labelKey: "sidebar.hotel", icon: "BedDouble", path: "sales/hotel" },
-      { key: "transfer", labelKey: "sidebar.transfer", icon: "Car", path: "sales/transfer" },
-      { key: "tours", labelKey: "sidebar.tours", icon: "MapPinned", path: "sales/tours" },
-      { key: "activities", labelKey: "sidebar.activities", icon: "Ticket", path: "sales/activities" },
-      { key: "insurance", labelKey: "sidebar.insurance", icon: "Shield", path: "sales/insurance" },
-      { key: "visa", labelKey: "sidebar.visa", icon: "Stamp", path: "sales/visa" },
-      { key: "carRental", labelKey: "sidebar.carRental", icon: "CarFront", path: "sales/car-rental" },
       {
         key: "bookOffline",
         labelKey: "sidebar.bookOffline",

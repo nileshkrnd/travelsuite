@@ -13,3 +13,4 @@ export * from "./subAgency";
 export * from "./corporate";
 export * from "./supplier";
 export * from "./supplierType";
+export * from "./product";

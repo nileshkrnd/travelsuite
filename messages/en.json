@@ -95,6 +95,7 @@
     "tenantProfile": "Tenant",
     "region": "Region",
     "currency": "Currency",
+    "product": "Product",
 
     "partners": "Partners",
     "agency": "Agency",
