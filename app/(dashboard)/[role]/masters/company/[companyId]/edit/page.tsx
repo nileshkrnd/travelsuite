@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Building2 } from "lucide-react";
@@ -9,11 +10,41 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { CompanyForm } from "@/components/masters/CompanyForm";
 import { useCompaniesStore } from "@/lib/store/companies.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { listCompanies } from "@/lib/services/db-companies.service";
 
 function EditCompany() {
   const { role, companyId } = useParams<{ role: string; companyId: string }>();
   const companies = useCompaniesStore((s) => s.companies);
+  const setCompanies = useCompaniesStore((s) => s.setCompanies);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const company = companies.find((c) => c.id === companyId);
+  const [loading, setLoading] = useState(!company);
+  const tenantKey = activeTenant.tenantKey ?? 0;
+
+  useEffect(() => {
+    if (company || tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    listCompanies({ tenantId: tenantKey })
+      .then((rows) => {
+        if (cancelled) return;
+        const others = useCompaniesStore.getState().companies.filter((c) => c.tenantKey !== tenantKey);
+        setCompanies([...others, ...rows]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [company, tenantKey, setCompanies]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
+  }
 
   if (!company) {
     return (

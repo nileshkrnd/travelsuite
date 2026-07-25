@@ -6,43 +6,62 @@ import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { User as UserIcon, Mail, Briefcase, KeyRound, UserPlus, Save, X } from "lucide-react";
+import { User as UserIcon, Mail, Briefcase, KeyRound, UserPlus, Save, X, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
+import { createUser, updateUser, UsersApiError } from "@/lib/services/db-users.service";
 import { initials } from "@/lib/utils";
 import type { User } from "@/types";
 
 const NONE = "__none__";
 
-const schema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  roleId: z.string().min(1, "Select a role"),
-  companyId: z.string(),
-  branchId: z.string(),
-  department: z.string(),
-});
-type FormValues = z.infer<typeof schema>;
+function useSchema(isCreate: boolean) {
+  return z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().min(1, "Company email is required").email("Enter a valid company email"),
+    password: isCreate
+      ? z.string().min(6, "Password must be at least 6 characters")
+      : z.string().optional(),
+    roleId: z.string().min(1, "Select a role"),
+    companyId: z.string().refine((v) => v !== NONE, "Company is required"),
+    branchId: z.string(),
+    department: z.string(),
+  });
+}
 
-/** Shared Create/Modify form for the Employee master — internal staff only (Company → Branch). */
+type FormValues = z.infer<ReturnType<typeof useSchema>>;
+
+/**
+ * Employee master — registering an employee creates their login user
+ * (TenantID + CompanyID) using the company email as Username.
+ * Separate User creation is only available in Tenant Configuration (platform).
+ */
 export function InternalEmployeeForm({ employee }: { employee?: User }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const roles = useRolesStore((s) => s.roles);
   const companies = useCompaniesStore((s) => s.companies);
   const branches = useBranchesStore((s) => s.branches);
-  const addUser = useUsersStore((s) => s.addUser);
-  const updateUser = useUsersStore((s) => s.updateUser);
+  const upsertUser = useUsersStore((s) => s.upsertUser);
+  const updateLocal = useUsersStore((s) => s.updateUser);
   const isEdit = !!employee;
   const internalRoles = roles.filter((r) => r.category === "internal");
+  const schema = useSchema(!isEdit);
+
+  const actorKey = sessionUser?.userKey ?? 0;
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
 
   const {
     register,
@@ -55,6 +74,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
     values: {
       name: employee?.name ?? "",
       email: employee?.email ?? "",
+      password: "",
       roleId: employee?.roleId ?? "",
       companyId: employee?.companyId ?? NONE,
       branchId: employee?.branchId ?? NONE,
@@ -66,28 +86,77 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
   const companyId = useWatch({ control, name: "companyId" });
   const availableBranches = branches.filter((b) => companyId !== NONE && b.companyId === companyId);
   const previewName = nameValue?.trim() || "Employee name";
+  const tenantCompanies = companies.filter(
+    (c) => c.tenantId === activeTenant.id && c.status === "active" && c.companyKey > 0
+  );
 
   async function onSubmit(values: FormValues) {
-    const patch = {
-      name: values.name.trim(),
-      email: values.email.trim(),
-      roleId: values.roleId,
-      companyId: values.companyId !== NONE ? values.companyId : undefined,
-      branchId: values.branchId !== NONE ? values.branchId : undefined,
-      department: values.department || undefined,
-    };
-    if (isEdit && employee) {
-      updateUser(employee.id, patch);
-      toast.success("Employee updated");
-      router.push(`/${role}/masters/employee/${employee.id}`);
-    } else {
-      const created = addUser(patch);
-      toast.success("Employee registered — status set to invited");
-      router.push(`/${role}/masters/employee/${created.id}`);
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    if (tenantKey <= 0) {
+      toast.error("Select a tenant workspace before registering employees.");
+      return;
+    }
+
+    const company = companies.find((c) => c.id === values.companyId);
+    if (!company || company.companyKey <= 0) {
+      toast.error("Select a company for this employee.");
+      return;
+    }
+
+    const email = values.email.trim().toLowerCase();
+    const name = values.name.trim();
+    const branchId = values.branchId !== NONE ? values.branchId : undefined;
+    const department = values.department || undefined;
+
+    try {
+      if (isEdit && employee) {
+        const saved = await updateUser(employee.userKey, {
+          username: email,
+          password: values.password?.trim() || undefined,
+          userDisplayName: name,
+          tenantId: tenantKey,
+          companyId: company.companyKey,
+          isActive: employee.isActive,
+          modifiedBy: actorKey,
+        });
+        upsertUser({
+          ...saved,
+          roleId: values.roleId,
+          companyId: company.id,
+          branchId,
+          department,
+        });
+        updateLocal(saved.id, { roleId: values.roleId, companyId: company.id, branchId, department });
+        toast.success("Employee updated — login username is the company email");
+        router.push(`/${role}/masters/employee/${saved.id}`);
+      } else {
+        const created = await createUser({
+          username: email,
+          password: values.password!.trim(),
+          userDisplayName: name,
+          tenantId: tenantKey,
+          companyId: company.companyKey,
+          createdBy: actorKey,
+        });
+        upsertUser({
+          ...created,
+          roleId: values.roleId,
+          companyId: company.id,
+          branchId,
+          department,
+        });
+        toast.success("Employee registered — login created with company email");
+        router.push(`/${role}/masters/employee/${created.id}`);
+      }
+    } catch (error) {
+      toast.error(error instanceof UsersApiError ? error.message : "Could not save employee");
     }
   }
 
-  if (companies.length === 0) {
+  if (tenantCompanies.length === 0) {
     return (
       <Card className="max-w-xl">
         <CardContent>
@@ -104,6 +173,11 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <p className="text-sm text-muted-foreground">
+              Registering an employee creates their login using the company email (TenantID + CompanyID). There is no
+              separate Users screen inside a tenant.
+            </p>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -122,7 +196,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Company email (login username)</Label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -131,11 +205,27 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
                     placeholder="you@company.com"
                     aria-invalid={!!errors.email}
                     className="h-10 ps-9"
+                    disabled={isEdit}
                     {...register("email")}
                   />
                 </div>
                 {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">{isEdit ? "New password (optional)" : "Login password"}</Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  className="h-10 ps-9"
+                  {...register("password")}
+                />
+              </div>
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -183,13 +273,14 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
                       <SelectTrigger className="h-10 w-full">
                         <SelectValue>
                           {(value: string | null) =>
-                            !value || value === NONE ? "None" : (companies.find((c) => c.id === value)?.name ?? value)
+                            !value || value === NONE
+                              ? "Select company"
+                              : (tenantCompanies.find((c) => c.id === value)?.name ?? value)
                           }
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={NONE}>None</SelectItem>
-                        {companies.map((c) => (
+                        {tenantCompanies.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
                           </SelectItem>
@@ -198,6 +289,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
                     </Select>
                   )}
                 />
+                {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Branch</Label>
@@ -271,7 +363,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{previewName}</p>
               <Badge variant="secondary" className="mt-0.5">
-                {isEdit ? (employee?.status ?? "invited") : "invited"}
+                {isEdit ? (employee?.status ?? "active") : "login created"}
               </Badge>
             </div>
           </div>

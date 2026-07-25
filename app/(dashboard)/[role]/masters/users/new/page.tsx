@@ -15,7 +15,7 @@ function NewUser() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Create user"
-        description="Super Admin creates platform or Tenant Admin users. Tenant Admin creates employee logins."
+        description="Create a Super Admin account (TenantID 0 / CompanyID 0)."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/users`} />}>
             <ArrowLeft className="h-4 w-4" />

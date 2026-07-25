@@ -15,7 +15,7 @@ function NewEmployee() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Register employee"
-        description="Add a new internal staff member to a company and branch."
+        description="Registers the employee and creates their login with the company email. No separate Users screen inside a tenant."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/employee`} />}>
             <ArrowLeft className="h-4 w-4" />

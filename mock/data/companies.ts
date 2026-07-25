@@ -1,47 +1,67 @@
 import type { Company } from "@/types";
 import { DEFAULT_TENANT_ID } from "./tenants";
 
-/**
- * Companies belong to a tenant (holding). Regency Travel & Tours / MyHolidays /
- * Al Asmakh are companies under Regency Group Holding — not separate tenants.
- * `company_leisure` id is kept so existing users/branches keep working.
- * `companyKey` is the integer used in PostgreSQL CompanyID columns.
- */
+/** Fallback cache until DB companies hydrate. companyKey ↔ CompanyID. */
+function base(
+  partial: Pick<Company, "id" | "companyKey" | "name" | "code"> & Partial<Company>
+): Company {
+  return {
+    tenantId: DEFAULT_TENANT_ID,
+    tenantKey: 1,
+    companyGroupId: null,
+    address1: "Address line 1",
+    address2: "",
+    countryId: 1,
+    cityId: 1,
+    currencyId: 1,
+    zipCode: "00000",
+    countryDialCode: "971",
+    contactNumber: null,
+    fax: null,
+    contactPerson: null,
+    emailAddress: null,
+    isActive: true,
+    status: "active",
+    isRoundOff: false,
+    noOfSignificantDigits: 2,
+    isDisplayNumberInThousands: false,
+    companyLogo: "",
+    companyFavIcon: "",
+    createdBy: 1,
+    createdAt: "2024-01-01T09:00:00.000Z",
+    modifiedBy: null,
+    modifiedDtTm: null,
+    ...partial,
+  };
+}
+
 export const companies: Company[] = [
-  {
+  base({
     id: "company_leisure",
     companyKey: 1,
-    tenantId: DEFAULT_TENANT_ID,
     name: "Regency Travel & Tours",
     code: "regencyTravel",
-    status: "active",
     createdAt: "2023-11-05T09:00:00.000Z",
-  },
-  {
+  }),
+  base({
     id: "company_myholidays",
     companyKey: 2,
-    tenantId: DEFAULT_TENANT_ID,
     name: "MyHolidays",
     code: "myHolidays",
-    status: "active",
     createdAt: "2024-03-12T09:00:00.000Z",
-  },
-  {
+  }),
+  base({
     id: "company_alasmakh",
     companyKey: 3,
-    tenantId: DEFAULT_TENANT_ID,
     name: "Al Asmakh Real Estate",
     code: "alAsmakhRealEstate",
-    status: "active",
     createdAt: "2024-04-01T09:00:00.000Z",
-  },
-  {
+  }),
+  base({
     id: "company_corporate",
     companyKey: 4,
-    tenantId: DEFAULT_TENANT_ID,
     name: "Regency Corporate Travel",
     code: "regencyCorporate",
-    status: "active",
     createdAt: "2024-01-15T09:00:00.000Z",
-  },
+  }),
 ];

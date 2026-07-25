@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Plus,
   Building2,
@@ -30,8 +31,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { listCompanies, setCompanyActive, CompaniesApiError } from "@/lib/services/db-companies.service";
 import { contrastForeground } from "@/lib/color";
 import { initials } from "@/lib/utils";
 import { can } from "@/config/permissions";
@@ -66,19 +69,51 @@ function StatCard({
 function CompanyList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
+  const sessionUser = useSessionStore((s) => s.user);
   const tenantId = useTenantStore((s) => s.tenantId);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const allCompanies = useCompaniesStore((s) => s.companies);
+  const setCompanies = useCompaniesStore((s) => s.setCompanies);
+  const upsertCompany = useCompaniesStore((s) => s.upsertCompany);
   const companies = useMemo(
     () => allCompanies.filter((c) => c.tenantId === tenantId),
     [allCompanies, tenantId]
   );
-  const updateCompany = useCompaniesStore((s) => s.updateCompany);
   const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canCreate = can(roleDef, "company", "create");
   const canEdit = can(roleDef, "company", "edit");
+  const actorKey = sessionUser?.userKey ?? 0;
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+
+  useEffect(() => {
+    if (tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    listCompanies({ tenantId: tenantKey })
+      .then((rows) => {
+        if (cancelled) return;
+        const others = useCompaniesStore.getState().companies.filter((c) => c.tenantKey !== tenantKey);
+        setCompanies([...others, ...rows]);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof CompaniesApiError ? err.message : "Failed to load companies");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantKey, setCompanies]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -106,10 +141,20 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
     return result;
   }, [companies, search, sortKey, sortDirection]);
 
-  const activeCount = companies.filter((c) => c.status === "active").length;
+  const activeCount = companies.filter((c) => c.isActive).length;
 
-  function toggleStatus(company: Company) {
-    updateCompany(company.id, { status: company.status === "active" ? "inactive" : "active" });
+  async function toggleStatus(company: Company) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setCompanyActive(company.companyKey, !company.isActive, actorKey);
+      upsertCompany(saved);
+      toast.success(saved.isActive ? "Company activated" : "Company deactivated");
+    } catch (error) {
+      toast.error(error instanceof CompaniesApiError ? error.message : "Could not update company");
+    }
   }
 
   function goToView(company: Company) {
@@ -120,7 +165,7 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Company"
-        description="Companies operating under your tenant."
+        description="Companies operating under your tenant (TenantID scoped)."
         actions={
           canCreate ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/company/new`} />}>
@@ -130,6 +175,8 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
           ) : undefined
         }
       />
+
+      {loading && <p className="text-sm text-muted-foreground">Loading companies…</p>}
 
       {companies.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
@@ -152,7 +199,7 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       <Card>
-        {companies.length === 0 ? (
+        {!loading && companies.length === 0 ? (
           <EmptyState
             icon={Building2}
             tone="primary"
@@ -160,7 +207,7 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
             description="Add your first company to get started."
             size="compact"
           />
-        ) : visibleCompanies.length === 0 ? (
+        ) : visibleCompanies.length === 0 && !loading ? (
           <EmptyState
             icon={Search}
             tone="muted"
@@ -250,13 +297,13 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
                               <Pencil className="h-4 w-4" />
                               Modify
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleStatus(company)}>
-                              {company.status === "active" ? (
+                            <DropdownMenuItem onClick={() => void toggleStatus(company)}>
+                              {company.isActive ? (
                                 <PowerOff className="h-4 w-4" />
                               ) : (
                                 <Power className="h-4 w-4" />
                               )}
-                              {company.status === "active" ? "Deactivate" : "Activate"}
+                              {company.isActive ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
                           </>
                         )}

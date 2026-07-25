@@ -319,11 +319,194 @@ async function seedUsers() {
   );
 }
 
+async function seedAccessRoles() {
+  // Platform Super Admin roles (T0C0)
+  await prisma.accessRole.upsert({
+    where: {
+      tenantId_companyId_accessRoleName: {
+        tenantId: 0,
+        companyId: 0,
+        accessRoleName: "Super Admin",
+      },
+    },
+    create: {
+      accessRoleName: "Super Admin",
+      tenantId: 0,
+      companyId: 0,
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true },
+  });
+
+  // Tenant Admin role for Regency (TenantID=1, CompanyID=0)
+  await prisma.accessRole.upsert({
+    where: {
+      tenantId_companyId_accessRoleName: {
+        tenantId: 1,
+        companyId: 0,
+        accessRoleName: "Tenant Admin",
+      },
+    },
+    create: {
+      accessRoleName: "Tenant Admin",
+      tenantId: 1,
+      companyId: 0,
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true },
+  });
+}
+
+async function seedAviation() {
+  const fullService = await prisma.airlineType.upsert({
+    where: { airlineTypeName: "Full Service" },
+    create: {
+      airlineTypeName: "Full Service",
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true },
+  });
+  await prisma.airlineType.upsert({
+    where: { airlineTypeName: "Low Cost" },
+    create: {
+      airlineTypeName: "Low Cost",
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true },
+  });
+
+  await prisma.airline.upsert({
+    where: { airlineCode: "EK" },
+    create: {
+      airlineTypeId: fullService.airlineTypeId,
+      airlineCode: "EK",
+      airlineName: "Emirates",
+      airlineNumericCode: 176,
+      pnrMaxDigit: 6,
+      tktMaxDigit: 13,
+      isTktNumberOnly: false,
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: {
+      airlineTypeId: fullService.airlineTypeId,
+      airlineName: "Emirates",
+      isActive: true,
+    },
+  });
+
+  const ae = await prisma.country.findUnique({ where: { countryCode: "AE" } });
+  const dubai = ae
+    ? await prisma.city.findFirst({ where: { countryId: ae.countryId, cityCode: "DUBAI" } })
+    : null;
+  if (ae && dubai) {
+    await prisma.airport.upsert({
+      where: { airportCode: "DXB" },
+      create: {
+        airportCode: "DXB",
+        airportName: "Dubai International Airport",
+        countryId: ae.countryId,
+        cityId: dubai.cityId,
+        parentAirportId: 0,
+        latitude: "25.2532",
+        longitude: "55.3657",
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        airportName: "Dubai International Airport",
+        countryId: ae.countryId,
+        cityId: dubai.cityId,
+        isActive: true,
+      },
+    });
+  }
+}
+
+async function seedCompanies() {
+  const ae = await prisma.country.findUnique({ where: { countryCode: "AE" } });
+  const dubai = ae
+    ? await prisma.city.findFirst({ where: { countryId: ae.countryId, cityCode: "DUBAI" } })
+    : null;
+  const usd = await prisma.currency.findUnique({ where: { currencyCode: "USD" } });
+  if (!ae || !dubai || !usd) return;
+
+  const rows = [
+    {
+      companyUid: "company_leisure",
+      companyCode: "regencyTravel",
+      companyName: "Regency Travel & Tours",
+    },
+    {
+      companyUid: "company_myholidays",
+      companyCode: "myHolidays",
+      companyName: "MyHolidays",
+    },
+    {
+      companyUid: "company_alasmakh",
+      companyCode: "alAsmakhRealEstate",
+      companyName: "Al Asmakh Real Estate",
+    },
+    {
+      companyUid: "company_corporate",
+      companyCode: "regencyCorporate",
+      companyName: "Regency Corporate Travel",
+    },
+  ] as const;
+
+  for (const row of rows) {
+    await prisma.company.upsert({
+      where: { companyUid: row.companyUid },
+      create: {
+        companyUid: row.companyUid,
+        companyCode: row.companyCode,
+        companyName: row.companyName,
+        address1: "Business Bay",
+        address2: "Dubai",
+        countryId: ae.countryId,
+        cityId: dubai.cityId,
+        currencyId: usd.currencyId,
+        zipCode: "00000",
+        countryDialCode: "971",
+        contactNumber: null,
+        emailAddress: null,
+        isActive: true,
+        isRoundOff: false,
+        noOfSignificantDigits: 2,
+        isDisplayNumberInThousands: false,
+        tenantId: 1,
+        companyLogo: "",
+        companyFavIcon: "",
+        createdBy: CREATED_BY,
+      },
+      update: {
+        companyName: row.companyName,
+        companyCode: row.companyCode,
+        isActive: true,
+        countryId: ae.countryId,
+        cityId: dubai.cityId,
+        currencyId: usd.currencyId,
+      },
+    });
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Company"', 'CompanyID'), (SELECT COALESCE(MAX("CompanyID"), 1) FROM "Company"))`
+  );
+}
+
 async function main() {
   await seedReferenceMasters();
   await seedTenants();
   await seedRegions();
   await seedUsers();
+  await seedAccessRoles();
+  await seedAviation();
+  await seedCompanies();
 }
 
 main()

@@ -1,5 +1,6 @@
 export * from "./money";
 export * from "./role";
+export * from "./access-role";
 export * from "./tenant";
 export * from "./user";
 export * from "./booking";
@@ -10,6 +11,9 @@ export * from "./region";
 export * from "./country";
 export * from "./city";
 export * from "./currency";
+export * from "./airline-type";
+export * from "./airline";
+export * from "./airport";
 export * from "./agency";
 export * from "./subAgency";
 export * from "./corporate";

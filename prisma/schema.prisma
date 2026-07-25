@@ -51,7 +51,9 @@ model Country {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  cities City[]
+  cities    City[]
+  airports  Airport[]
+  companies Company[]
 
   @@map("Country")
 }
@@ -68,7 +70,9 @@ model City {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  country Country @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  country   Country   @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  airports  Airport[]
+  companies Company[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -88,6 +92,8 @@ model Currency {
   createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy         Int?      @map("ModifiedBy")
   modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  companies Company[]
 
   @@map("Currency")
 }
@@ -127,4 +133,127 @@ model User {
 
   @@index([tenantId, companyId], map: "User_TenantID_CompanyID_idx")
   @@map("User")
+}
+
+/// Access Role master — scoped by TenantID / CompanyID (same rules as User).
+/// Platform Super Admin manages T0C0 roles; tenants manage roles under their TenantID.
+model AccessRole {
+  accessRoleId   Int       @id @default(autoincrement()) @map("AccessRoleID")
+  accessRoleName String    @map("AccessRoleName") @db.VarChar(50)
+  isActive       Boolean   @default(true) @map("IsActive")
+  createdBy      Int       @map("CreatedBy")
+  createdDtTm    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy     Int?      @map("ModifiedBy")
+  modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId       Int       @map("TenantID")
+  companyId      Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, accessRoleName], map: "AccessRole_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "AccessRole_TenantID_CompanyID_idx")
+  @@map("AccessRole")
+}
+
+/// Global Airline Type master — Super Admin / Tenant Configuration only.
+model AirlineType {
+  airlineTypeId   Int       @id @default(autoincrement()) @map("AirlineTypeID")
+  airlineTypeName String    @unique @map("AirlineTypeName") @db.VarChar(100)
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  airlines Airline[]
+
+  @@map("AirlineType")
+}
+
+/// Global Airline master — Super Admin / Tenant Configuration only.
+model Airline {
+  airlineId          Int       @id @default(autoincrement()) @map("AirlineID")
+  airlineTypeId      Int       @map("AirlineTypeID")
+  airlineCode        String    @unique @map("AirlineCode") @db.VarChar(3)
+  airlineName        String    @map("AirlineName") @db.VarChar(200)
+  airlineNumericCode Int?      @map("AirlineNumericCode")
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  pnrMaxDigit        Int       @map("PNRMaxDigit")
+  tktMaxDigit        Int       @map("TKTMaxDigit")
+  isTktNumberOnly    Boolean   @default(false) @map("IsTKTNumberOnly")
+
+  airlineType AirlineType @relation(fields: [airlineTypeId], references: [airlineTypeId], onDelete: Restrict)
+
+  @@index([airlineTypeId], map: "Airline_AirlineTypeID_idx")
+  @@map("Airline")
+}
+
+/// Global Airport master — Super Admin / Tenant Configuration only.
+/// ParentAirportID = 0 means no parent airport.
+model Airport {
+  airportId       Int       @id @default(autoincrement()) @map("AirportID")
+  airportCode     String    @unique @map("AirportCode") @db.VarChar(3)
+  airportName     String    @map("AirportName") @db.VarChar(300)
+  countryId       Int       @map("CountryID")
+  cityId          Int       @map("CityID")
+  parentAirportId Int       @default(0) @map("ParentAirportID")
+  latitude        String?   @map("Latitude") @db.VarChar(20)
+  longitude       String?   @map("Longitude") @db.VarChar(20)
+  isActive        Boolean?  @default(true) @map("IsActive")
+  createdBy       Int?      @map("CreatedBy")
+  createdDtTm     DateTime? @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  country Country @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city    City    @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+
+  @@index([countryId], map: "Airport_CountryID_idx")
+  @@index([cityId], map: "Airport_CityID_idx")
+  @@map("Airport")
+}
+
+/// Company master — scoped by TenantID (tenant workspace Administration).
+model Company {
+  companyId                  Int       @id @default(autoincrement()) @map("CompanyID")
+  /// Stable app string id (e.g. company_leisure) for branch/employee FKs.
+  companyUid                 String    @unique @map("CompanyUid") @db.VarChar(100)
+  companyGroupId             Int?      @map("CompanyGroupID")
+  companyCode                String    @map("CompanyCode") @db.VarChar(20)
+  companyName                String    @map("CompanyName") @db.VarChar(200)
+  address1                   String    @map("Address1") @db.VarChar(200)
+  address2                   String    @default("") @map("Address2") @db.VarChar(200)
+  countryId                  Int       @map("CountryID")
+  cityId                     Int       @map("CityID")
+  currencyId                 Int       @map("CurrencyID")
+  zipCode                    String    @map("ZipCode") @db.VarChar(50)
+  countryDialCode            String    @map("CountryDialCode") @db.VarChar(5)
+  contactNumber              String?   @map("ContactNumber") @db.VarChar(20)
+  fax                        String?   @map("Fax") @db.VarChar(50)
+  contactPerson              String?   @map("ContactPerson") @db.VarChar(200)
+  emailAddress               String?   @map("EmailAddress") @db.VarChar(200)
+  isActive                   Boolean   @default(true) @map("IsActive")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  isRoundOff                 Boolean   @default(false) @map("IsRoundOff")
+  noOfSignificantDigits      Int       @default(2) @map("NoOfSignificantDigits")
+  isDisplayNumberInThousands Boolean?  @map("IsDisplayNumberInThousands")
+  tenantId                   Int       @map("TenantID")
+  companyLogo                String    @default("") @map("CompanyLogo") @db.VarChar(100)
+  companyFavIcon             String    @default("") @map("CompanyFavIcon") @db.VarChar(100)
+
+  country  Country  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city     City     @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  currency Currency @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+
+  @@unique([tenantId, companyCode], map: "Company_Tenant_Code_key")
+  @@index([tenantId], map: "Company_TenantID_idx")
+  @@index([countryId], map: "Company_CountryID_idx")
+  @@index([cityId], map: "Company_CityID_idx")
+  @@index([currencyId], map: "Company_CurrencyID_idx")
+  @@map("Company")
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Building2, Pencil, GitBranch } from "lucide-react";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { listCompanies } from "@/lib/services/db-companies.service";
 import { getCountry } from "@/config/countries";
 import { can } from "@/config/permissions";
 import type { RoleDef } from "@/types";
@@ -28,10 +30,38 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 function CompanyView({ roleDef }: { roleDef: RoleDef }) {
   const { role, companyId } = useParams<{ role: string; companyId: string }>();
   const tenantId = useTenantStore((s) => s.tenantId);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const companies = useCompaniesStore((s) => s.companies);
+  const setCompanies = useCompaniesStore((s) => s.setCompanies);
   const branches = useBranchesStore((s) => s.branches);
   const company = companies.find((c) => c.id === companyId && c.tenantId === tenantId);
   const canEdit = can(roleDef, "company", "edit");
+  const [loading, setLoading] = useState(!company);
+  const tenantKey = activeTenant.tenantKey ?? 0;
+
+  useEffect(() => {
+    if (company || tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    listCompanies({ tenantId: tenantKey })
+      .then((rows) => {
+        if (cancelled) return;
+        const others = useCompaniesStore.getState().companies.filter((c) => c.tenantKey !== tenantKey);
+        setCompanies([...others, ...rows]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [company, tenantKey, setCompanies]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
+  }
 
   if (!company) {
     return (
@@ -74,13 +104,31 @@ function CompanyView({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      <Card className="max-w-xl">
+      <Card className="max-w-2xl">
         <CardContent>
           <dl>
             <DetailRow label="Company name">{company.name}</DetailRow>
             <DetailRow label="Company code">{company.code}</DetailRow>
+            <DetailRow label="Company ID">{company.companyKey}</DetailRow>
+            <DetailRow label="Tenant ID">{company.tenantKey}</DetailRow>
+            <DetailRow label="Address">
+              {[company.address1, company.address2].filter(Boolean).join(", ") || "—"}
+            </DetailRow>
+            <DetailRow label="Country / City">
+              {company.countryName ?? company.countryId} / {company.cityName ?? company.cityId}
+            </DetailRow>
+            <DetailRow label="Currency">{company.currencyCode ?? company.currencyId}</DetailRow>
+            <DetailRow label="Zip / Dial">
+              {company.zipCode} / +{company.countryDialCode}
+            </DetailRow>
+            <DetailRow label="Contact">{company.contactPerson || "—"}</DetailRow>
+            <DetailRow label="Phone / Email">
+              {company.contactNumber || "—"} / {company.emailAddress || "—"}
+            </DetailRow>
             <DetailRow label="Status">
-              <Badge variant={company.status === "active" ? "default" : "secondary"}>{company.status}</Badge>
+              <Badge variant={company.isActive ? "default" : "secondary"}>
+                {company.isActive ? "active" : "inactive"}
+              </Badge>
             </DetailRow>
             <DetailRow label="Registered">{new Date(company.createdAt).toLocaleDateString()}</DetailRow>
           </dl>

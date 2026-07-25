@@ -12,6 +12,7 @@ export type ModuleKey =
   | "department"
   | "employee"
   | "roles"
+  | "accessRole"
   | "permissions"
   | "users"
   | "approvalMatrix"
@@ -23,6 +24,9 @@ export type ModuleKey =
   | "city"
   | "region"
   | "currency"
+  | "airlineType"
+  | "airline"
+  | "airport"
   | "product"
   | "partners"
   | "agency"
@@ -177,8 +181,9 @@ export interface MenuItem {
 }
 
 /**
- * Super Admin common / platform settings (no tenant selected).
- * Tenant registration + global Country / City / Currency / Region.
+ * Super Admin platform settings (no tenant selected).
+ * Tenant registration + global Country / City / Currency / Region + Users
+ * (Super Admin / Tenant Admin accounts only — employee logins come from Employee master).
  */
 export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "tenantProfile",
@@ -186,10 +191,19 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "city",
   "region",
   "currency",
+  "airlineType",
+  "airline",
+  "airport",
+  "users",
 ];
 
 /** Menu keys visible when Super Admin is in platform mode (no specific tenant). */
-const PLATFORM_MODE_MENU_KEYS = new Set<ModuleKey>(["dashboard", "globalTenantSettings", ...GLOBAL_TENANT_SETTING_KEYS]);
+const PLATFORM_MODE_MENU_KEYS = new Set<ModuleKey>([
+  "dashboard",
+  "globalTenantSettings",
+  ...GLOBAL_TENANT_SETTING_KEYS,
+  "accessRole",
+]);
 
 export const MENU_ITEMS: MenuItem[] = [
   { key: "dashboard", labelKey: "sidebar.dashboard", icon: "LayoutDashboard", path: "dashboard" },
@@ -204,6 +218,11 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
       { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
+      { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
+      { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
+      { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },
+      { key: "users", labelKey: "sidebar.users", icon: "Users", path: "masters/users" },
+      { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
     ],
   },
   {
@@ -216,9 +235,9 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
       { key: "department", labelKey: "sidebar.department", icon: "Network", path: "administration/departments" },
       { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
+      { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
       { key: "roles", labelKey: "sidebar.roles", icon: "KeyRound", path: "masters/roles" },
       { key: "permissions", labelKey: "sidebar.permissions", icon: "Lock", path: "administration/permissions" },
-      { key: "users", labelKey: "sidebar.users", icon: "Users", path: "masters/users" },
       { key: "approvalMatrix", labelKey: "sidebar.approvalMatrix", icon: "ClipboardCheck", path: "administration/approval-matrix" },
       { key: "holidays", labelKey: "sidebar.holidays", icon: "CalendarDays", path: "administration/holidays" },
       { key: "mastersHub", labelKey: "sidebar.mastersHub", icon: "Layers", path: "administration/masters" },
@@ -494,21 +513,17 @@ export function getMenuForRole(
 
   function filterItems(items: MenuItem[]): MenuItem[] {
     return items.reduce<MenuItem[]>((acc, item) => {
+      // Platform masters (incl. Users) only when Super Admin has no tenant selected.
+      if (!platformMode && (item.key === "globalTenantSettings" || GLOBAL_TENANT_SETTING_KEYS.includes(item.key))) {
+        return acc;
+      }
+
       if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key) && !item.children) {
         return acc;
       }
 
       if (item.children) {
-        if (platformMode) {
-          // Super Admin platform mode: Global Tenant Settings + Users (create Super/Tenant admins).
-          if (item.key === "administration") {
-            const usersOnly = item.children.filter((child) => child.key === "users");
-            const visibleChildren = filterItems(usersOnly);
-            if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
-            return acc;
-          }
-          if (!PLATFORM_MODE_MENU_KEYS.has(item.key)) return acc;
-        }
+        if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key)) return acc;
         const visibleChildren = filterItems(item.children);
         if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
         return acc;

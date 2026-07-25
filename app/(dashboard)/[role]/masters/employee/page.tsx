@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Plus,
   UserCog,
@@ -32,11 +33,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users.service";
 import { can } from "@/config/permissions";
 import { initials } from "@/lib/utils";
 import type { RoleDef, User } from "@/types";
@@ -70,12 +73,16 @@ function StatCard({
 function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
+  const sessionUser = useSessionStore((s) => s.user);
   const tenantId = useTenantStore((s) => s.tenantId);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const users = useUsersStore((s) => s.users);
-  const setUserStatus = useUsersStore((s) => s.setUserStatus);
+  const setUsers = useUsersStore((s) => s.setUsers);
+  const upsertUser = useUsersStore((s) => s.upsertUser);
   const roles = useRolesStore((s) => s.roles);
   const companies = useCompaniesStore((s) => s.companies);
   const branches = useBranchesStore((s) => s.branches);
+  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
@@ -85,10 +92,50 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const canEdit = can(roleDef, "employee", "edit");
   const canCreate = can(roleDef, "employee", "create");
   const canDelete = can(roleDef, "employee", "delete");
+  const actorKey = sessionUser?.userKey ?? 0;
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
 
   const roleFor = (id: string) => roles.find((r) => r.id === id);
   const companyName = (id?: string) => companies.find((c) => c.id === id)?.name ?? "—";
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
+
+  useEffect(() => {
+    if (tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    listUsers({ tenantId: tenantKey })
+      .then((rows) => {
+        if (cancelled) return;
+        const existing = useUsersStore.getState().users;
+        const companyByKey = new Map(companies.map((c) => [c.companyKey, c.id]));
+        const employees = rows
+          .filter((u) => u.companyKey > 0)
+          .map((row) => {
+            const prev = existing.find((u) => u.userKey === row.userKey || u.id === row.id);
+            return {
+              ...row,
+              roleId: prev?.roleId && prev.roleId !== "role_hr" ? prev.roleId : row.roleId,
+              companyId: prev?.companyId ?? companyByKey.get(row.companyKey) ?? row.companyId,
+              branchId: prev?.branchId,
+              department: prev?.department,
+            };
+          });
+        const others = existing.filter((u) => u.tenantKey !== tenantKey || u.companyKey === 0);
+        setUsers([...others, ...employees]);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        toast.error(err instanceof UsersApiError ? err.message : "Failed to load employees");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantKey, companies, setUsers]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -100,9 +147,8 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   }
 
   const employees = useMemo(
-    () => users.filter((u) => u.tenantId === tenantId && roleFor(u.roleId)?.category === "internal"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [users, tenantId, roles]
+    () => users.filter((u) => u.tenantId === tenantId && u.companyKey > 0),
+    [users, tenantId]
   );
 
   const visibleEmployees = useMemo(() => {
@@ -128,8 +174,24 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const activeCount = employees.filter((u) => u.status === "active").length;
   const invitedCount = employees.filter((u) => u.status === "invited").length;
 
-  function toggleStatus(user: User) {
-    setUserStatus(user.id, user.status === "deactivated" ? "active" : "deactivated");
+  async function toggleStatus(user: User) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setUserActive(user.userKey, !user.isActive, actorKey);
+      upsertUser({
+        ...saved,
+        roleId: user.roleId,
+        companyId: user.companyId,
+        branchId: user.branchId,
+        department: user.department,
+      });
+      toast.success(saved.isActive ? "Employee activated" : "Employee deactivated");
+    } catch (error) {
+      toast.error(error instanceof UsersApiError ? error.message : "Could not update employee");
+    }
   }
 
   function goToView(user: User) {
@@ -140,7 +202,7 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Employee"
-        description="Internal staff registered under your companies and branches."
+        description="Register staff under a company — their company email becomes the login. Users master is only in Tenant Configuration."
         actions={
           canCreate ? (
             <Button
@@ -154,6 +216,8 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
           ) : undefined
         }
       />
+
+      {loading && <p className="text-sm text-muted-foreground">Loading employees…</p>}
 
       {employees.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
