@@ -2,29 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Branch } from "@/types";
 import { branches as seedBranches } from "@/mock/data/branches";
-import { useTenantStore } from "@/lib/store/tenant.store";
-
-export interface NewBranchInput {
-  name: string;
-  code: string;
-  companyId: string;
-  city: string;
-  country: string;
-}
 
 interface BranchesState {
   branches: Branch[];
-  addBranch: (input: NewBranchInput) => Branch;
-  updateBranch: (
-    id: string,
-    patch: Partial<Pick<Branch, "name" | "code" | "companyId" | "city" | "country" | "status">>
-  ) => void;
-  deleteBranch: (id: string) => void;
-}
-
-/** Backfills the code field on branches persisted before it existed. */
-function withDefaults(branch: Branch): Branch {
-  return { ...branch, code: branch.code ?? "" };
+  setBranches: (branches: Branch[]) => void;
+  upsertBranch: (branch: Branch) => void;
 }
 
 export const useBranchesStore = create<BranchesState>()(
@@ -32,36 +14,23 @@ export const useBranchesStore = create<BranchesState>()(
     (set) => ({
       branches: seedBranches,
 
-      addBranch: (input) => {
-        const branch: Branch = {
-          id: `branch_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-          tenantId: useTenantStore.getState().tenantId,
-          companyId: input.companyId,
-          name: input.name,
-          code: input.code,
-          city: input.city,
-          country: input.country,
-          status: "active",
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ branches: [...state.branches, branch] }));
-        return branch;
-      },
+      setBranches: (branches) => set({ branches }),
 
-      updateBranch: (id, patch) => {
-        set((state) => ({
-          branches: state.branches.map((b) => (b.id === id ? { ...b, ...patch } : b)),
-        }));
-      },
-
-      deleteBranch: (id) => {
-        set((state) => ({ branches: state.branches.filter((b) => b.id !== id) }));
-      },
+      upsertBranch: (branch) =>
+        set((state) => {
+          const idx = state.branches.findIndex(
+            (b) => b.id === branch.id || b.branchKey === branch.branchKey
+          );
+          if (idx === -1) return { branches: [...state.branches, branch] };
+          const next = [...state.branches];
+          next[idx] = branch;
+          return { branches: next };
+        }),
     }),
     {
       name: "travelsuite.branches",
-      version: 2,
-      migrate: () => ({ branches: seedBranches.map(withDefaults) }),
+      version: 3,
+      migrate: () => ({ branches: seedBranches }),
     }
   )
 );

@@ -1,82 +1,57 @@
 import type { Branch } from "@/types";
 import { DEFAULT_TENANT_ID } from "./tenants";
 
+/** Fallback cache until DB branches hydrate. branchKey ↔ BranchID. */
+function base(
+  partial: Pick<Branch, "id" | "branchKey" | "companyId" | "companyKey" | "name"> & Partial<Branch>
+): Branch {
+  return {
+    tenantId: DEFAULT_TENANT_ID,
+    tenantKey: 1,
+    branchTypeId: 1,
+    address1: "Address line 1",
+    address2: "",
+    countryId: 1,
+    cityId: 1,
+    zipCode: "00000",
+    contactPerson: "Branch Manager",
+    emailAddress: "branch@example.com",
+    countryDialCode: "971",
+    phoneNumber: "0000000",
+    faxNumber: null,
+    isActive: true,
+    status: "active",
+    createdBy: 1,
+    createdAt: "2024-01-01T09:00:00.000Z",
+    modifiedBy: null,
+    modifiedDtTm: null,
+    ...partial,
+  };
+}
+
 export const branches: Branch[] = [
-  {
+  base({
     id: "branch_mumbai",
-    tenantId: DEFAULT_TENANT_ID,
+    branchKey: 1,
     companyId: "company_leisure",
+    companyKey: 1,
     name: "Mumbai",
-    code: "mumbai",
-    city: "Mumbai",
-    country: "IN",
-    status: "active",
     createdAt: "2023-11-10T09:00:00.000Z",
-  },
-  {
+  }),
+  base({
     id: "branch_dubai",
-    tenantId: DEFAULT_TENANT_ID,
+    branchKey: 2,
     companyId: "company_leisure",
+    companyKey: 1,
     name: "Dubai",
-    code: "dubai",
-    city: "Dubai",
-    country: "AE",
-    status: "active",
     createdAt: "2024-02-01T09:00:00.000Z",
-  },
-  {
+  }),
+  base({
     id: "branch_london",
-    tenantId: DEFAULT_TENANT_ID,
+    branchKey: 3,
     companyId: "company_corporate",
+    companyKey: 4,
     name: "London",
-    code: "london",
-    city: "London",
-    country: "GB",
-    status: "active",
     createdAt: "2024-01-20T09:00:00.000Z",
-  },
-  {
-    id: "branch_doha",
-    tenantId: DEFAULT_TENANT_ID,
-    companyId: "company_myholidays",
-    name: "Doha",
-    code: "doha",
-    city: "Doha",
-    country: "QA",
-    status: "active",
-    createdAt: "2024-03-18T09:00:00.000Z",
-  },
-  {
-    id: "branch_abu_dhabi",
-    tenantId: DEFAULT_TENANT_ID,
-    companyId: "company_myholidays",
-    name: "Abu Dhabi",
-    code: "abuDhabi",
-    city: "Abu Dhabi",
-    country: "AE",
-    status: "active",
-    createdAt: "2024-05-02T09:00:00.000Z",
-  },
-  {
-    id: "branch_west_bay",
-    tenantId: DEFAULT_TENANT_ID,
-    companyId: "company_alasmakh",
-    name: "West Bay",
-    code: "westBay",
-    city: "Doha",
-    country: "QA",
-    status: "active",
-    createdAt: "2024-04-10T09:00:00.000Z",
-  },
-  {
-    id: "branch_lusail",
-    tenantId: DEFAULT_TENANT_ID,
-    companyId: "company_alasmakh",
-    name: "Lusail",
-    code: "lusail",
-    city: "Lusail",
-    country: "QA",
-    status: "active",
-    createdAt: "2024-06-01T09:00:00.000Z",
-  },
+  }),
 ];

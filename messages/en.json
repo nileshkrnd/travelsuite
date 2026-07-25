@@ -88,6 +88,7 @@
     "company": "Company",
     "branch": "Branch",
     "department": "Department",
+    "designation": "Designation",
     "employee": "Employee",
     "roles": "Roles",
     "accessRole": "Access Role",

@@ -12,7 +12,7 @@ function NewBranch() {
   const { role } = useParams<{ role: string }>();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title="Add branch"
         description="Register a new branch under a company."

@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, GitBranch, Pencil, Users } from "lucide-react";
+import { ArrowLeft, GitBranch, Pencil } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -10,10 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useBranchesStore } from "@/lib/store/branches.store";
-import { useCompaniesStore } from "@/lib/store/companies.store";
-import { useUsersStore } from "@/lib/store/users.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { getCountry } from "@/config/countries";
+import { listBranches } from "@/lib/services/db-branches.service";
 import { can } from "@/config/permissions";
 import type { RoleDef } from "@/types";
 
@@ -28,12 +27,37 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function BranchView({ roleDef }: { roleDef: RoleDef }) {
   const { role, branchId } = useParams<{ role: string; branchId: string }>();
-  const tenantId = useTenantStore((s) => s.tenantId);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const branches = useBranchesStore((s) => s.branches);
-  const companies = useCompaniesStore((s) => s.companies);
-  const users = useUsersStore((s) => s.users);
-  const branch = branches.find((b) => b.id === branchId && b.tenantId === tenantId);
+  const setBranches = useBranchesStore((s) => s.setBranches);
+  const branch = branches.find((b) => b.id === branchId);
   const canEdit = can(roleDef, "branch", "edit");
+  const [loading, setLoading] = useState(!branch);
+  const tenantKey = activeTenant.tenantKey ?? 0;
+
+  useEffect(() => {
+    if (branch || tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    listBranches({ tenantId: tenantKey })
+      .then((rows) => {
+        if (cancelled) return;
+        const others = useBranchesStore.getState().branches.filter((b) => b.tenantKey !== tenantKey);
+        setBranches([...others, ...rows]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branch, tenantKey, setBranches]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading branch…</div>;
+  }
 
   if (!branch) {
     return (
@@ -52,9 +76,6 @@ function BranchView({ roleDef }: { roleDef: RoleDef }) {
       </div>
     );
   }
-
-  const company = companies.find((c) => c.id === branch.companyId);
-  const branchEmployees = users.filter((u) => u.branchId === branch.id);
 
   return (
     <div className="space-y-6 p-6">
@@ -77,50 +98,34 @@ function BranchView({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      <Card className="max-w-xl">
+      <Card className="max-w-2xl">
         <CardContent>
           <dl>
             <DetailRow label="Branch name">{branch.name}</DetailRow>
-            <DetailRow label="Branch code">{branch.code}</DetailRow>
-            <DetailRow label="Company">{company?.name ?? "—"}</DetailRow>
-            <DetailRow label="Country">{getCountry(branch.country)?.name ?? branch.country}</DetailRow>
-            <DetailRow label="City">{branch.city}</DetailRow>
+            <DetailRow label="Branch type">{branch.branchTypeName ?? branch.branchTypeId}</DetailRow>
+            <DetailRow label="Company">{branch.companyName ?? branch.companyId}</DetailRow>
+            <DetailRow label="Branch ID">{branch.branchKey}</DetailRow>
+            <DetailRow label="Address">
+              {[branch.address1, branch.address2].filter(Boolean).join(", ") || "—"}
+            </DetailRow>
+            <DetailRow label="Country / City">
+              {branch.countryName ?? branch.countryId} / {branch.cityName ?? branch.cityId}
+            </DetailRow>
+            <DetailRow label="Zip / Dial">
+              {branch.zipCode} / +{branch.countryDialCode}
+            </DetailRow>
+            <DetailRow label="Contact">{branch.contactPerson}</DetailRow>
+            <DetailRow label="Phone / Email">
+              {branch.phoneNumber} / {branch.emailAddress}
+            </DetailRow>
+            <DetailRow label="Fax">{branch.faxNumber || "—"}</DetailRow>
             <DetailRow label="Status">
-              <Badge variant={branch.status === "active" ? "default" : "secondary"}>{branch.status}</Badge>
+              <Badge variant={branch.isActive ? "default" : "secondary"}>
+                {branch.isActive ? "active" : "inactive"}
+              </Badge>
             </DetailRow>
             <DetailRow label="Registered">{new Date(branch.createdAt).toLocaleDateString()}</DetailRow>
           </dl>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-xl">
-        <CardContent>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              Employees ({branchEmployees.length})
-            </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href={`/${role}/masters/employee`} />}
-            >
-              View all employees
-            </Button>
-          </div>
-          {branchEmployees.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No employees assigned to this branch yet.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {branchEmployees.map((user) => (
-                <li key={user.id} className="flex items-center justify-between py-2 text-sm">
-                  <span>{user.name}</span>
-                  <span className="text-muted-foreground">{user.email}</span>
-                </li>
-              ))}
-            </ul>
-          )}
         </CardContent>
       </Card>
     </div>

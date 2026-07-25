@@ -36,13 +36,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Money as MoneyValue } from "@/types";
 
 const PAGE_SIZE = 5;
 const LOADING_MS = 600;
-const STATUSES = ["Active", "Pending", "Confirmed", "Cancelled", "On Hold", "Draft", "Completed"];
+const STATUSES = [
+  "Active",
+  "Pending",
+  "Confirmed",
+  "Cancelled",
+  "On Hold",
+  "Draft",
+  "Completed",
+];
 
 interface ModulePrototypePageProps {
   moduleKey: ModuleKey;
@@ -51,19 +72,29 @@ interface ModulePrototypePageProps {
   description?: string;
 }
 
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+function statusVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
   if (["Active", "Confirmed", "Completed"].includes(status)) return "default";
   if (["Pending", "On Hold", "Draft"].includes(status)) return "secondary";
   if (status === "Cancelled") return "destructive";
   return "outline";
 }
 
-function formatAmount(amount: number | MoneyValue, isMoney: boolean): React.ReactNode {
+function formatAmount(
+  amount: number | MoneyValue,
+  isMoney: boolean,
+): React.ReactNode {
   if (isMoney) return <Money money={amount as MoneyValue} />;
   return new Intl.NumberFormat("en").format(amount as number);
 }
 
-export function ModulePrototypePage({ moduleKey, title, groupLabel, description }: ModulePrototypePageProps) {
+export function ModulePrototypePage({
+  moduleKey,
+  title,
+  groupLabel,
+  description,
+}: ModulePrototypePageProps) {
   const { role } = useParams<{ role: string }>();
   const data = useMemo(() => getModulePrototypeData(moduleKey), [moduleKey]);
   const [loading, setLoading] = useState(true);
@@ -88,14 +119,18 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
         row.reference.toLowerCase().includes(query) ||
         row.name.toLowerCase().includes(query) ||
         row.owner.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === "all" || row.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || row.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [data.rows, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginatedRows = filteredRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -105,8 +140,14 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
 
   return (
     <div className="space-y-6 p-6">
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href={`/${role}/dashboard`} className="inline-flex items-center gap-1 hover:text-foreground">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
+      >
+        <Link
+          href={`/${role}/dashboard`}
+          className="inline-flex items-center gap-1 hover:text-foreground"
+        >
           <Home className="h-3.5 w-3.5" />
           Home
         </Link>
@@ -118,7 +159,10 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
 
       <PageHeader
         title={title}
-        description={description ?? `Sample workspace for ${title.toLowerCase()} — prototype data for demos.`}
+        description={
+          description ??
+          `Sample workspace for ${title.toLowerCase()} — prototype data for demos.`
+        }
         actions={
           <>
             <Button variant="outline" size="sm">
@@ -135,7 +179,7 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div className="relative flex-1 sm:max-w-sm">
-          <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute inset-y-0  my-auto h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search reference, name, or owner..."
             value={search}
@@ -155,7 +199,11 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
             }}
           >
             <SelectTrigger className="w-40">
-              <SelectValue>{(value: string | null) => (value === "all" || !value ? "All statuses" : value)}</SelectValue>
+              <SelectValue>
+                {(value: string | null) =>
+                  value === "all" || !value ? "All statuses" : value
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
@@ -166,8 +214,18 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
               ))}
             </SelectContent>
           </Select>
-          <Input type="date" aria-label="From date" className="w-40" placeholder="From" />
-          <Input type="date" aria-label="To date" className="w-40" placeholder="To" />
+          <Input
+            type="date"
+            aria-label="From date"
+            className="w-40"
+            placeholder="From"
+          />
+          <Input
+            type="date"
+            aria-label="To date"
+            className="w-40"
+            placeholder="To"
+          />
         </div>
       </div>
 
@@ -194,7 +252,10 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               {data.chartType === "bar" ? (
-                <BarChart data={data.chart} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <BarChart
+                  data={data.chart}
+                  margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                >
                   <CartesianGrid vertical={false} stroke="var(--border)" />
                   <XAxis
                     dataKey="label"
@@ -209,11 +270,21 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
                     width={32}
                     tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                   />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-                  <Bar dataKey="value" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                  <Tooltip
+                    content={<ChartTooltip />}
+                    cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="var(--chart-1)"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               ) : (
-                <AreaChart data={data.chart} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <AreaChart
+                  data={data.chart}
+                  margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                >
                   <CartesianGrid vertical={false} stroke="var(--border)" />
                   <XAxis
                     dataKey="label"
@@ -228,7 +299,10 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
                     width={32}
                     tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                   />
-                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: "var(--border)" }} />
+                  <Tooltip
+                    content={<ChartTooltip />}
+                    cursor={{ stroke: "var(--border)" }}
+                  />
                   <Area
                     type="monotone"
                     dataKey="value"
@@ -269,23 +343,31 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
                     <TableHead>Name</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Owner</TableHead>
-                    <TableHead className="text-end">{data.amountColumnLabel}</TableHead>
+                    <TableHead className="text-end">
+                      {data.amountColumnLabel}
+                    </TableHead>
                     <TableHead>Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedRows.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="font-mono text-xs">{row.reference}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {row.reference}
+                      </TableCell>
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>
-                        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                        <Badge variant={statusVariant(row.status)}>
+                          {row.status}
+                        </Badge>
                       </TableCell>
                       <TableCell>{row.owner}</TableCell>
                       <TableCell className="text-end tabular-nums">
                         {formatAmount(row.amount, isMoneyColumn)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{row.updated}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.updated}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -294,7 +376,8 @@ export function ModulePrototypePage({ moduleKey, title, groupLabel, description 
               <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
                   Showing {(safePage - 1) * PAGE_SIZE + 1}–
-                  {Math.min(safePage * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
+                  {Math.min(safePage * PAGE_SIZE, filteredRows.length)} of{" "}
+                  {filteredRows.length}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button

@@ -10,6 +10,7 @@ export type ModuleKey =
   | "company"
   | "branch"
   | "department"
+  | "designation"
   | "employee"
   | "roles"
   | "accessRole"
@@ -233,7 +234,8 @@ export const MENU_ITEMS: MenuItem[] = [
     children: [
       { key: "company", labelKey: "sidebar.company", icon: "Building2", path: "masters/company" },
       { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
-      { key: "department", labelKey: "sidebar.department", icon: "Network", path: "administration/departments" },
+      { key: "department", labelKey: "sidebar.department", icon: "Network", path: "masters/department" },
+      { key: "designation", labelKey: "sidebar.designation", icon: "Briefcase", path: "masters/designation" },
       { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
       { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
       { key: "roles", labelKey: "sidebar.roles", icon: "KeyRound", path: "masters/roles" },

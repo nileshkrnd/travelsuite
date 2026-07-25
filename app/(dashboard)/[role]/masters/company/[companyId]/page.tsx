@@ -10,11 +10,11 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { Branch } from "@/types";
 import { useCompaniesStore } from "@/lib/store/companies.store";
-import { useBranchesStore } from "@/lib/store/branches.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { listCompanies } from "@/lib/services/db-companies.service";
-import { getCountry } from "@/config/countries";
+import { listBranches } from "@/lib/services/db-branches.service";
 import { can } from "@/config/permissions";
 import type { RoleDef } from "@/types";
 
@@ -33,10 +33,10 @@ function CompanyView({ roleDef }: { roleDef: RoleDef }) {
   const activeTenant = useTenantStore((s) => s.tenant);
   const companies = useCompaniesStore((s) => s.companies);
   const setCompanies = useCompaniesStore((s) => s.setCompanies);
-  const branches = useBranchesStore((s) => s.branches);
   const company = companies.find((c) => c.id === companyId && c.tenantId === tenantId);
   const canEdit = can(roleDef, "company", "edit");
   const [loading, setLoading] = useState(!company);
+  const [companyBranches, setCompanyBranches] = useState<Branch[]>([]);
   const tenantKey = activeTenant.tenantKey ?? 0;
 
   useEffect(() => {
@@ -59,6 +59,21 @@ function CompanyView({ roleDef }: { roleDef: RoleDef }) {
     };
   }, [company, tenantKey, setCompanies]);
 
+  useEffect(() => {
+    if (!company?.companyKey) return;
+    let cancelled = false;
+    listBranches({ companyId: company.companyKey })
+      .then((rows) => {
+        if (!cancelled) setCompanyBranches(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyBranches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [company?.companyKey]);
+
   if (loading) {
     return <div className="p-6 text-sm text-muted-foreground">Loading company…</div>;
   }
@@ -80,8 +95,6 @@ function CompanyView({ roleDef }: { roleDef: RoleDef }) {
       </div>
     );
   }
-
-  const companyBranches = branches.filter((b) => b.companyId === company.id);
 
   return (
     <div className="space-y-6 p-6">
@@ -154,7 +167,7 @@ function CompanyView({ roleDef }: { roleDef: RoleDef }) {
                 <li key={branch.id} className="flex items-center justify-between py-2 text-sm">
                   <span>{branch.name}</span>
                   <span className="text-muted-foreground">
-                    {branch.city}, {getCountry(branch.country)?.name ?? branch.country}
+                    {branch.cityName ?? branch.cityId}, {branch.countryName ?? branch.countryId}
                   </span>
                 </li>
               ))}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Plus,
   GitBranch,
@@ -31,14 +32,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { getCountry } from "@/config/countries";
+import { listBranches, setBranchActive, BranchesApiError } from "@/lib/services/db-branches.service";
+import { listCompanies } from "@/lib/services/db-companies.service";
+import { contrastForeground } from "@/lib/color";
+import { initials } from "@/lib/utils";
 import { can } from "@/config/permissions";
 import type { Branch, RoleDef } from "@/types";
 
-type SortKey = "name" | "code" | "status" | "createdAt";
+type SortKey = "name" | "status" | "createdAt";
 
 function StatCard({
   icon: Icon,
@@ -67,26 +72,61 @@ function StatCard({
 function BranchList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
-  const tenantId = useTenantStore((s) => s.tenantId);
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenant = useTenantStore((s) => s.tenant);
+  const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
   const allBranches = useBranchesStore((s) => s.branches);
-  const branches = useMemo(
-    () => allBranches.filter((b) => b.tenantId === tenantId),
-    [allBranches, tenantId]
-  );
-  const updateBranch = useBranchesStore((s) => s.updateBranch);
-  const allCompanies = useCompaniesStore((s) => s.companies);
-  const companies = useMemo(
-    () => allCompanies.filter((c) => c.tenantId === tenantId),
-    [allCompanies, tenantId]
-  );
+  const setBranches = useBranchesStore((s) => s.setBranches);
+  const upsertBranch = useBranchesStore((s) => s.upsertBranch);
+  const companies = useCompaniesStore((s) => s.companies);
+  const setCompanies = useCompaniesStore((s) => s.setCompanies);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canCreate = can(roleDef, "branch", "create");
   const canEdit = can(roleDef, "branch", "edit");
+  const actorKey = sessionUser?.userKey ?? 0;
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
 
-  const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? "—";
+  const branches = useMemo(
+    () => allBranches.filter((b) => b.tenantKey === tenantKey),
+    [allBranches, tenantKey]
+  );
+  const tenantCompanies = useMemo(
+    () => companies.filter((c) => c.tenantKey === tenantKey),
+    [companies, tenantKey]
+  );
+  const companyName = (companyId: string) => companies.find((c) => c.id === companyId)?.name ?? "—";
+
+  useEffect(() => {
+    if (tenantKey <= 0) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([listBranches({ tenantId: tenantKey }), listCompanies({ tenantId: tenantKey })])
+      .then(([branchRows, companyRows]) => {
+        if (cancelled) return;
+        const otherBranches = useBranchesStore.getState().branches.filter((b) => b.tenantKey !== tenantKey);
+        setBranches([...otherBranches, ...branchRows]);
+        const otherCompanies = useCompaniesStore.getState().companies.filter((c) => c.tenantKey !== tenantKey);
+        setCompanies([...otherCompanies, ...companyRows]);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof BranchesApiError ? err.message : "Failed to load branches");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantKey, setBranches, setCompanies]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -104,9 +144,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
       result = result.filter((b) => b.companyId === companyFilter);
     }
     if (term) {
-      result = result.filter(
-        (b) => b.name.toLowerCase().includes(term) || b.code.toLowerCase().includes(term)
-      );
+      result = result.filter((b) => b.name.toLowerCase().includes(term));
     }
     if (sortKey) {
       result = [...result].sort((a, b) => {
@@ -117,10 +155,20 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
     return result;
   }, [branches, search, companyFilter, sortKey, sortDirection]);
 
-  const activeCount = branches.filter((b) => b.status === "active").length;
+  const activeCount = branches.filter((b) => b.isActive).length;
 
-  function toggleStatus(branch: Branch) {
-    updateBranch(branch.id, { status: branch.status === "active" ? "inactive" : "active" });
+  async function toggleStatus(branch: Branch) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setBranchActive(branch.branchKey, !branch.isActive, actorKey);
+      upsertBranch(saved);
+      toast.success(saved.isActive ? "Branch activated" : "Branch deactivated");
+    } catch (error) {
+      toast.error(error instanceof BranchesApiError ? error.message : "Could not update branch");
+    }
   }
 
   function goToView(branch: Branch) {
@@ -137,7 +185,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
             <Button
               nativeButton={false}
               render={<Link href={`/${role}/masters/branch/new`} />}
-              disabled={companies.length === 0}
+              disabled={tenantCompanies.length === 0}
             >
               <Plus className="h-4 w-4" />
               Add branch
@@ -145,6 +193,8 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
           ) : undefined
         }
       />
+
+      {loading && <p className="text-sm text-muted-foreground">Loading branches…</p>}
 
       {branches.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
@@ -154,28 +204,26 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
         </div>
       )}
 
-      {companies.length > 0 && (
+      {tenantCompanies.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or code..."
+              placeholder="Search by name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="ps-9"
             />
           </div>
-          <Select value={companyFilter} onValueChange={(value) => setCompanyFilter(value ?? "all")}>
+          <Select value={companyFilter} onValueChange={(v) => setCompanyFilter(v ?? "all")}>
             <SelectTrigger className="w-56">
               <SelectValue>
-                {(value: string | null) =>
-                  !value || value === "all" ? "All companies" : companyName(value)
-                }
+                {(value: string | null) => (!value || value === "all" ? "All companies" : companyName(value))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All companies</SelectItem>
-              {companies.map((c) => (
+              {tenantCompanies.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
@@ -186,7 +234,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       <Card>
-        {companies.length === 0 ? (
+        {!loading && tenantCompanies.length === 0 ? (
           <EmptyState
             icon={GitBranch}
             tone="muted"
@@ -194,7 +242,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
             description="Branches belong to a company — create one under Masters → Company."
             size="compact"
           />
-        ) : branches.length === 0 ? (
+        ) : !loading && branches.length === 0 ? (
           <EmptyState
             icon={GitBranch}
             tone="primary"
@@ -202,7 +250,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
             description="Add a branch to get started."
             size="compact"
           />
-        ) : visibleBranches.length === 0 ? (
+        ) : visibleBranches.length === 0 && !loading ? (
           <EmptyState
             icon={Search}
             tone="muted"
@@ -218,9 +266,7 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
-                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
-                  Branch code
-                </SortableTableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>Location</TableHead>
                 <SortableTableHead
@@ -246,15 +292,22 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
               {visibleBranches.map((branch, index) => (
                 <TableRow key={branch.id} onClick={() => goToView(branch)} className="cursor-pointer">
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell className="font-medium">{branch.name}</TableCell>
                   <TableCell>
-                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
-                      {branch.code}
-                    </code>
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold"
+                        style={{ backgroundColor: accentColor, color: contrastForeground(accentColor) }}
+                        aria-hidden
+                      >
+                        {initials(branch.name)}
+                      </div>
+                      <span className="font-medium">{branch.name}</span>
+                    </div>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{branch.branchTypeName ?? "—"}</TableCell>
                   <TableCell>{companyName(branch.companyId)}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {branch.city}, {getCountry(branch.country)?.name ?? branch.country}
+                    {branch.cityName ?? branch.cityId}, {branch.countryName ?? branch.countryId}
                   </TableCell>
                   <TableCell>
                     <Badge variant={branch.status === "active" ? "default" : "secondary"} className="gap-1">
@@ -281,19 +334,17 @@ function BranchList({ roleDef }: { roleDef: RoleDef }) {
                         </DropdownMenuItem>
                         {canEdit && (
                           <>
-                            <DropdownMenuItem
-                              render={<Link href={`/${role}/masters/branch/${branch.id}/edit`} />}
-                            >
+                            <DropdownMenuItem render={<Link href={`/${role}/masters/branch/${branch.id}/edit`} />}>
                               <Pencil className="h-4 w-4" />
                               Modify
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleStatus(branch)}>
-                              {branch.status === "active" ? (
+                            <DropdownMenuItem onClick={() => void toggleStatus(branch)}>
+                              {branch.isActive ? (
                                 <PowerOff className="h-4 w-4" />
                               ) : (
                                 <Power className="h-4 w-4" />
                               )}
-                              {branch.status === "active" ? "Deactivate" : "Activate"}
+                              {branch.isActive ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
                           </>
                         )}
