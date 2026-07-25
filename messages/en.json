@@ -28,7 +28,7 @@
     },
     "selectTenant": {
       "title": "Choose a workspace",
-      "subtitle": "Select the holding tenant you'd like to manage, {name}",
+      "subtitle": "Select a tenant to manage, or skip into platform settings, {name}",
       "companiesHint": "Operating businesses (e.g. Regency Travel & Tours) are Companies inside the tenant — switch them from the top bar after you enter.",
       "searchPlaceholder": "Search by tenant name, city, or code…",
       "tenantCount": "{count} tenants",
@@ -38,6 +38,9 @@
       "clearSearch": "Clear search",
       "select": "Enter workspace",
       "success": "Switched to {name}",
+      "skipTitle": "Skip — platform settings",
+      "skipDescription": "Tenant registration, Country, City, Currency, Region — no tenant selected.",
+      "skipSuccess": "Entered platform settings",
       "noSession": "Please sign in to choose a workspace.",
       "logout": "Sign out"
     },
@@ -92,7 +95,10 @@
     "approvalMatrix": "Approval Matrix",
     "holidays": "Holidays",
     "mastersHub": "Masters",
-    "tenantProfile": "Tenant",
+    "tenantProfile": "Tenant registration",
+    "globalTenantSettings": "Global Tenant Setting",
+    "country": "Country",
+    "city": "City",
     "region": "Region",
     "currency": "Currency",
     "product": "Product",
@@ -244,6 +250,7 @@
     "profile": "Profile",
     "settings": "Settings",
     "switchTenant": "Switch tenant",
+    "unselectTenant": "Unselect tenant",
     "logout": "Log out"
   }
 }

@@ -19,8 +19,14 @@ export function MarketingHeader() {
   return (
     <header className="absolute inset-x-0 top-0 z-40">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="text-base font-semibold tracking-tight text-white">
-          {SAAS_BRAND.name}
+        <Link href="/" className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={SAAS_BRAND.faviconUrl}
+            alt={SAAS_BRAND.name}
+            className="h-8 w-8 rounded-md bg-white/95 object-contain p-0.5"
+          />
+          <span className="text-base font-semibold tracking-tight text-white">{SAAS_BRAND.name}</span>
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">

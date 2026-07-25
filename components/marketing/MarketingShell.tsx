@@ -58,7 +58,16 @@ function MarketingNav() {
       )}
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-        <Link href="/" className="group flex items-baseline gap-1.5">
+        <Link href="/" className="group flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={SAAS_BRAND.faviconUrl}
+            alt=""
+            className={cn(
+              "h-8 w-8 rounded-md object-contain p-0.5",
+              onDarkHero && !scrolled && !open ? "bg-white/95" : "bg-white"
+            )}
+          />
           <span className="text-lg font-semibold tracking-tight">{SAAS_BRAND.name}</span>
           <span
             className={cn(

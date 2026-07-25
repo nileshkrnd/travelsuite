@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useHydrateTenants } from "@/lib/hooks/useHydrateTenants";
+import { useHydrateReferenceMasters } from "@/lib/hooks/useReferenceMasters";
+import { useReferenceStore } from "@/lib/store/reference.store";
 import { can } from "@/config/permissions";
-import { currencyMeta } from "@/mock/data/exchangeRates";
 import { LOCALE_LABELS } from "@/config/i18n/locales";
-import { getCountry } from "@/config/countries";
 import type { RoleDef } from "@/types";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -32,8 +33,16 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
   const router = useRouter();
   const tenants = useTenantsStore((s) => s.tenants);
   const setTenant = useTenantStore((s) => s.setTenant);
+  const { loading, error } = useHydrateTenants();
+  const { loading: referenceLoading } = useHydrateReferenceMasters();
+  const countries = useReferenceStore((s) => s.countries);
+  const currencies = useReferenceStore((s) => s.currencies);
   const tenant = tenants.find((t) => t.id === tenantId);
   const canEdit = can(roleDef, "tenantProfile", "edit");
+
+  if (loading || referenceLoading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading tenant…</div>;
+  }
 
   if (!tenant) {
     return (
@@ -42,7 +51,7 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
           icon={Building}
           tone="muted"
           heading="Tenant not found"
-          description="This tenant may have been removed."
+          description={error ?? "This tenant may have been removed."}
           action={
             <Button nativeButton={false} render={<Link href={`/${role}/masters/tenant`} />}>
               Back to list
@@ -106,7 +115,10 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
                 </div>
               </DetailRow>
               <DetailRow label="Currency">
-                {tenant.defaultCurrency} — {currencyMeta[tenant.defaultCurrency].name}
+                {(() => {
+                  const meta = currencies.find((c) => c.code === tenant.defaultCurrency);
+                  return meta ? `${meta.code} — ${meta.name}` : tenant.defaultCurrency;
+                })()}
               </DetailRow>
               <DetailRow label="Default language">
                 {LOCALE_LABELS[tenant.defaultLocale] ?? tenant.defaultLocale}
@@ -122,7 +134,9 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
                 {tenant.address.line1}
                 {tenant.address.line2 ? `, ${tenant.address.line2}` : ""}
               </DetailRow>
-              <DetailRow label="Country">{getCountry(tenant.address.country)?.name ?? tenant.address.country}</DetailRow>
+              <DetailRow label="Country">
+                {countries.find((c) => c.code === tenant.address.country)?.name ?? tenant.address.country}
+              </DetailRow>
               <DetailRow label="City">{tenant.address.city}</DetailRow>
               <DetailRow label="Zip / postal code">{tenant.address.zip}</DetailRow>
               <DetailRow label="Timezone">{tenant.address.timezone}</DetailRow>

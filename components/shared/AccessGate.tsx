@@ -3,7 +3,12 @@
 import { ShieldAlert } from "lucide-react";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
-import { can, type ModuleKey, type PermissionAction } from "@/config/permissions";
+import {
+  can,
+  GLOBAL_TENANT_SETTING_KEYS,
+  type ModuleKey,
+  type PermissionAction,
+} from "@/config/permissions";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { RoleDef } from "@/types";
@@ -15,8 +20,8 @@ interface AccessGateProps {
   children: (roleDef: RoleDef) => React.ReactNode;
 }
 
-/** Multi-tenant registry is Super Admin only — never expose to Tenant Admin. */
-const SUPER_ADMIN_ONLY_MODULES = new Set<ModuleKey>(["tenantProfile"]);
+/** Super Admin platform settings (tenant registration + global masters). */
+const SUPER_ADMIN_ONLY_MODULES = new Set<ModuleKey>(GLOBAL_TENANT_SETTING_KEYS);
 
 /** Gates a full page behind a permission check, showing a consistent "Access restricted" state otherwise. */
 export function AccessGate({ module, action = "view", children }: AccessGateProps) {

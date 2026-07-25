@@ -22,6 +22,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Klyra Admin",
   description: "Multi-tenant travel, property & CRM platform",
+  icons: {
+    icon: [{ url: "/brand/klyra-favicon.png", type: "image/png" }],
+    apple: [{ url: "/brand/klyra-favicon.png" }],
+  },
 };
 
 export default async function RootLayout({

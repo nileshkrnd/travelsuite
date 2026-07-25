@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +23,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCurrenciesStore } from "@/lib/store/currencies.store";
+import {
+  createCurrency,
+  listCurrencies,
+  setCurrencyStatus,
+  updateCurrency as updateCurrencyApi,
+  CurrenciesApiError,
+} from "@/lib/services/currencies.service";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useUsersStore } from "@/lib/store/users.store";
+import { useReferenceStore } from "@/lib/store/reference.store";
 import { can } from "@/config/permissions";
 import type { Currency, RoleDef } from "@/types";
 
@@ -58,15 +67,17 @@ function CurrencyPanel({
   mode,
   currency,
   currencies,
+  actorKey,
+  onSaved,
   onClose,
 }: {
   mode: Exclude<PanelMode, "closed">;
   currency?: Currency;
   currencies: Currency[];
+  actorKey: number;
+  onSaved: (currency: Currency) => void;
   onClose: () => void;
 }) {
-  const addCurrency = useCurrenciesStore((s) => s.addCurrency);
-  const updateCurrency = useCurrenciesStore((s) => s.updateCurrency);
   const schema = useCurrencySchema(currencies, currency?.id);
   const isReadOnly = mode === "view";
 
@@ -85,24 +96,39 @@ function CurrencyPanel({
   });
 
   async function onSubmit(values: FormValues) {
-    if (mode === "edit" && currency) {
-      updateCurrency(currency.id, {
-        code: values.code.trim(),
-        name: values.name.trim(),
-        smallCurrencyName: values.smallCurrencyName.trim(),
-        significantDigit: values.significantDigit,
-      });
-      toast.success("Currency updated");
-    } else if (mode === "create") {
-      addCurrency({
-        code: values.code.trim(),
-        name: values.name.trim(),
-        smallCurrencyName: values.smallCurrencyName.trim(),
-        significantDigit: values.significantDigit,
-      });
-      toast.success("Currency created");
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again before saving currencies.");
+      return;
     }
-    onClose();
+
+    try {
+      if (mode === "edit" && currency) {
+        const saved = await updateCurrencyApi(currency.currencyKey, {
+          currencyCode: values.code.trim(),
+          currencyName: values.name.trim(),
+          symbol: currency.symbol,
+          smallCurrencyName: values.smallCurrencyName.trim(),
+          significantDigit: values.significantDigit,
+          status: currency.status,
+          modifiedBy: actorKey,
+        });
+        onSaved(saved);
+        toast.success("Currency updated");
+      } else if (mode === "create") {
+        const created = await createCurrency({
+          currencyCode: values.code.trim(),
+          currencyName: values.name.trim(),
+          smallCurrencyName: values.smallCurrencyName.trim(),
+          significantDigit: values.significantDigit,
+          createdBy: actorKey,
+        });
+        onSaved(created);
+        toast.success("Currency created");
+      }
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof CurrenciesApiError ? error.message : "Could not save currency");
+    }
   }
 
   return (
@@ -129,7 +155,7 @@ function CurrencyPanel({
           <Input
             id="currencyCode"
             autoFocus={mode !== "view"}
-            disabled={isReadOnly}
+            disabled={isReadOnly || mode === "edit"}
             aria-invalid={!!errors.code}
             {...register("code")}
           />
@@ -202,8 +228,12 @@ function CurrencyPanel({
 }
 
 function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
-  const currencies = useCurrenciesStore((s) => s.currencies);
-  const updateCurrency = useCurrenciesStore((s) => s.updateCurrency);
+  const user = useSessionStore((s) => s.user);
+  const users = useUsersStore((s) => s.users);
+  const setReferenceCurrencies = useReferenceStore((s) => s.setCurrencies);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("closed");
   const [target, setTarget] = useState<Currency | undefined>();
   const [search, setSearch] = useState("");
@@ -212,6 +242,29 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canEdit = can(roleDef, "currency", "edit");
   const canCreate = can(roleDef, "currency", "create");
+  const actorKey = user
+    ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
+    : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    listCurrencies()
+      .then((rows) => {
+        if (cancelled) return;
+        setCurrencies(rows);
+        setReferenceCurrencies(rows.filter((c) => c.status === "active"));
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof CurrenciesApiError ? err.message : "Failed to load currencies");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setReferenceCurrencies]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -242,6 +295,33 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
     return result;
   }, [currencies, search, statusFilter, sortKey, sortDirection]);
 
+  function upsertLocal(currency: Currency) {
+    setCurrencies((prev) => {
+      const idx = prev.findIndex((c) => c.id === currency.id);
+      const next = idx === -1 ? [...prev, currency] : prev.map((c, i) => (i === idx ? currency : c));
+      setReferenceCurrencies(next.filter((c) => c.status === "active"));
+      return next;
+    });
+  }
+
+  async function toggleStatus(currency: Currency) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setCurrencyStatus(
+        currency.currencyKey,
+        currency.status === "active" ? "inactive" : "active",
+        actorKey
+      );
+      upsertLocal(saved);
+      toast.success(saved.status === "active" ? "Currency activated" : "Currency deactivated");
+    } catch (error) {
+      toast.error(error instanceof CurrenciesApiError ? error.message : "Could not update status");
+    }
+  }
+
   function openCreate() {
     setTarget(undefined);
     setPanelMode("create");
@@ -263,7 +343,7 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Currency"
-        description="Currencies available for pricing and billing across your tenant."
+        description="Global currency master used across all tenants (not company-scoped)."
         actions={
           canCreate && panelMode === "closed" ? (
             <Button onClick={openCreate}>
@@ -274,8 +354,18 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
+      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading currencies…</p>}
+
       {panelMode !== "closed" && (
-        <CurrencyPanel mode={panelMode} currency={target} currencies={currencies} onClose={closePanel} />
+        <CurrencyPanel
+          mode={panelMode}
+          currency={target}
+          currencies={currencies}
+          actorKey={actorKey}
+          onSaved={upsertLocal}
+          onClose={closePanel}
+        />
       )}
 
       {currencies.length > 0 && (
@@ -303,7 +393,7 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       <Card>
-        {currencies.length === 0 ? (
+        {!loading && currencies.length === 0 ? (
           <EmptyState
             icon={Coins}
             tone="primary"
@@ -311,7 +401,7 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
             description="Add your first currency to get started."
             size="compact"
           />
-        ) : visibleCurrencies.length === 0 ? (
+        ) : visibleCurrencies.length === 0 && !loading ? (
           <EmptyState
             icon={Search}
             tone="muted"
@@ -391,13 +481,7 @@ function CurrencyList({ roleDef }: { roleDef: RoleDef }) {
                         {canEdit && (
                           <>
                             <DropdownMenuItem onClick={() => openEdit(currency)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                updateCurrency(currency.id, {
-                                  status: currency.status === "active" ? "inactive" : "active",
-                                })
-                              }
-                            >
+                            <DropdownMenuItem onClick={() => void toggleStatus(currency)}>
                               {currency.status === "active" ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
                           </>

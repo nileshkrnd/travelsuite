@@ -15,7 +15,9 @@ import {
   PowerOff,
   CheckCircle2,
   CircleDashed,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -33,6 +35,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useUsersStore } from "@/lib/store/users.store";
+import { useHydrateTenants } from "@/lib/hooks/useHydrateTenants";
+import { setTenantStatus, TenantsApiError } from "@/lib/services/tenants.service";
 import { can } from "@/config/permissions";
 import type { RoleDef, Tenant } from "@/types";
 
@@ -65,13 +71,19 @@ function StatCard({
 function TenantList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
+  const user = useSessionStore((s) => s.user);
+  const users = useUsersStore((s) => s.users);
   const tenants = useTenantsStore((s) => s.tenants);
-  const updateTenant = useTenantsStore((s) => s.updateTenant);
+  const upsertTenant = useTenantsStore((s) => s.upsertTenant);
+  const { loading, error } = useHydrateTenants();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canCreate = can(roleDef, "tenantProfile", "create");
   const canEdit = can(roleDef, "tenantProfile", "edit");
+  const actorKey = user
+    ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
+    : 0;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -120,8 +132,22 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
 
   const activeCount = tenants.filter((t) => t.status === "active").length;
 
-  function toggleStatus(tenant: Tenant) {
-    updateTenant(tenant.id, { status: tenant.status === "active" ? "inactive" : "active" });
+  async function toggleStatus(tenant: Tenant) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setTenantStatus(
+        tenant.tenantKey,
+        tenant.status === "active" ? "inactive" : "active",
+        actorKey
+      );
+      upsertTenant(saved);
+      toast.success(saved.status === "active" ? "Tenant activated" : "Tenant deactivated");
+    } catch (err) {
+      toast.error(err instanceof TenantsApiError ? err.message : "Could not update status");
+    }
   }
 
   function goToView(tenant: Tenant) {
@@ -132,7 +158,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Tenant"
-        description="Organizations registered on Klyra. Each tenant has its own companies, branches, and employees."
+        description="Primary PostgreSQL entry point — holdings registered on Klyra. Companies and regions hang off TenantID."
         actions={
           canCreate ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/tenant/new`} />}>
@@ -143,7 +169,24 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      {tenants.length > 0 && (
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading tenants from database…
+        </div>
+      )}
+
+      {error && !loading && (
+        <EmptyState
+          icon={Building}
+          tone="muted"
+          heading="Could not load tenants"
+          description={error}
+          size="compact"
+        />
+      )}
+
+      {!loading && !error && tenants.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
           <StatCard icon={Building2} label="Total tenants" value={tenants.length} />
           <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
@@ -151,7 +194,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
         </div>
       )}
 
-      {tenants.length > 0 && (
+      {!loading && !error && tenants.length > 0 && (
         <div className="relative sm:w-64">
           <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
           <Input
@@ -164,7 +207,12 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       <Card>
-        {tenants.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading…
+          </div>
+        ) : error ? null : tenants.length === 0 ? (
           <EmptyState
             icon={Building}
             tone="primary"

@@ -1,16 +1,23 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTenantStore } from "@/lib/store/tenant.store";
+import { useSessionStore } from "@/lib/store/session.store";
+import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
+import { BrandFavicon } from "@/components/layout/BrandFavicon";
 import { contrastForeground } from "@/lib/color";
+import { SAAS_BRAND } from "@/config/saasBrand";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 
 /**
- * Applies the active tenant's brand color to the shadcn design tokens at
- * runtime, so every component that reads --primary/--ring/--sidebar-primary
- * picks up the tenant's accent color with no per-component branching.
+ * Applies brand color tokens and keeps favicon in sync with chrome brand
+ * (Klyra for Super Admin, tenant branding for Tenant Admin).
  */
 export function TenantThemeProvider({ children }: { children: React.ReactNode }) {
-  const primaryColor = useTenantStore((s) => s.tenant.branding.primaryColor);
+  const user = useSessionStore((s) => s.user);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const tenantPrimary = useTenantStore((s) => s.tenant.branding.primaryColor);
+  const platformMode = !user || (user.roleId === SUPER_ADMIN_ROLE_ID && isPlatformMode(tenantId));
+  const primaryColor = platformMode ? SAAS_BRAND.primaryColor : tenantPrimary;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -23,5 +30,10 @@ export function TenantThemeProvider({ children }: { children: React.ReactNode })
     root.style.setProperty("--sidebar-ring", primaryColor);
   }, [primaryColor]);
 
-  return <>{children}</>;
+  return (
+    <>
+      <BrandFavicon />
+      {children}
+    </>
+  );
 }

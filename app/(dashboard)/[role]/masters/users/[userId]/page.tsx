@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Users, Pencil, Power, PowerOff } from "lucide-react";
@@ -11,20 +12,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
-import { useRolesStore } from "@/lib/store/roles.store";
-import { useOrgName } from "@/lib/hooks/useOrgName";
+import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users.service";
 import { initials } from "@/lib/utils";
 import { can } from "@/config/permissions";
-import type { RoleCategory, RoleDef } from "@/types";
+import type { RoleDef, UserScope } from "@/types";
 
-const CATEGORY_LABELS: Record<RoleCategory, string> = {
-  internal: "Internal Staff",
-  agency: "Agency",
-  subAgency: "SubAgency",
-  corporate: "Corporate",
-  supplier: "Supplier",
-};
+function scopeLabel(scope: UserScope) {
+  if (scope === "superAdmin") return "Super Admin";
+  if (scope === "tenantAdmin") return "Tenant Admin";
+  return "Employee";
+}
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -37,13 +36,36 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function UserView({ roleDef }: { roleDef: RoleDef }) {
   const { role, userId } = useParams<{ role: string; userId: string }>();
+  const sessionUser = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
-  const setUserStatus = useUsersStore((s) => s.setUserStatus);
-  const roles = useRolesStore((s) => s.roles);
-  const getOrgName = useOrgName();
+  const setUsers = useUsersStore((s) => s.setUsers);
+  const upsertUser = useUsersStore((s) => s.upsertUser);
+  const [loading, setLoading] = useState(users.length === 0);
   const user = users.find((u) => u.id === userId);
   const canEdit = can(roleDef, "users", "edit");
-  const canDelete = can(roleDef, "users", "delete");
+  const actorKey = sessionUser?.userKey ?? 0;
+
+  useEffect(() => {
+    if (user) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    listUsers()
+      .then((rows) => {
+        if (!cancelled) setUsers(rows);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, setUsers]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading user…</div>;
+  }
 
   if (!user) {
     return (
@@ -63,70 +85,81 @@ function UserView({ roleDef }: { roleDef: RoleDef }) {
     );
   }
 
-  const userRole = roles.find((r) => r.id === user.roleId);
-
-  function toggleStatus() {
-    setUserStatus(user!.id, user!.status === "deactivated" ? "active" : "deactivated");
-    toast.success(user!.status === "deactivated" ? "User reactivated" : "User deactivated");
+  async function toggleStatus() {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setUserActive(user!.userKey, !user!.isActive, actorKey);
+      upsertUser(saved);
+      toast.success(saved.isActive ? "User activated" : "User deactivated");
+    } catch (error) {
+      toast.error(error instanceof UsersApiError ? error.message : "Could not update status");
+    }
   }
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title={user.name}
-        description="User details."
+        description="User master details."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/users`} />}>
               <ArrowLeft className="h-4 w-4" />
               Back to list
             </Button>
-            {canDelete && (
-              <Button variant="outline" onClick={toggleStatus}>
-                {user.status === "deactivated" ? (
-                  <Power className="h-4 w-4" />
-                ) : (
-                  <PowerOff className="h-4 w-4" />
-                )}
-                {user.status === "deactivated" ? "Reactivate" : "Deactivate"}
-              </Button>
-            )}
             {canEdit && (
-              <Button nativeButton={false} render={<Link href={`/${role}/masters/users/${user.id}/edit`} />}>
-                <Pencil className="h-4 w-4" />
-                Modify
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link href={`/${role}/masters/users/${user.id}/edit`} />}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="outline" onClick={() => void toggleStatus()}>
+                  {user.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                  {user.isActive ? "Deactivate" : "Activate"}
+                </Button>
+              </>
             )}
           </div>
         }
       />
 
-      <Card className="max-w-xl">
-        <CardContent>
-          <div className="mb-4 flex items-center gap-3">
-            <Avatar size="lg">
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex items-center gap-3">
+            <Avatar>
               <AvatarFallback>{initials(user.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-base font-semibold text-foreground">{user.name}</p>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
+              <p className="font-semibold">{user.name}</p>
+              <p className="text-sm text-muted-foreground">{user.username}</p>
             </div>
           </div>
           <dl>
-            <DetailRow label="Category">
-              {userRole ? CATEGORY_LABELS[userRole.category] : "—"}
-            </DetailRow>
-            <DetailRow label="Role">{userRole?.name ?? "—"}</DetailRow>
-            <DetailRow label="Organization">{getOrgName(user)}</DetailRow>
-            <DetailRow label="Department">{user.department || "—"}</DetailRow>
+            <DetailRow label="User ID">{user.userKey}</DetailRow>
+            <DetailRow label="Scope">{scopeLabel(user.scope)}</DetailRow>
+            <DetailRow label="Tenant ID">{user.tenantKey}</DetailRow>
+            <DetailRow label="Company ID">{user.companyKey}</DetailRow>
             <DetailRow label="Status">
-              <Badge
-                variant={user.status === "active" ? "default" : user.status === "invited" ? "secondary" : "outline"}
-              >
-                {user.status}
+              <Badge variant={user.isActive ? "default" : "secondary"}>
+                {user.isActive ? "active" : "inactive"}
               </Badge>
             </DetailRow>
-            <DetailRow label="Registered">{new Date(user.createdAt).toLocaleDateString()}</DetailRow>
+            <DetailRow label="Created">{new Date(user.createdAt).toLocaleString()}</DetailRow>
+            <DetailRow label="Last login">
+              {user.lastLoggedInDtTm ? new Date(user.lastLoggedInDtTm).toLocaleString() : "—"}
+            </DetailRow>
+            <DetailRow label="Last password change">
+              {user.lastPasswordChangeDtTm
+                ? new Date(user.lastPasswordChangeDtTm).toLocaleString()
+                : "—"}
+            </DetailRow>
           </dl>
         </CardContent>
       </Card>
@@ -134,6 +167,6 @@ function UserView({ roleDef }: { roleDef: RoleDef }) {
   );
 }
 
-export default function UserViewPage() {
+export default function UserDetailPage() {
   return <AccessGate module="users">{(roleDef) => <UserView roleDef={roleDef} />}</AccessGate>;
 }

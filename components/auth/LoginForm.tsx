@@ -88,11 +88,13 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
       login(user);
       toast.success(t("success", { name: user.name }));
 
-      if (user.roleId === SUPER_ADMIN_ROLE_ID) {
+      if (user.roleId === SUPER_ADMIN_ROLE_ID || user.scope === "superAdmin") {
+        // Start in platform mode; select-tenant can enter a specific tenant or skip.
+        resetToDefaultBranding();
         router.push("/select-tenant");
         return;
       }
-      setTenant(user.tenantId);
+      if (user.tenantId) setTenant(user.tenantId);
       router.push(roleHomePath(roleDef));
     } catch (err) {
       setServerError(err instanceof InvalidCredentialsError ? t("invalidCredentials") : t("invalidCredentials"));

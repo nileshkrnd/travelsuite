@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Plus,
   Users,
@@ -13,7 +14,8 @@ import {
   Power,
   PowerOff,
   CheckCircle2,
-  MailQuestion,
+  Shield,
+  Building2,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -32,24 +34,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
-import { useRolesStore } from "@/lib/store/roles.store";
-import { useTenantStore } from "@/lib/store/tenant.store";
-import { useOrgName } from "@/lib/hooks/useOrgName";
+import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
+import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users.service";
 import { can } from "@/config/permissions";
 import { initials } from "@/lib/utils";
-import type { RoleCategory, RoleDef, User } from "@/types";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import type { RoleDef, User, UserScope } from "@/types";
 
-const CATEGORY_LABELS: Record<RoleCategory, string> = {
-  internal: "Internal Staff",
-  agency: "Agency",
-  subAgency: "SubAgency",
-  corporate: "Corporate",
-  supplier: "Supplier",
-};
-const CATEGORIES: RoleCategory[] = ["internal", "agency", "subAgency", "corporate", "supplier"];
+type SortKey = "name" | "username" | "scope" | "createdAt";
+type ScopeFilter = "all" | UserScope;
 
-type SortKey = "name" | "status" | "createdAt";
+function scopeLabel(scope: UserScope) {
+  if (scope === "superAdmin") return "Super Admin";
+  if (scope === "tenantAdmin") return "Tenant Admin";
+  return "Employee";
+}
 
 function StatCard({
   icon: Icon,
@@ -78,22 +79,55 @@ function StatCard({
 function UsersList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
-  const tenantId = useTenantStore((s) => s.tenantId);
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenantId = useTenantStore((s) => s.tenantId);
+  const activeTenant = useTenantStore((s) => s.tenant);
   const users = useUsersStore((s) => s.users);
-  const setUserStatus = useUsersStore((s) => s.setUserStatus);
-  const roles = useRolesStore((s) => s.roles);
-  const getOrgName = useOrgName();
-
+  const setUsers = useUsersStore((s) => s.setUsers);
+  const upsertUser = useUsersStore((s) => s.upsertUser);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
+  const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
   const canEdit = can(roleDef, "users", "edit");
   const canCreate = can(roleDef, "users", "create");
-  const canDelete = can(roleDef, "users", "delete");
+  const actorKey = sessionUser?.userKey ?? 0;
 
-  const roleFor = (id: string) => roles.find((r) => r.id === id);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const opts =
+      isSuperAdmin && platformMode
+        ? undefined
+        : { tenantId: sessionUser?.tenantKey ?? activeTenant.tenantKey ?? undefined };
+
+    listUsers(opts)
+      .then((rows) => {
+        if (cancelled) return;
+        setUsers(rows);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof UsersApiError ? err.message : "Failed to load users");
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isSuperAdmin,
+    platformMode,
+    sessionUser?.tenantKey,
+    activeTenant.tenantKey,
+    setUsers,
+  ]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -104,199 +138,204 @@ function UsersList({ roleDef }: { roleDef: RoleDef }) {
     }
   }
 
-  const tenantUsers = useMemo(() => users.filter((u) => u.tenantId === tenantId), [users, tenantId]);
-
   const visibleUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
-    let result = tenantUsers;
-    if (categoryFilter !== "all") {
-      result = result.filter((u) => roleFor(u.roleId)?.category === categoryFilter);
+    let result = users;
+    if (!platformMode && !isSuperAdmin) {
+      const tk = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+      result = result.filter((u) => u.tenantKey === tk);
+    }
+    if (scopeFilter !== "all") {
+      result = result.filter((u) => u.scope === scopeFilter);
     }
     if (term) {
       result = result.filter(
-        (u) => u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
+        (u) =>
+          u.name.toLowerCase().includes(term) ||
+          u.username.toLowerCase().includes(term) ||
+          u.email.toLowerCase().includes(term)
       );
     }
     if (sortKey) {
       result = [...result].sort((a, b) => {
-        const cmp = a[sortKey].localeCompare(b[sortKey]);
+        const av = sortKey === "username" ? a.username : sortKey === "scope" ? a.scope : a[sortKey];
+        const bv = sortKey === "username" ? b.username : sortKey === "scope" ? b.scope : b[sortKey];
+        const cmp = String(av).localeCompare(String(bv));
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
     return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantUsers, search, categoryFilter, sortKey, sortDirection, roles]);
+  }, [
+    users,
+    search,
+    scopeFilter,
+    sortKey,
+    sortDirection,
+    platformMode,
+    isSuperAdmin,
+    sessionUser?.tenantKey,
+    activeTenant.tenantKey,
+  ]);
 
-  const activeCount = tenantUsers.filter((u) => u.status === "active").length;
-  const invitedCount = tenantUsers.filter((u) => u.status === "invited").length;
-
-  function toggleStatus(user: User) {
-    setUserStatus(user.id, user.status === "deactivated" ? "active" : "deactivated");
+  async function toggleActive(user: User) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setUserActive(user.userKey, !user.isActive, actorKey);
+      upsertUser(saved);
+      toast.success(saved.isActive ? "User activated" : "User deactivated");
+    } catch (error) {
+      toast.error(error instanceof UsersApiError ? error.message : "Could not update user");
+    }
   }
 
-  function goToView(user: User) {
-    router.push(`/${role}/masters/users/${user.id}`);
-  }
+  const activeCount = users.filter((u) => u.isActive).length;
+  const superCount = users.filter((u) => u.scope === "superAdmin").length;
+  const tenantAdminCount = users.filter((u) => u.scope === "tenantAdmin").length;
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title="Users"
-        description="Every account with a login to this tenant, across every category."
+        description={
+          platformMode
+            ? "Platform User master — Super Admin (0/0) and Tenant Admins (tenant/0)."
+            : "User master for this tenant — Tenant Admins and employee logins."
+        }
         actions={
           canCreate ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/users/new`} />}>
               <Plus className="h-4 w-4" />
-              Register user
+              Add user
             </Button>
           ) : undefined
         }
       />
 
-      {tenantUsers.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
-          <StatCard icon={Users} label="Total users" value={tenantUsers.length} />
-          <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
-          <StatCard icon={MailQuestion} label="Invited" value={invitedCount} />
-        </div>
-      )}
+      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading users…</p>}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
+        <StatCard icon={Shield} label="Super Admins" value={superCount} />
+        <StatCard icon={Building2} label="Tenant Admins" value={tenantAdminCount} />
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative sm:w-64">
+        <div className="relative sm:w-72">
           <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search name or username…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="ps-9"
           />
         </div>
-        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
-          <SelectTrigger className="w-56">
-            <SelectValue>
-              {(value: string | null) =>
-                !value || value === "all" ? "All categories" : CATEGORY_LABELS[value as RoleCategory]
-              }
-            </SelectValue>
+        <Select value={scopeFilter} onValueChange={(value) => setScopeFilter((value as ScopeFilter) ?? "all")}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </SelectItem>
-            ))}
+            <SelectItem value="all">All scopes</SelectItem>
+            <SelectItem value="superAdmin">Super Admin</SelectItem>
+            <SelectItem value="tenantAdmin">Tenant Admin</SelectItem>
+            <SelectItem value="employee">Employee</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <Card>
-        {tenantUsers.length === 0 ? (
+        {!loading && visibleUsers.length === 0 ? (
           <EmptyState
             icon={Users}
-            tone="primary"
-            heading="No users yet"
-            description="Register your first user to get started."
-            size="compact"
-          />
-        ) : visibleUsers.length === 0 ? (
-          <EmptyState
-            icon={Search}
             tone="muted"
-            heading="No matching users"
-            description="Try a different search term or category filter."
+            heading="No users found"
+            description="Create a user to get started."
             size="compact"
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-14">Sr. No</TableHead>
+                <TableHead className="w-14">Sr.</TableHead>
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Organization</TableHead>
                 <SortableTableHead
-                  sortKey="status"
+                  sortKey="username"
                   activeKey={sortKey}
                   direction={sortDirection}
                   onSort={toggleSort}
                 >
-                  Status
+                  Username
                 </SortableTableHead>
-                <SortableTableHead
-                  sortKey="createdAt"
-                  activeKey={sortKey}
-                  direction={sortDirection}
-                  onSort={toggleSort}
-                >
-                  Created
+                <SortableTableHead sortKey="scope" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Scope
                 </SortableTableHead>
+                <TableHead>Tenant / Company</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visibleUsers.map((user, index) => (
-                <TableRow key={user.id} onClick={() => goToView(user)} className="cursor-pointer">
+                <TableRow key={user.id}>
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                       <Avatar size="sm">
                         <AvatarFallback>{initials(user.name)}</AvatarFallback>
                       </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{user.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                      </div>
+                      <span className="font-medium">{user.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{roleFor(user.roleId)?.name ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{getOrgName(user)}</TableCell>
+                  <TableCell>{user.username}</TableCell>
+                  <TableCell>{scopeLabel(user.scope)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs tabular-nums">
+                    T{user.tenantKey} / C{user.companyKey}
+                  </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        user.status === "active" ? "default" : user.status === "invited" ? "secondary" : "outline"
-                      }
-                    >
-                      {user.status}
+                    <Badge variant={user.isActive ? "default" : "secondary"}>
+                      {user.isActive ? "active" : "inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    {(canEdit || canDelete) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem render={<Link href={`/${role}/masters/users/${user.id}`} />}>
-                            <Eye className="h-4 w-4" />
-                            View
-                          </DropdownMenuItem>
-                          {canEdit && (
-                            <DropdownMenuItem render={<Link href={`/${role}/masters/users/${user.id}/edit`} />}>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => router.push(`/${role}/masters/users/${user.id}`)}>
+                          <Eye className="h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        {canEdit && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/${role}/masters/users/${user.id}/edit`)}
+                            >
                               <Pencil className="h-4 w-4" />
-                              Modify
+                              Edit
                             </DropdownMenuItem>
-                          )}
-                          {canDelete && user.status !== "deactivated" && (
-                            <DropdownMenuItem variant="destructive" onClick={() => toggleStatus(user)}>
-                              <PowerOff className="h-4 w-4" />
-                              Deactivate
+                            <DropdownMenuItem onClick={() => void toggleActive(user)}>
+                              {user.isActive ? (
+                                <>
+                                  <PowerOff className="h-4 w-4" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <Power className="h-4 w-4" />
+                                  Activate
+                                </>
+                              )}
                             </DropdownMenuItem>
-                          )}
-                          {canDelete && user.status === "deactivated" && (
-                            <DropdownMenuItem onClick={() => toggleStatus(user)}>
-                              <Power className="h-4 w-4" />
-                              Reactivate
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

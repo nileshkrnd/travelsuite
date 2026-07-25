@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Tenant } from "@/types";
-import { DEFAULT_TENANT_ID, DEFAULT_PREVIEW_TENANT, tenants as seedTenants } from "@/mock/data/tenants";
+import { DEFAULT_PREVIEW_TENANT, tenants as seedTenants, DEFAULT_TENANT_ID } from "@/mock/data/tenants";
 import { useTenantsStore } from "@/lib/store/tenants.store";
+
+/** Platform / no-tenant workspace id used by Super Admin common settings. */
+export const PLATFORM_TENANT_ID = DEFAULT_PREVIEW_TENANT.id;
 
 interface TenantState {
   tenantId: string;
@@ -12,6 +15,8 @@ interface TenantState {
   setTenantBySlug: (slug: string) => boolean;
   /** Resets to the neutral platform branding — used by the generic /login page before a tenant code is entered. */
   resetToDefaultBranding: () => void;
+  /** Super Admin: leave a specific tenant and return to platform (common settings) mode. */
+  clearTenantSelection: () => void;
 }
 
 const defaultTenant = seedTenants.find((t) => t.id === DEFAULT_TENANT_ID)!;
@@ -20,6 +25,10 @@ const defaultTenant = seedTenants.find((t) => t.id === DEFAULT_TENANT_ID)!;
 export function findTenantBySlug(slug: string): Tenant | undefined {
   const normalized = slug.trim().toLowerCase();
   return useTenantsStore.getState().tenants.find((t) => t.slug.toLowerCase() === normalized);
+}
+
+export function isPlatformMode(tenantId: string = useTenantStore.getState().tenantId): boolean {
+  return tenantId === PLATFORM_TENANT_ID;
 }
 
 export const useTenantStore = create<TenantState>()(
@@ -39,7 +48,20 @@ export const useTenantStore = create<TenantState>()(
       resetToDefaultBranding: () => {
         set({ tenantId: DEFAULT_PREVIEW_TENANT.id, tenant: DEFAULT_PREVIEW_TENANT });
       },
+      clearTenantSelection: () => {
+        set({ tenantId: DEFAULT_PREVIEW_TENANT.id, tenant: DEFAULT_PREVIEW_TENANT });
+      },
     }),
-    { name: "travelsuite.tenant" }
+    {
+      name: "travelsuite.tenant",
+      version: 2,
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<TenantState>;
+        return {
+          tenantId: state.tenantId ?? defaultTenant.id,
+          tenant: state.tenant ?? defaultTenant,
+        };
+      },
+    }
   )
 );

@@ -29,12 +29,17 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
-import { DEFAULT_BRANDING } from "@/mock/data/tenants";
-import { currencyMeta } from "@/mock/data/exchangeRates";
-import { COUNTRIES, getCitiesForCountry, getCountry } from "@/config/countries";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useUsersStore } from "@/lib/store/users.store";
+import {
+  createTenant,
+  updateTenant as updateTenantApi,
+  TenantsApiError,
+} from "@/lib/services/tenants.service";
+import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
+import { useReferenceStore } from "@/lib/store/reference.store";
 import type { CurrencyCode, Tenant } from "@/types";
 
-const CURRENCY_CODES = Object.keys(currencyMeta) as CurrencyCode[];
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
 function useTenantSchema(tenants: Tenant[], currentId?: string) {
@@ -67,11 +72,18 @@ type FormValues = z.infer<ReturnType<typeof useTenantSchema>>;
 export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
+  const user = useSessionStore((s) => s.user);
+  const users = useUsersStore((s) => s.users);
   const tenants = useTenantsStore((s) => s.tenants);
-  const addTenant = useTenantsStore((s) => s.addTenant);
-  const updateTenant = useTenantsStore((s) => s.updateTenant);
+  const upsertTenant = useTenantsStore((s) => s.upsertTenant);
+  const countries = useReferenceStore((s) => s.countries);
+  const currencies = useReferenceStore((s) => s.currencies);
+  const { loading: referenceLoading, error: referenceError } = useHydrateReferenceMasters();
   const schema = useTenantSchema(tenants, tenant?.id);
   const isEdit = !!tenant;
+  const actorKey = user
+    ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
+    : 0;
 
   const {
     register,
@@ -100,12 +112,24 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const nameValue = useWatch({ control, name: "name" });
   const slugValue = useWatch({ control, name: "slug" });
   const countryValue = useWatch({ control, name: "country" });
-  const cityOptions = getCitiesForCountry(countryValue ?? "");
+  const { cities: cityOptions, loading: citiesLoading } = useCitiesForCountry(countryValue || undefined);
 
   async function onSubmit(values: FormValues) {
-    const payload = {
-      name: values.name.trim(),
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again before saving tenants.");
+      return;
+    }
+
+    const write = {
+      tenantCode: values.slug.trim(),
+      tenantName: values.name.trim(),
+      groupName: values.name.trim(),
       defaultCurrency: values.defaultCurrency as CurrencyCode,
+      supportedCurrencies: tenant?.supportedCurrencies ?? [values.defaultCurrency as CurrencyCode],
+      defaultLocale: tenant?.defaultLocale ?? "en",
+      supportedLocales: tenant?.supportedLocales ?? ["en"],
+      primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
+      logoUrl: tenant?.branding.logoUrl ?? "",
       address: {
         line1: values.addressLine1.trim(),
         line2: values.addressLine2?.trim() || undefined,
@@ -115,29 +139,46 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
         timezone: values.timezone,
       },
       contact: { email: values.email.trim(), dialCode: values.dialCode, phone: values.phone.trim() },
+      status: tenant?.status ?? ("active" as const),
     };
 
-    if (isEdit && tenant) {
-      updateTenant(tenant.id, {
-        branding: { ...tenant.branding, name: payload.name },
-        defaultCurrency: payload.defaultCurrency,
-        address: payload.address,
-        contact: payload.contact,
-      });
-      toast.success("Tenant updated");
-      router.push(`/${role}/masters/tenant/${tenant.id}`);
-    } else {
-      const created = addTenant({ slug: values.slug.trim(), ...payload });
-      toast.success("Tenant registered");
-      router.push(`/${role}/masters/tenant/${created.id}`);
+    try {
+      if (isEdit && tenant) {
+        const saved = await updateTenantApi(tenant.tenantKey, {
+          ...write,
+          modifiedBy: actorKey,
+        });
+        upsertTenant(saved);
+        toast.success("Tenant updated");
+        router.push(`/${role}/masters/tenant/${saved.id}`);
+      } else {
+        const created = await createTenant({
+          ...write,
+          createdBy: actorKey,
+        });
+        upsertTenant(created);
+        toast.success("Tenant registered");
+        router.push(`/${role}/masters/tenant/${created.id}`);
+      }
+    } catch (error) {
+      const message = error instanceof TenantsApiError ? error.message : "Could not save tenant";
+      toast.error(message);
     }
   }
 
   const previewBranding = {
     name: nameValue?.trim() || "Your organization",
     logoUrl: "",
-    primaryColor: tenant?.branding.primaryColor ?? DEFAULT_BRANDING.primaryColor,
+    primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
   };
+
+  if (referenceLoading) {
+    return <div className="text-sm text-muted-foreground">Loading country, city, and currency masters…</div>;
+  }
+
+  if (referenceError) {
+    return <div className="text-sm text-destructive">{referenceError}</div>;
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
@@ -190,15 +231,17 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                         <SelectTrigger className="h-10 w-full">
                           <Coins className="h-4 w-4 text-muted-foreground" />
                           <SelectValue>
-                            {(value: CurrencyCode | null) =>
-                              value ? `${value} — ${currencyMeta[value].name}` : "Select currency"
-                            }
+                            {(value: string | null) => {
+                              if (!value) return "Select currency";
+                              const meta = currencies.find((c) => c.code === value);
+                              return meta ? `${meta.code} — ${meta.name}` : value;
+                            }}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {CURRENCY_CODES.map((code) => (
-                            <SelectItem key={code} value={code}>
-                              {code} — {currencyMeta[code].name}
+                          {currencies.map((currency) => (
+                            <SelectItem key={currency.id} value={currency.code}>
+                              {currency.code} — {currency.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -255,18 +298,25 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                       <Select
                         value={field.value}
                         onValueChange={(value) => {
-                          field.onChange(value ?? "");
+                          const code = value ?? "";
+                          field.onChange(code);
                           setValue("city", "");
+                          const selected = countries.find((c) => c.code === code);
+                          if (selected) setValue("dialCode", selected.dialCode);
                         }}
                       >
                         <SelectTrigger className="h-10 w-full">
                           <Globe2 className="h-4 w-4 text-muted-foreground" />
                           <SelectValue>
-                            {(value: string | null) => (value ? getCountry(value)?.name : "Select country")}
+                            {(value: string | null) =>
+                              value
+                                ? (countries.find((c) => c.code === value)?.name ?? value)
+                                : "Select country"
+                            }
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {COUNTRIES.map((c) => (
+                          {countries.map((c) => (
                             <SelectItem key={c.code} value={c.code}>
                               {c.name}
                             </SelectItem>
@@ -291,12 +341,20 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                       >
                         <SelectTrigger className="h-10 w-full">
                           <Building className="h-4 w-4 text-muted-foreground" />
-                          <SelectValue placeholder={countryValue ? "Select city" : "Select a country first"} />
+                          <SelectValue
+                            placeholder={
+                              !countryValue
+                                ? "Select a country first"
+                                : citiesLoading
+                                  ? "Loading cities…"
+                                  : "Select city"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {cityOptions.map((city) => (
-                            <SelectItem key={city} value={city}>
-                              {city}
+                            <SelectItem key={city.id} value={city.name}>
+                              {city.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -371,7 +429,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                           <SelectValue placeholder="Code" />
                         </SelectTrigger>
                         <SelectContent>
-                          {COUNTRIES.map((c) => (
+                          {countries.map((c) => (
                             <SelectItem key={c.code} value={c.dialCode}>
                               {c.dialCode} {c.name}
                             </SelectItem>

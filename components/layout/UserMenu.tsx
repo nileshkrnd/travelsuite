@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Layers, LogOut, Settings, User as UserIcon } from "lucide-react";
+import { Globe2, Layers, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -16,18 +16,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
+import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
+import { roleHomePath } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { initials } from "@/lib/utils";
+import { toast } from "sonner";
 
 export function UserMenu() {
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
   const roles = useRolesStore((s) => s.roles);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const clearTenantSelection = useTenantStore((s) => s.clearTenantSelection);
   const router = useRouter();
   const t = useTranslations("topbar");
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
   const isSuperAdmin = user?.roleId === SUPER_ADMIN_ROLE_ID;
+  const platformMode = isPlatformMode(tenantId);
 
   if (!user || !roleDef) return null;
 
@@ -57,10 +63,24 @@ export function UserMenu() {
           {t("settings")}
         </DropdownMenuItem>
         {isSuperAdmin && (
-          <DropdownMenuItem onClick={() => router.push("/select-tenant")}>
-            <Layers className="h-4 w-4" />
-            {t("switchTenant")}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem onClick={() => router.push("/select-tenant")}>
+              <Layers className="h-4 w-4" />
+              {t("switchTenant")}
+            </DropdownMenuItem>
+            {!platformMode && (
+              <DropdownMenuItem
+                onClick={() => {
+                  clearTenantSelection();
+                  toast.success("Returned to platform settings");
+                  router.push(roleHomePath(roleDef));
+                }}
+              >
+                <Globe2 className="h-4 w-4" />
+                {t("unselectTenant")}
+              </DropdownMenuItem>
+            )}
+          </>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem

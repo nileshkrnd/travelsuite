@@ -1,4 +1,4 @@
-import type { Region } from "@/types";
+import type { Region, RegionStatus } from "@/types";
 
 export class RegionsApiError extends Error {
   constructor(
@@ -21,10 +21,9 @@ async function parseError(res: Response): Promise<string> {
 
 function toRegion(row: {
   regionId: number;
-  tenantId: number;
-  companyId: number;
   regionCode: string;
   regionName: string;
+  status?: string;
   createdBy: number;
   createdDtTm: string | Date;
   modifiedBy: number | null;
@@ -32,10 +31,9 @@ function toRegion(row: {
 }): Region {
   return {
     regionId: row.regionId,
-    tenantId: row.tenantId,
-    companyId: row.companyId,
     regionCode: row.regionCode,
     regionName: row.regionName,
+    status: (row.status === "inactive" ? "inactive" : "active") as RegionStatus,
     createdBy: row.createdBy,
     createdDtTm: typeof row.createdDtTm === "string" ? row.createdDtTm : row.createdDtTm.toISOString(),
     modifiedBy: row.modifiedBy,
@@ -48,22 +46,20 @@ function toRegion(row: {
   };
 }
 
-export async function listRegions(tenantId: number, companyId: number): Promise<Region[]> {
-  const params = new URLSearchParams({
-    tenantId: String(tenantId),
-    companyId: String(companyId),
-  });
-  const res = await fetch(`/api/regions?${params.toString()}`, { cache: "no-store" });
+export async function listRegions(options?: { activeOnly?: boolean }): Promise<Region[]> {
+  const params = new URLSearchParams();
+  if (options?.activeOnly) params.set("activeOnly", "true");
+  const qs = params.toString();
+  const res = await fetch(`/api/regions${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new RegionsApiError(await parseError(res), res.status);
   const data = (await res.json()) as Parameters<typeof toRegion>[0][];
   return data.map(toRegion);
 }
 
 export async function createRegion(input: {
-  tenantId: number;
-  companyId: number;
   regionCode: string;
   regionName: string;
+  status?: RegionStatus;
   createdBy: number;
 }): Promise<Region> {
   const res = await fetch("/api/regions", {
@@ -78,10 +74,9 @@ export async function createRegion(input: {
 export async function updateRegion(
   regionId: number,
   input: {
-    tenantId: number;
-    companyId: number;
     regionCode: string;
     regionName: string;
+    status?: RegionStatus;
     modifiedBy: number;
   }
 ): Promise<Region> {
@@ -94,15 +89,21 @@ export async function updateRegion(
   return toRegion(await res.json());
 }
 
-export async function deleteRegion(
+export async function setRegionStatus(
   regionId: number,
-  tenantId: number,
-  companyId: number
-): Promise<void> {
-  const params = new URLSearchParams({
-    tenantId: String(tenantId),
-    companyId: String(companyId),
+  status: RegionStatus,
+  modifiedBy: number
+): Promise<Region> {
+  const res = await fetch(`/api/regions/${regionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, modifiedBy }),
   });
-  const res = await fetch(`/api/regions/${regionId}?${params.toString()}`, { method: "DELETE" });
+  if (!res.ok) throw new RegionsApiError(await parseError(res), res.status);
+  return toRegion(await res.json());
+}
+
+export async function deleteRegion(regionId: number): Promise<void> {
+  const res = await fetch(`/api/regions/${regionId}`, { method: "DELETE" });
   if (!res.ok) throw new RegionsApiError(await parseError(res), res.status);
 }

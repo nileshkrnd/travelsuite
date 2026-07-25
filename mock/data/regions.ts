@@ -4,10 +4,9 @@ import type { Region } from "@/types";
 export const regions: Region[] = [
   {
     regionId: 1,
-    tenantId: 1,
-    companyId: 1,
     regionCode: "GCC",
     regionName: "Gulf Cooperation Council",
+    status: "active",
     createdBy: 2,
     createdDtTm: "2023-11-05T09:00:00.000Z",
     modifiedBy: null,

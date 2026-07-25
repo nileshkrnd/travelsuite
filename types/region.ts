@@ -1,9 +1,11 @@
+export type RegionStatus = "active" | "inactive";
+
+/** Global Region master (not tenant/company scoped). */
 export interface Region {
   regionId: number;
-  tenantId: number;
-  companyId: number;
   regionCode: string;
   regionName: string;
+  status: RegionStatus;
   createdBy: number;
   createdDtTm: string;
   modifiedBy: number | null;

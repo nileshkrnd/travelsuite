@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Check, ChevronsUpDown, Layers, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Building2, Check, ChevronsUpDown, Layers, Search, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useSessionStore } from "@/lib/store/session.store";
-import { useTenantStore } from "@/lib/store/tenant.store";
+import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { useTenantsStore } from "@/lib/store/tenants.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import { filterTenants, groupTenants } from "@/lib/tenants";
+import { roleHomePath } from "@/config/permissions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,20 +19,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import { toast } from "sonner";
 
 /**
- * Super Admin only — switch the active tenant workspace.
- * Tenant Admin and other roles never see tenant / company / branch controls here.
+ * Super Admin only — switch the active tenant workspace, or return to platform mode.
  */
 export function OrgScopeSelectors() {
   const user = useSessionStore((s) => s.user);
   const tenant = useTenantStore((s) => s.tenant);
+  const tenantId = useTenantStore((s) => s.tenantId);
   const setTenant = useTenantStore((s) => s.setTenant);
+  const clearTenantSelection = useTenantStore((s) => s.clearTenantSelection);
   const tenants = useTenantsStore((s) => s.tenants);
+  const roles = useRolesStore((s) => s.roles);
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
   const isSuperAdmin = user?.roleId === SUPER_ADMIN_ROLE_ID;
+  const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const platformMode = isPlatformMode(tenantId);
 
   useEffect(() => {
     if (!open) setQuery("");
@@ -40,7 +49,21 @@ export function OrgScopeSelectors() {
     return groupTenants(filterTenants(active, query));
   }, [tenants, query]);
 
-  if (!user || !isSuperAdmin) return null;
+  if (!user || !isSuperAdmin || !roleDef) return null;
+
+  function enterTenant(id: string, name: string) {
+    setTenant(id);
+    setOpen(false);
+    toast.success(`Switched to ${name}`);
+    router.push(roleHomePath(roleDef!));
+  }
+
+  function unselectTenant() {
+    clearTenantSelection();
+    setOpen(false);
+    toast.success("Returned to platform settings");
+    router.push(roleHomePath(roleDef!));
+  }
 
   return (
     <div className="hidden items-center gap-1.5 xl:flex">
@@ -50,13 +73,15 @@ export function OrgScopeSelectors() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 w-[200px] justify-between gap-1.5 px-2 text-xs font-medium"
+              className="h-8 w-[220px] justify-between gap-1.5 px-2 text-xs font-medium"
             />
           }
         >
           <span className="flex min-w-0 items-center gap-1.5">
             <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{tenant.branding.name}</span>
+            <span className="truncate">
+              {platformMode ? "Platform settings" : tenant.branding.name}
+            </span>
           </span>
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -74,6 +99,30 @@ export function OrgScopeSelectors() {
             </div>
           </div>
           <div className="max-h-72 overflow-y-auto p-1">
+            <button
+              type="button"
+              onClick={unselectTenant}
+              className={cn(
+                "mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted",
+                platformMode && "bg-primary/10 text-primary"
+              )}
+            >
+              <Layers className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 font-medium">Platform settings</span>
+              {platformMode && <Check className="h-3.5 w-3.5 shrink-0" />}
+            </button>
+
+            {!platformMode && (
+              <button
+                type="button"
+                onClick={unselectTenant}
+                className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <XCircle className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 font-medium">Unselect tenant</span>
+              </button>
+            )}
+
             {groups.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">No tenants found</p>
             ) : (
@@ -84,15 +133,12 @@ export function OrgScopeSelectors() {
                     <span className="truncate">{group.groupName}</span>
                   </div>
                   {group.tenants.map((item) => {
-                    const selected = item.id === tenant.id;
+                    const selected = !platformMode && item.id === tenant.id;
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => {
-                          setTenant(item.id);
-                          setOpen(false);
-                        }}
+                        onClick={() => enterTenant(item.id, item.branding.name)}
                         className={cn(
                           "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted",
                           selected && "bg-primary/10 text-primary"

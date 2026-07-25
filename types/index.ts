@@ -7,6 +7,8 @@ export * from "./activity";
 export * from "./company";
 export * from "./branch";
 export * from "./region";
+export * from "./country";
+export * from "./city";
 export * from "./currency";
 export * from "./agency";
 export * from "./subAgency";

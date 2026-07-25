@@ -1,4 +1,5 @@
 import type { Tenant, TenantBranding } from "@/types";
+import { SAAS_BRAND } from "@/config/saasBrand";
 
 /**
  * Tenants = holding / legal entities Super Admin switches between.
@@ -185,11 +186,11 @@ export const tenants: Tenant[] = [
 
 export const DEFAULT_TENANT_ID = tenants[0].id;
 
-/** Neutral, platform-level branding shown on the generic /login page before a tenant code is entered. */
+/** Platform branding — Super Admin chrome and generic /login before a tenant is selected. */
 export const DEFAULT_BRANDING: TenantBranding = {
-  name: "Klyra",
-  logoUrl: "",
-  primaryColor: "#C45C26",
+  name: SAAS_BRAND.name,
+  logoUrl: SAAS_BRAND.logoUrl,
+  primaryColor: SAAS_BRAND.primaryColor,
 };
 
 /** Placeholder Tenant shape carrying DEFAULT_BRANDING, so the tenant store always holds a valid Tenant. */

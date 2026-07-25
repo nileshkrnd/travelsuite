@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowRight, Building2, LogOut, Search, SearchX } from "lucide-react";
+import { ArrowRight, Building2, Globe2, LogOut, Search, SearchX } from "lucide-react";
 import { useSessionStore, useSessionHydrated } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useTenantsStore } from "@/lib/store/tenants.store";
@@ -18,10 +18,12 @@ import { Input } from "@/components/ui/input";
 import { contrastForeground } from "@/lib/color";
 import { cn, initials } from "@/lib/utils";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import { useHydrateTenants } from "@/lib/hooks/useHydrateTenants";
+import { DEFAULT_BRANDING } from "@/mock/data/tenants";
 import type { Tenant } from "@/types";
 
 /**
- * Super Admin workspace picker — selects a tenant (holding).
+ * Super Admin workspace picker — select a tenant, or skip into platform settings.
  * Tenant Admin and every other role are redirected away; they cannot preview or switch tenants.
  */
 export function TenantSelection() {
@@ -31,9 +33,11 @@ export function TenantSelection() {
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
   const setTenant = useTenantStore((s) => s.setTenant);
+  const clearTenantSelection = useTenantStore((s) => s.clearTenantSelection);
   const tenants = useTenantsStore((s) => s.tenants);
   const companies = useCompaniesStore((s) => s.companies);
   const roles = useRolesStore((s) => s.roles);
+  const { loading: tenantsLoading, error: tenantsError } = useHydrateTenants();
   const [query, setQuery] = useState("");
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
@@ -68,6 +72,12 @@ export function TenantSelection() {
     router.push(roleHomePath(roleDef!));
   }
 
+  function skipToPlatform() {
+    clearTenantSelection();
+    toast.success(t("skipSuccess"));
+    router.push(roleHomePath(roleDef!));
+  }
+
   function handleLogout() {
     logout();
     router.push("/login");
@@ -77,11 +87,7 @@ export function TenantSelection() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6 py-10">
         <div className="flex items-center justify-between">
-          <TenantLogo
-            branding={{ name: "Klyra", logoUrl: "", primaryColor: "#C45C26" }}
-            size="md"
-            showName
-          />
+          <TenantLogo branding={DEFAULT_BRANDING} size="md" />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
             <LogOut className="h-4 w-4" />
             {t("logout")}
@@ -92,6 +98,25 @@ export function TenantSelection() {
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle", { name: user.name.split(" ")[0] })}</p>
           <p className="text-xs text-muted-foreground">{t("companiesHint")}</p>
+        </div>
+
+        <div className="mt-6 max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <button
+            type="button"
+            onClick={skipToPlatform}
+            className="flex w-full items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-5 text-left transition-colors hover:bg-primary/10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Globe2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">{t("skipTitle")}</p>
+                <p className="text-xs text-muted-foreground">{t("skipDescription")}</p>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-primary" />
+          </button>
         </div>
 
         <div className="relative mt-6 max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -106,19 +131,27 @@ export function TenantSelection() {
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          {t("tenantCount", { count: visibleTenants.length })}
+          {tenantsLoading
+            ? "Loading tenants from database…"
+            : tenantsError
+              ? tenantsError
+              : t("tenantCount", { count: visibleTenants.length })}
         </p>
 
-        {visibleTenants.length === 0 ? (
+        {tenantsLoading ? (
+          <div className="mt-16 text-center text-sm text-muted-foreground">Loading workspaces…</div>
+        ) : visibleTenants.length === 0 ? (
           <div className="mt-16 flex flex-col items-center gap-3 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <SearchX className="h-6 w-6" />
             </div>
             <div className="space-y-1">
-              <p className="font-medium">{t("emptyTitle")}</p>
-              <p className="text-sm text-muted-foreground">{t("emptyDescription")}</p>
+              <p className="font-medium">{tenantsError ? "Could not load tenants" : t("emptyTitle")}</p>
+              <p className="text-sm text-muted-foreground">
+                {tenantsError ?? t("emptyDescription")}
+              </p>
             </div>
-            {query && (
+            {query && !tenantsError && (
               <Button variant="outline" size="sm" onClick={() => setQuery("")}>
                 {t("clearSearch")}
               </Button>

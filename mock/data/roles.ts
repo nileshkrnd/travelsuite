@@ -1,6 +1,6 @@
 import type { RoleDef } from "@/types";
 import type { ModuleKey, PermissionAction } from "@/config/permissions";
-import { allLeafModuleKeys } from "@/config/permissions";
+import { allLeafModuleKeys, GLOBAL_TENANT_SETTING_KEYS } from "@/config/permissions";
 import { toCamelSlug } from "@/lib/slug";
 import { DEFAULT_TENANT_ID } from "./tenants";
 
@@ -132,8 +132,8 @@ export const roles: RoleDef[] = [
     description:
       "Owns one tenant end-to-end — companies, branches, masters, roles, and every operating module. Cannot switch tenants.",
     category: "internal",
-    // Full product surface within the assigned tenant — no multi-tenant registry.
-    permissions: grant(allLeafModuleKeys().filter((key) => key !== "tenantProfile")),
+    // Full product surface within the assigned tenant — no Super Admin platform settings.
+    permissions: grant(allLeafModuleKeys().filter((key) => !GLOBAL_TENANT_SETTING_KEYS.includes(key))),
   }),
   seedRole({
     id: "role_hr",

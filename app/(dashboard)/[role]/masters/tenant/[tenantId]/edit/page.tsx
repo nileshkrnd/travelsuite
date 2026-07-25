@@ -9,11 +9,17 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { TenantForm } from "@/components/masters/TenantForm";
 import { useTenantsStore } from "@/lib/store/tenants.store";
+import { useHydrateTenants } from "@/lib/hooks/useHydrateTenants";
 
 function EditTenant() {
   const { role, tenantId } = useParams<{ role: string; tenantId: string }>();
   const tenants = useTenantsStore((s) => s.tenants);
+  const { loading, error } = useHydrateTenants();
   const tenant = tenants.find((t) => t.id === tenantId);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading tenant…</div>;
+  }
 
   if (!tenant) {
     return (
@@ -22,7 +28,7 @@ function EditTenant() {
           icon={Building}
           tone="muted"
           heading="Tenant not found"
-          description="This tenant may have been removed."
+          description={error ?? "This tenant may have been removed."}
           action={
             <Button nativeButton={false} render={<Link href={`/${role}/masters/tenant`} />}>
               Back to list

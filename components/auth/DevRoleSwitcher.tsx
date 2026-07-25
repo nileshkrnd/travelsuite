@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { authenticate } from "@/lib/services/auth.service";
+import { authenticate, authenticateByEmail } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
@@ -34,12 +34,17 @@ export function DevRoleSwitcher() {
   async function signInAs(roleId: string) {
     const user = users.find((u) => u.roleId === roleId);
     const roleDef = roles.find((r) => r.id === roleId);
-    const userTenant = user ? tenants.find((t) => t.id === user.tenantId) : undefined;
-    if (!user || !roleDef || !userTenant) return;
+    if (!user || !roleDef) return;
     setPendingRoleId(roleId);
-    const authed = await authenticate(userTenant.slug, user.email, MOCK_PASSWORD);
+    const isSuperAdmin = roleId === SUPER_ADMIN_ROLE_ID || user.scope === "superAdmin";
+    const userTenant = tenants.find((t) => t.id === user.tenantId);
+    const authed = isSuperAdmin
+      ? await authenticateByEmail(user.email, MOCK_PASSWORD)
+      : userTenant?.slug
+        ? await authenticate(userTenant.slug, user.email, MOCK_PASSWORD)
+        : await authenticateByEmail(user.email, MOCK_PASSWORD);
     login(authed);
-    if (roleId === SUPER_ADMIN_ROLE_ID) {
+    if (isSuperAdmin) {
       router.push("/select-tenant");
       return;
     }

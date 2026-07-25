@@ -18,6 +18,9 @@ export type ModuleKey =
   | "holidays"
   | "mastersHub"
   | "tenantProfile"
+  | "globalTenantSettings"
+  | "country"
+  | "city"
   | "region"
   | "currency"
   | "product"
@@ -173,8 +176,36 @@ export interface MenuItem {
   children?: MenuItem[];
 }
 
+/**
+ * Super Admin common / platform settings (no tenant selected).
+ * Tenant registration + global Country / City / Currency / Region.
+ */
+export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
+  "tenantProfile",
+  "country",
+  "city",
+  "region",
+  "currency",
+];
+
+/** Menu keys visible when Super Admin is in platform mode (no specific tenant). */
+const PLATFORM_MODE_MENU_KEYS = new Set<ModuleKey>(["dashboard", "globalTenantSettings", ...GLOBAL_TENANT_SETTING_KEYS]);
+
 export const MENU_ITEMS: MenuItem[] = [
   { key: "dashboard", labelKey: "sidebar.dashboard", icon: "LayoutDashboard", path: "dashboard" },
+  {
+    key: "globalTenantSettings",
+    labelKey: "sidebar.globalTenantSettings",
+    icon: "Globe2",
+    path: "global-tenant-settings",
+    children: [
+      { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
+      { key: "country", labelKey: "sidebar.country", icon: "Globe", path: "masters/country" },
+      { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
+      { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
+      { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
+    ],
+  },
   {
     key: "administration",
     labelKey: "sidebar.administration",
@@ -191,9 +222,6 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "approvalMatrix", labelKey: "sidebar.approvalMatrix", icon: "ClipboardCheck", path: "administration/approval-matrix" },
       { key: "holidays", labelKey: "sidebar.holidays", icon: "CalendarDays", path: "administration/holidays" },
       { key: "mastersHub", labelKey: "sidebar.mastersHub", icon: "Layers", path: "administration/masters" },
-      { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
-      { key: "region", labelKey: "sidebar.region", icon: "Globe", path: "masters/region" },
-      { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
       { key: "product", labelKey: "sidebar.product", icon: "Package", path: "masters/product" },
     ],
   },
@@ -456,19 +484,38 @@ export function can(roleDef: RoleDef | undefined, module: ModuleKey, action: Per
   return roleDef.permissions[module]?.includes(action) ?? false;
 }
 
-export function getMenuForRole(roleDef: RoleDef | undefined): MenuItem[] {
+export function getMenuForRole(
+  roleDef: RoleDef | undefined,
+  options?: { platformMode?: boolean }
+): MenuItem[] {
   if (!roleDef) return [];
   const role = roleDef;
+  const platformMode = !!options?.platformMode && role.id === SUPER_ADMIN_ROLE_ID;
 
   function filterItems(items: MenuItem[]): MenuItem[] {
     return items.reduce<MenuItem[]>((acc, item) => {
+      if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key) && !item.children) {
+        return acc;
+      }
+
       if (item.children) {
+        if (platformMode) {
+          // Super Admin platform mode: Global Tenant Settings + Users (create Super/Tenant admins).
+          if (item.key === "administration") {
+            const usersOnly = item.children.filter((child) => child.key === "users");
+            const visibleChildren = filterItems(usersOnly);
+            if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
+            return acc;
+          }
+          if (!PLATFORM_MODE_MENU_KEYS.has(item.key)) return acc;
+        }
         const visibleChildren = filterItems(item.children);
         if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
         return acc;
       }
-      // Tenant registry is Super Admin only — never show in Tenant Admin menus.
-      if (item.key === "tenantProfile" && role.id !== SUPER_ADMIN_ROLE_ID) return acc;
+
+      // Tenant registry + global tenant settings are Super Admin only.
+      if (GLOBAL_TENANT_SETTING_KEYS.includes(item.key) && role.id !== SUPER_ADMIN_ROLE_ID) return acc;
       if (can(role, item.key, "view")) acc.push(item);
       return acc;
     }, []);

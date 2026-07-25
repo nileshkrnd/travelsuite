@@ -26,7 +26,9 @@ import {
 import { useProductsStore } from "@/lib/store/products.store";
 import { useSuppliersStore } from "@/lib/store/suppliers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { COUNTRIES, getCitiesForCountry, getCountry } from "@/config/countries";
+import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
+import { useReferenceStore } from "@/lib/store/reference.store";
+import { getCountry } from "@/config/countries";
 import { can } from "@/config/permissions";
 import {
   PRODUCT_TYPES,
@@ -78,6 +80,8 @@ function ProductPanel({
 }) {
   const addProduct = useProductsStore((s) => s.addProduct);
   const updateProduct = useProductsStore((s) => s.updateProduct);
+  const countries = useReferenceStore((s) => s.countries);
+  useHydrateReferenceMasters();
   const schema = useProductSchema(products, product?.id);
   const isReadOnly = mode === "view";
 
@@ -100,7 +104,7 @@ function ProductPanel({
   });
 
   const countryValue = useWatch({ control, name: "country" });
-  const cityOptions = getCitiesForCountry(countryValue ?? "");
+  const { cities: cityOptions, loading: citiesLoading } = useCitiesForCountry(countryValue || undefined);
 
   async function onSubmit(values: FormValues) {
     const payload = {
@@ -179,11 +183,13 @@ function ProductPanel({
               >
                 <SelectTrigger className="h-10 w-full">
                   <SelectValue>
-                    {(value: string | null) => (value ? getCountry(value)?.name : "Select country")}
+                    {(value: string | null) =>
+                      value ? (countries.find((c) => c.code === value)?.name ?? value) : "Select country"
+                    }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES.map((c) => (
+                  {countries.map((c) => (
                     <SelectItem key={c.code} value={c.code}>
                       {c.name}
                     </SelectItem>
@@ -207,12 +213,20 @@ function ProductPanel({
                 disabled={isReadOnly || !countryValue}
               >
                 <SelectTrigger className="h-10 w-full">
-                  <SelectValue placeholder={countryValue ? "Select city" : "Select a country first"} />
+                  <SelectValue
+                    placeholder={
+                      !countryValue
+                        ? "Select a country first"
+                        : citiesLoading
+                          ? "Loading cities…"
+                          : "Select city"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {cityOptions.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
+                    <SelectItem key={city.id} value={city.name}>
+                      {city.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -3,6 +3,7 @@
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { contrastForeground } from "@/lib/color";
 import { TenantLogo } from "@/components/layout/TenantLogo";
+import { cn } from "@/lib/utils";
 import { CalendarCheck, Globe2, Wallet } from "lucide-react";
 
 const HIGHLIGHTS = [
@@ -34,12 +35,22 @@ export function AuthBrandPanel() {
         }}
         aria-hidden
       />
-      <TenantLogo
-        branding={{ ...tenant.branding, primaryColor: isDark ? "#ffffff33" : "#00000014" }}
-        size="md"
-        showName
-        className="relative"
-      />
+      <div
+        className={cn(
+          "relative w-fit",
+          tenant.branding.logoUrl && "rounded-xl bg-white/95 px-3 py-2 shadow-sm"
+        )}
+      >
+        <TenantLogo
+          branding={
+            tenant.branding.logoUrl
+              ? tenant.branding
+              : { ...tenant.branding, primaryColor: isDark ? "#ffffff33" : "#00000014" }
+          }
+          size="lg"
+          showName={!tenant.branding.logoUrl}
+        />
+      </div>
       <div className="relative space-y-9">
         <p className="text-3xl leading-[1.15] font-semibold tracking-tight">
           The admin panel that keeps every partner in {tenant.branding.name.split(" ")[0]}&apos;s

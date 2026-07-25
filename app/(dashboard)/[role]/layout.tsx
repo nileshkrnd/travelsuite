@@ -6,6 +6,7 @@ import { useSessionStore, useSessionHydrated } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
 import { AppShell } from "@/components/layout/AppShell";
+import { useHydrateReferenceMasters } from "@/lib/hooks/useReferenceMasters";
 
 export default function DashboardRoleLayout({ children }: { children: React.ReactNode }) {
   const { role: slug } = useParams<{ role: string }>();
@@ -13,6 +14,7 @@ export default function DashboardRoleLayout({ children }: { children: React.Reac
   const hydrated = useSessionHydrated();
   const roles = useRolesStore((s) => s.roles);
   const router = useRouter();
+  useHydrateReferenceMasters();
 
   const userRoleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
 

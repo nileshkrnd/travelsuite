@@ -12,6 +12,7 @@ import { TopDestinationsChart } from "@/components/dashboard/TopDestinationsChar
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TenantAdminDashboard } from "@/components/dashboard/TenantAdminDashboard";
+import { SuperAdminPlatformDashboard } from "@/components/dashboard/SuperAdminPlatformDashboard";
 import { ICONS } from "@/lib/icon-registry";
 import { getDashboardWidgets } from "@/config/dashboardWidgets";
 import {
@@ -26,6 +27,7 @@ import {
   type TopDestinationPoint,
 } from "@/lib/services/bookings.service";
 import { getRecentActivity } from "@/lib/services/activity.service";
+import { isPlatformMode } from "@/lib/store/tenant.store";
 import { SUPER_ADMIN_ROLE_ID, TENANT_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { ActivityItem } from "@/types";
 
@@ -41,11 +43,12 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const platformMode = roleDef?.id === SUPER_ADMIN_ROLE_ID && isPlatformMode(tenantId);
   const isTenantPerformanceRole =
-    roleDef?.id === TENANT_ADMIN_ROLE_ID || roleDef?.id === SUPER_ADMIN_ROLE_ID;
+    (roleDef?.id === TENANT_ADMIN_ROLE_ID || roleDef?.id === SUPER_ADMIN_ROLE_ID) && !platformMode;
 
   useEffect(() => {
-    if (!user || !roleDef || isTenantPerformanceRole) return;
+    if (!user || !roleDef || isTenantPerformanceRole || platformMode) return;
     let cancelled = false;
 
     const orgId = getScopeOrgId(user, roleDef);
@@ -69,9 +72,13 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, user, roleDef, isTenantPerformanceRole]);
+  }, [tenantId, user, roleDef, isTenantPerformanceRole, platformMode]);
 
   if (!user || !roleDef) return null;
+
+  if (platformMode) {
+    return <SuperAdminPlatformDashboard user={user} roleDef={roleDef} />;
+  }
 
   if (isTenantPerformanceRole) {
     return (
@@ -81,7 +88,7 @@ export default function DashboardPage() {
         tenantId={tenantId}
         subtitle={
           roleDef.id === SUPER_ADMIN_ROLE_ID
-            ? "Super Admin · performance for the selected tenant (switch tenant anytime)"
+            ? "Super Admin · performance for the selected tenant (unselect anytime from the top bar)"
             : undefined
         }
       />

@@ -14,6 +14,9 @@ export interface NewTenantInput {
 
 interface TenantsState {
   tenants: Tenant[];
+  /** Replace registry from PostgreSQL Tenant master (primary source of truth). */
+  setTenants: (tenants: Tenant[]) => void;
+  upsertTenant: (tenant: Tenant) => void;
   addTenant: (input: NewTenantInput) => Tenant;
   updateTenant: (id: string, patch: Partial<Omit<Tenant, "id">>) => void;
 }
@@ -38,6 +41,18 @@ export const useTenantsStore = create<TenantsState>()(
   persist(
     (set, get) => ({
       tenants: seedTenants,
+
+      setTenants: (tenants) => set({ tenants: tenants.map(withDefaults) }),
+
+      upsertTenant: (tenant) =>
+        set((state) => {
+          const next = withDefaults(tenant);
+          const idx = state.tenants.findIndex((t) => t.id === next.id || t.tenantKey === next.tenantKey);
+          if (idx === -1) return { tenants: [...state.tenants, next] };
+          const copy = [...state.tenants];
+          copy[idx] = { ...copy[idx], ...next };
+          return { tenants: copy };
+        }),
 
       addTenant: (input) => {
         const nextKey = Math.max(0, ...get().tenants.map((t) => t.tenantKey ?? 0)) + 1;
@@ -78,7 +93,7 @@ export const useTenantsStore = create<TenantsState>()(
     }),
     {
       name: "travelsuite.tenants",
-      version: 5,
+      version: 6,
       migrate: () => ({ tenants: seedTenants.map(withDefaults) }),
     }
   )

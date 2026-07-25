@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
-import { COUNTRIES, getCitiesForCountry, getCountry } from "@/config/countries";
+import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
+import { useReferenceStore } from "@/lib/store/reference.store";
 import type { Branch } from "@/types";
 
 function useBranchSchema(branches: Branch[], currentId?: string) {
@@ -45,6 +46,8 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   const addBranch = useBranchesStore((s) => s.addBranch);
   const updateBranch = useBranchesStore((s) => s.updateBranch);
   const companies = useCompaniesStore((s) => s.companies);
+  const countries = useReferenceStore((s) => s.countries);
+  const { loading: referenceLoading, error: referenceError } = useHydrateReferenceMasters();
   const schema = useBranchSchema(branches, branch?.id);
   const isEdit = !!branch;
 
@@ -67,7 +70,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
 
   const nameValue = useWatch({ control, name: "name" });
   const countryValue = useWatch({ control, name: "country" });
-  const cityOptions = getCitiesForCountry(countryValue ?? "");
+  const { cities: cityOptions, loading: citiesLoading } = useCitiesForCountry(countryValue || undefined);
   const previewName = nameValue?.trim() || "Branch name";
 
   async function onSubmit(values: FormValues) {
@@ -104,6 +107,14 @@ export function BranchForm({ branch }: { branch?: Branch }) {
         </CardContent>
       </Card>
     );
+  }
+
+  if (referenceLoading) {
+    return <div className="text-sm text-muted-foreground">Loading country and city masters…</div>;
+  }
+
+  if (referenceError) {
+    return <div className="text-sm text-destructive">{referenceError}</div>;
   }
 
   return (
@@ -186,19 +197,23 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                         setValue("city", "");
                       }}
                     >
-                      <SelectTrigger className="h-10 w-full">
-                        <Globe2 className="h-4 w-4 text-muted-foreground" />
-                        <SelectValue>
-                          {(value: string | null) => (value ? getCountry(value)?.name : "Select country")}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COUNTRIES.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                        <SelectTrigger className="h-10 w-full">
+                          <Globe2 className="h-4 w-4 text-muted-foreground" />
+                          <SelectValue>
+                            {(value: string | null) =>
+                              value
+                                ? (countries.find((c) => c.code === value)?.name ?? value)
+                                : "Select country"
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((c) => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                     </Select>
                   )}
                 />
@@ -218,12 +233,20 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                     >
                       <SelectTrigger className="h-10 w-full">
                         <Building className="h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder={countryValue ? "Select city" : "Select a country first"} />
+                        <SelectValue
+                          placeholder={
+                            !countryValue
+                              ? "Select a country first"
+                              : citiesLoading
+                                ? "Loading cities…"
+                                : "Select city"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {cityOptions.map((city) => (
-                          <SelectItem key={city} value={city}>
-                            {city}
+                          <SelectItem key={city.id} value={city.name}>
+                            {city.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

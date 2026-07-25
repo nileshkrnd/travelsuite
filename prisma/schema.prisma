@@ -7,19 +7,124 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Region master — scoped to Tenant + Company; Unicode text via UTF-8 VARCHAR.
-model Region {
-  regionId     Int       @id @default(autoincrement()) @map("RegionID")
-  tenantId     Int       @map("TenantID")
-  companyId    Int       @map("CompanyID")
-  regionCode   String    @map("RegionCode") @db.VarChar(100)
-  regionName   String    @map("RegionName") @db.VarChar(200)
+/// Tenant master — primary org entry point (holding / legal entity).
+model Tenant {
+  tenantId             Int       @id @default(autoincrement()) @map("TenantID")
+  /// Stable app string id (e.g. tenant_regency) used by mock/company FKs until those move to DB.
+  tenantUid            String    @unique @map("TenantUid") @db.VarChar(100)
+  tenantCode           String    @unique @map("TenantCode") @db.VarChar(100)
+  tenantName           String    @map("TenantName") @db.VarChar(200)
+  groupName            String    @map("GroupName") @db.VarChar(200)
+  defaultCurrency      String    @map("DefaultCurrency") @db.VarChar(10)
+  supportedCurrencies  String    @map("SupportedCurrencies") @db.VarChar(200)
+  defaultLocale        String    @default("en") @map("DefaultLocale") @db.VarChar(10)
+  supportedLocales     String    @default("en") @map("SupportedLocales") @db.VarChar(100)
+  primaryColor         String    @map("PrimaryColor") @db.VarChar(20)
+  logoUrl              String    @default("") @map("LogoUrl") @db.VarChar(500)
+  addressLine1         String    @map("AddressLine1") @db.VarChar(200)
+  addressLine2         String?   @map("AddressLine2") @db.VarChar(200)
+  country              String    @map("Country") @db.VarChar(10)
+  city                 String    @map("City") @db.VarChar(100)
+  zip                  String    @map("Zip") @db.VarChar(30)
+  timezone             String    @map("Timezone") @db.VarChar(100)
+  email                String    @map("Email") @db.VarChar(200)
+  dialCode             String    @map("DialCode") @db.VarChar(20)
+  phone                String    @map("Phone") @db.VarChar(50)
+  status               String    @default("active") @map("Status") @db.VarChar(20)
+  createdBy            Int       @map("CreatedBy")
+  createdDtTm          DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy           Int?      @map("ModifiedBy")
+  modifiedDtTm         DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@map("Tenant")
+}
+
+/// Global Country master — not scoped to Tenant or Company.
+model Country {
+  countryId    Int       @id @default(autoincrement()) @map("CountryID")
+  countryCode  String    @unique @map("CountryCode") @db.VarChar(10)
+  countryName  String    @map("CountryName") @db.VarChar(200)
+  dialCode     String    @map("DialCode") @db.VarChar(20)
+  status       String    @default("active") @map("Status") @db.VarChar(20)
   createdBy    Int       @map("CreatedBy")
   createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  @@unique([tenantId, companyId, regionCode], map: "Region_Tenant_Company_Code_key")
-  @@index([tenantId, companyId], map: "Region_TenantID_CompanyID_idx")
+  cities City[]
+
+  @@map("Country")
+}
+
+/// Global City master — belongs to Country only (no Tenant / Company).
+model City {
+  cityId       Int       @id @default(autoincrement()) @map("CityID")
+  countryId    Int       @map("CountryID")
+  cityCode     String    @map("CityCode") @db.VarChar(100)
+  cityName     String    @map("CityName") @db.VarChar(200)
+  status       String    @default("active") @map("Status") @db.VarChar(20)
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  country Country @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+
+  @@unique([countryId, cityCode], map: "City_Country_Code_key")
+  @@index([countryId], map: "City_CountryID_idx")
+  @@map("City")
+}
+
+/// Global Currency master — not scoped to Tenant or Company.
+model Currency {
+  currencyId         Int       @id @default(autoincrement()) @map("CurrencyID")
+  currencyCode       String    @unique @map("CurrencyCode") @db.VarChar(10)
+  currencyName       String    @map("CurrencyName") @db.VarChar(200)
+  symbol             String    @default("") @map("Symbol") @db.VarChar(20)
+  smallCurrencyName  String    @map("SmallCurrencyName") @db.VarChar(100)
+  significantDigit   Int       @default(2) @map("SignificantDigit")
+  status             String    @default("active") @map("Status") @db.VarChar(20)
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@map("Currency")
+}
+
+/// Global Region master — not scoped to Tenant or Company.
+model Region {
+  regionId     Int       @id @default(autoincrement()) @map("RegionID")
+  regionCode   String    @unique @map("RegionCode") @db.VarChar(100)
+  regionName   String    @map("RegionName") @db.VarChar(200)
+  status       String    @default("active") @map("Status") @db.VarChar(20)
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
   @@map("Region")
+}
+
+/// User master — scope by TenantID / CompanyID:
+/// - TenantID=0, CompanyID=0 → Super Admin (platform / tenant configuration)
+/// - TenantID>0, CompanyID=0 → Tenant Admin
+/// - TenantID>0, CompanyID>0 → Employee login under a company
+model User {
+  userId                  Int       @id @default(autoincrement()) @map("UserID")
+  username                String    @unique @map("Username") @db.VarChar(200)
+  passwordHash            String    @map("PasswordHash") @db.VarChar(500)
+  userDisplayName         String    @map("UserDisplayName") @db.VarChar(200)
+  tenantId                Int       @default(0) @map("TenantID")
+  companyId               Int       @default(0) @map("CompanyID")
+  lastLoggedInDtTm        DateTime? @map("LastLoggedInDtTm") @db.Timestamptz(6)
+  lastPasswordChangeDtTm  DateTime? @map("LastPasswordChangeDtTm") @db.Timestamptz(6)
+  createdBy               Int       @map("CreatedBy")
+  createDtTm              DateTime  @default(now()) @map("CreateDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  isActive                Boolean   @default(true) @map("IsActive")
+
+  @@index([tenantId, companyId], map: "User_TenantID_CompanyID_idx")
+  @@map("User")
 }

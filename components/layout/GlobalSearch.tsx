@@ -15,6 +15,7 @@ import { flatMenuItems, getMenuForRole } from "@/config/permissions";
 import { ICONS } from "@/lib/icon-registry";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
+import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -24,6 +25,7 @@ export function GlobalSearch() {
   const sidebar = useTranslations("sidebar");
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
+  const tenantId = useTenantStore((s) => s.tenantId);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
 
   useEffect(() => {
@@ -39,7 +41,11 @@ export function GlobalSearch() {
 
   const results = useMemo(() => {
     if (!roleDef || !query.trim()) return [];
-    const allowed = new Set(getMenuForRole(roleDef).flatMap((item) => (item.children ? item.children : [item])).map((i) => i.key));
+    const allowed = new Set(
+      getMenuForRole(roleDef, { platformMode: isPlatformMode(tenantId) })
+        .flatMap((item) => (item.children ? item.children : [item]))
+        .map((i) => i.key)
+    );
     const q = query.trim().toLowerCase();
     return flatMenuItems()
       .filter((item) => allowed.has(item.key))
@@ -48,7 +54,7 @@ export function GlobalSearch() {
         return label.includes(q) || item.path.includes(q) || item.key.toLowerCase().includes(q);
       })
       .slice(0, 8);
-  }, [query, roleDef, sidebar]);
+  }, [query, roleDef, sidebar, tenantId]);
 
   function go(path: string) {
     if (!roleDef) return;

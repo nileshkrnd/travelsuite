@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { ICONS } from "@/lib/icon-registry";
 import { getMenuForRole, type MenuItem } from "@/config/permissions";
 import { useUiPrefsStore } from "@/lib/store/ui-prefs.store";
-import { useTenantStore } from "@/lib/store/tenant.store";
+import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
+import { useChromeBranding } from "@/lib/hooks/useChromeBranding";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { RoleDef } from "@/types";
@@ -25,10 +26,11 @@ interface SidebarProps {
 export function Sidebar({ roleDef, mobile = false, className, onNavigate }: SidebarProps) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
-  const branding = useTenantStore((s) => s.tenant.branding);
+  const branding = useChromeBranding();
+  const tenantId = useTenantStore((s) => s.tenantId);
   const collapsed = useUiPrefsStore((s) => s.sidebarCollapsed) && !mobile;
   const toggleCollapsed = useUiPrefsStore((s) => s.toggleSidebarCollapsed);
-  const items = getMenuForRole(roleDef);
+  const items = getMenuForRole(roleDef, { platformMode: isPlatformMode(tenantId) });
 
   return (
     <aside
@@ -39,7 +41,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
       )}
     >
       <div className={cn("flex h-16 shrink-0 items-center border-b border-sidebar-border", collapsed ? "justify-center px-0" : "px-4")}>
-        <TenantLogo branding={branding} size="sm" showName={!collapsed} />
+        <TenantLogo branding={branding} size="sm" showName={!collapsed} markOnly={collapsed} />
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
