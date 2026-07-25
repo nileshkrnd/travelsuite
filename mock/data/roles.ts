@@ -201,8 +201,8 @@ export const roles: RoleDef[] = [
   }),
   seedRole({
     id: "role_accounts",
-    name: "Accounts",
-    description: "Bookkeeping and finance — chart of accounts, journals, payments, and receipts.",
+    name: "Finance",
+    description: "Full finance module — chart of accounts, journals, payments, receipts, and reporting.",
     category: "internal",
     permissions: mergePermissions(
       grant(["dashboard"], ["view"]),

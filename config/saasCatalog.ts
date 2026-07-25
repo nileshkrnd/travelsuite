@@ -198,7 +198,7 @@ export const SAAS_MODULES: SaasModule[] = [
   },
   {
     id: "accounts",
-    name: "Accounts Module",
+    name: "Finance Module",
     tagline: "Finance that matches how you sell",
     description:
       "Chart of accounts, journals, invoices, receipts, payments, bank reconciliation, and finance reports for multi-currency travel and property billing.",
@@ -417,7 +417,7 @@ export const SAAS_MODULES: SaasModule[] = [
       "Multi-PSP connectors (card & wallet)",
       "3-D Secure & fraud rules*",
       "Refunds, voids & chargebacks desk",
-      "Settlement reports → Accounts",
+      "Settlement reports → Finance",
     ],
   },
 ];

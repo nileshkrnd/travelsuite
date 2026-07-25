@@ -191,8 +191,8 @@
     "stockOut": "Stock Out",
     "stockTransfers": "Stock Transfers",
 
-    "accounts": "Accounts",
-    "accountsDashboard": "Accounts Dashboard",
+    "accounts": "Finance",
+    "accountsDashboard": "Finance Dashboard",
     "chartOfAccounts": "Chart of Accounts",
     "journal": "Journal",
     "payments": "Payments",
