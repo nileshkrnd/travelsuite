@@ -60,11 +60,8 @@ export const useBranchesStore = create<BranchesState>()(
     }),
     {
       name: "travelsuite.branches",
-      version: 1,
-      migrate: (persistedState) => {
-        const state = persistedState as BranchesState;
-        return { ...state, branches: (state.branches ?? []).map(withDefaults) };
-      },
+      version: 2,
+      migrate: () => ({ branches: seedBranches.map(withDefaults) }),
     }
   )
 );

@@ -36,22 +36,6 @@ function seedRole(
 }
 
 // Module-key groups, mirroring the accordion groups in config/permissions.ts MENU_ITEMS.
-const ADMINISTRATION_KEYS: ModuleKey[] = [
-  "company",
-  "branch",
-  "department",
-  "employee",
-  "roles",
-  "permissions",
-  "users",
-  "approvalMatrix",
-  "holidays",
-  "mastersHub",
-  "tenantProfile",
-  "region",
-  "currency",
-];
-const PARTNERS_KEYS: ModuleKey[] = ["agency", "subAgency", "corporateAccounts", "supplier"];
 const HRMS_KEYS: ModuleKey[] = [
   "hrmsDashboard",
   "hrmsEmployees",
@@ -147,36 +131,23 @@ const CORPORATE_KEYS: ModuleKey[] = [
   "corporatePolicies",
   "corporateReports",
 ];
-const REPORTS_KEYS: ModuleKey[] = [
-  "reportSales",
-  "reportFinance",
-  "reportOperations",
-  "reportHr",
-  "reportCrm",
-  "reportInventory",
-  "reportAssets",
-];
-
 export const roles: RoleDef[] = [
   seedRole({
     id: "role_super_admin",
     name: "Super Admin",
-    description: "Full control of the platform — every module, every tenant, every action.",
+    description:
+      "Full platform control — every tenant, every company, every module. Switch workspaces from the top bar.",
     category: "internal",
     permissions: grant(allLeafModuleKeys()),
   }),
   seedRole({
     id: "role_administrator",
-    name: "Admin",
-    description: "Runs day-to-day operations — org structure, partners, users, and reporting.",
+    name: "Tenant Admin",
+    description:
+      "Owns one tenant end-to-end — companies, branches, masters, roles, and every operating module. Cannot switch tenants.",
     category: "internal",
-    permissions: mergePermissions(
-      grant(["dashboard"], ["view"]),
-      grant(ADMINISTRATION_KEYS),
-      grant(PARTNERS_KEYS),
-      grant(["settings"], ["view", "edit"]),
-      grant(REPORTS_KEYS, ["view"])
-    ),
+    // Full product surface within the assigned tenant (Super Admin alone switches tenants).
+    permissions: grant(allLeafModuleKeys()),
   }),
   seedRole({
     id: "role_hr",
@@ -287,3 +258,5 @@ export const roles: RoleDef[] = [
 ];
 
 export const SUPER_ADMIN_ROLE_ID = "role_super_admin";
+/** Tenant-scoped admin — full menus under one tenant (legacy id kept for demo logins). */
+export const TENANT_ADMIN_ROLE_ID = "role_administrator";

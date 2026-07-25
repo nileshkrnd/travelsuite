@@ -171,12 +171,16 @@ export function OrgScopeSelectors() {
 
       {roleDef.category === "internal" && (
         <>
-          <Select value={companyId ?? undefined} onValueChange={(id) => setCompanyId(id)}>
-            <SelectTrigger className="h-8 w-[140px] gap-1.5 text-xs" size="sm">
+          <Select
+            value={companyId ?? "__all__"}
+            onValueChange={(id) => setCompanyId(id === "__all__" ? null : id)}
+          >
+            <SelectTrigger className="h-8 w-[160px] gap-1.5 text-xs" size="sm">
               <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <SelectValue placeholder="Company" />
+              <SelectValue placeholder="All companies" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">All companies</SelectItem>
               {tenantCompanies.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -186,15 +190,16 @@ export function OrgScopeSelectors() {
           </Select>
 
           <Select
-            value={branchId ?? undefined}
-            onValueChange={(id) => setBranchId(id)}
-            disabled={!companyId && companyBranches.length === 0}
+            value={branchId ?? "__all__"}
+            onValueChange={(id) => setBranchId(id === "__all__" ? null : id)}
+            disabled={companyBranches.length === 0}
           >
             <SelectTrigger className="h-8 w-[140px] gap-1.5 text-xs" size="sm">
               <GitBranch className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <SelectValue placeholder="Branch" />
+              <SelectValue placeholder="All branches" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">All branches</SelectItem>
               {companyBranches.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.name}

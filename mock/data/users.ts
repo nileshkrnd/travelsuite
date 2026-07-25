@@ -15,12 +15,11 @@ export const users: User[] = [
   {
     id: "user_admin_1",
     tenantId: DEFAULT_TENANT_ID,
-    name: "Alex Admin",
+    name: "Alex Tenant Admin",
     email: "admin@travelsuite.com",
     roleId: "role_administrator",
-    companyId: "company_leisure",
-    branchId: "branch_mumbai",
-    department: "Operations",
+    // No company/branch — Tenant Admin works across the whole tenant.
+    department: "Executive",
     status: "active",
     createdAt: "2024-02-11T09:00:00.000Z",
   },

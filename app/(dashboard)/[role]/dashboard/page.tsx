@@ -11,6 +11,7 @@ import { RevenueByCurrencyChart } from "@/components/dashboard/RevenueByCurrency
 import { TopDestinationsChart } from "@/components/dashboard/TopDestinationsChart";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { TenantAdminDashboard } from "@/components/dashboard/TenantAdminDashboard";
 import { ICONS } from "@/lib/icon-registry";
 import { getDashboardWidgets } from "@/config/dashboardWidgets";
 import {
@@ -25,6 +26,7 @@ import {
   type TopDestinationPoint,
 } from "@/lib/services/bookings.service";
 import { getRecentActivity } from "@/lib/services/activity.service";
+import { SUPER_ADMIN_ROLE_ID, TENANT_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { ActivityItem } from "@/types";
 
 export default function DashboardPage() {
@@ -39,9 +41,11 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const isTenantPerformanceRole =
+    roleDef?.id === TENANT_ADMIN_ROLE_ID || roleDef?.id === SUPER_ADMIN_ROLE_ID;
 
   useEffect(() => {
-    if (!user || !roleDef) return;
+    if (!user || !roleDef || isTenantPerformanceRole) return;
     let cancelled = false;
 
     const orgId = getScopeOrgId(user, roleDef);
@@ -65,9 +69,24 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, user, roleDef]);
+  }, [tenantId, user, roleDef, isTenantPerformanceRole]);
 
   if (!user || !roleDef) return null;
+
+  if (isTenantPerformanceRole) {
+    return (
+      <TenantAdminDashboard
+        user={user}
+        roleDef={roleDef}
+        tenantId={tenantId}
+        subtitle={
+          roleDef.id === SUPER_ADMIN_ROLE_ID
+            ? "Super Admin · performance for the selected tenant (switch tenant anytime)"
+            : undefined
+        }
+      />
+    );
+  }
 
   const widgets = getDashboardWidgets(roleDef);
 

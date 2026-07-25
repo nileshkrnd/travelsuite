@@ -19,10 +19,10 @@ const DASHBOARD_KPIS_BY_ROLE_ID: Record<string, KpiWidget[]> = {
     { key: "pendingApprovals", label: "Pending Approvals", icon: "ClipboardCheck", format: "number" },
   ],
   role_administrator: [
-    { key: "totalBookings", label: "Total Bookings", icon: "CalendarCheck", format: "number" },
-    { key: "totalRevenue", label: "Total Revenue", icon: "TrendingUp", format: "money" },
-    { key: "pendingApprovals", label: "Pending Approvals", icon: "ClipboardCheck", format: "number" },
+    { key: "totalRevenue", label: "Actual Revenue", icon: "TrendingUp", format: "money" },
+    { key: "totalBookings", label: "Bookings", icon: "CalendarCheck", format: "number" },
     { key: "activeUsers", label: "Active Users", icon: "Users", format: "number" },
+    { key: "pendingApprovals", label: "Pending Approvals", icon: "ClipboardCheck", format: "number" },
   ],
   role_hr: [
     { key: "activeUsers", label: "Total Employees", icon: "Users", format: "number" },
