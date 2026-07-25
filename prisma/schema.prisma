@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Region master — scoped to Tenant + Company; Unicode text via UTF-8 VARCHAR.
+model Region {
+  regionId     Int       @id @default(autoincrement()) @map("RegionID")
+  tenantId     Int       @map("TenantID")
+  companyId    Int       @map("CompanyID")
+  regionCode   String    @map("RegionCode") @db.VarChar(100)
+  regionName   String    @map("RegionName") @db.VarChar(200)
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@unique([tenantId, companyId, regionCode], map: "Region_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "Region_TenantID_CompanyID_idx")
+  @@map("Region")
+}

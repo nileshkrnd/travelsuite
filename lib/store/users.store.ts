@@ -49,12 +49,14 @@ interface UsersState {
  */
 export const useUsersStore = create<UsersState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       users: seedUsers,
 
       addUser: (input) => {
+        const nextKey = Math.max(0, ...get().users.map((u) => u.userKey ?? 0)) + 1;
         const user: User = {
           id: `user_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          userKey: nextKey,
           tenantId: useTenantStore.getState().tenantId,
           name: input.name,
           email: input.email,
@@ -87,7 +89,7 @@ export const useUsersStore = create<UsersState>()(
     }),
     {
       name: "travelsuite.users",
-      version: 4,
+      version: 5,
       migrate: () => ({ users: seedUsers }),
     }
   )

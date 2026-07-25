@@ -8,6 +8,7 @@ import type { Tenant, TenantBranding } from "@/types";
 export const tenants: Tenant[] = [
   {
     id: "tenant_regency",
+    tenantKey: 1,
     slug: "regencyGroupHolding",
     groupName: "Regency Group Holding",
     branding: {
@@ -37,6 +38,7 @@ export const tenants: Tenant[] = [
   },
   {
     id: "tenant_mannai",
+    tenantKey: 2,
     slug: "mannaiTravel",
     groupName: "Mannai Travel Corporation",
     branding: {
@@ -65,6 +67,7 @@ export const tenants: Tenant[] = [
   },
   {
     id: "tenant_tawfeeq",
+    tenantKey: 3,
     slug: "tawfeeqGroup",
     groupName: "Tawfeeq Group",
     branding: {
@@ -93,6 +96,7 @@ export const tenants: Tenant[] = [
   },
   {
     id: "tenant_alibinali",
+    tenantKey: 4,
     slug: "aliBinAliGroup",
     groupName: "Ali Bin Ali Group",
     branding: {
@@ -121,6 +125,7 @@ export const tenants: Tenant[] = [
   },
   {
     id: "tenant_seera",
+    tenantKey: 5,
     slug: "seeraGroup",
     groupName: "SEERA Group",
     branding: {
@@ -149,6 +154,7 @@ export const tenants: Tenant[] = [
   },
   {
     id: "tenant_nilesh",
+    tenantKey: 6,
     slug: "nileshGroupHolding",
     groupName: "Nilesh Group Holding",
     branding: {
@@ -189,6 +195,7 @@ export const DEFAULT_BRANDING: TenantBranding = {
 /** Placeholder Tenant shape carrying DEFAULT_BRANDING, so the tenant store always holds a valid Tenant. */
 export const DEFAULT_PREVIEW_TENANT: Tenant = {
   id: "default",
+  tenantKey: 0,
   slug: "",
   groupName: "Klyra",
   branding: DEFAULT_BRANDING,

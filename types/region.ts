@@ -1,10 +1,11 @@
-export type RegionStatus = "active" | "inactive";
-
 export interface Region {
-  id: string;
-  tenantId: string;
-  code: string;
-  name: string;
-  status: RegionStatus;
-  createdAt: string;
+  regionId: number;
+  tenantId: number;
+  companyId: number;
+  regionCode: string;
+  regionName: string;
+  createdBy: number;
+  createdDtTm: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
 }

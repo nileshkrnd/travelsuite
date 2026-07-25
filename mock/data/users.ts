@@ -4,6 +4,7 @@ import { DEFAULT_TENANT_ID } from "./tenants";
 export const users: User[] = [
   {
     id: "user_super_admin_1",
+    userKey: 1,
     tenantId: DEFAULT_TENANT_ID,
     name: "Super Admin",
     email: "superadmin@travelsuite.com",
@@ -14,6 +15,7 @@ export const users: User[] = [
   },
   {
     id: "user_admin_1",
+    userKey: 2,
     tenantId: DEFAULT_TENANT_ID,
     name: "Alex Tenant Admin",
     email: "admin@travelsuite.com",
@@ -25,6 +27,7 @@ export const users: User[] = [
   },
   {
     id: "user_hr_1",
+    userKey: 3,
     tenantId: DEFAULT_TENANT_ID,
     name: "Hanna HR",
     email: "hr@travelsuite.com",
@@ -37,6 +40,7 @@ export const users: User[] = [
   },
   {
     id: "user_sales_1",
+    userKey: 4,
     tenantId: DEFAULT_TENANT_ID,
     name: "Sam POS",
     email: "sales@travelsuite.com",
@@ -49,6 +53,7 @@ export const users: User[] = [
   },
   {
     id: "user_back_office_1",
+    userKey: 5,
     tenantId: DEFAULT_TENANT_ID,
     name: "Bella Backoffice",
     email: "backoffice@travelsuite.com",
@@ -61,6 +66,7 @@ export const users: User[] = [
   },
   {
     id: "user_mid_office_1",
+    userKey: 6,
     tenantId: DEFAULT_TENANT_ID,
     name: "Miles Midoffice",
     email: "midoffice@travelsuite.com",
@@ -73,6 +79,7 @@ export const users: User[] = [
   },
   {
     id: "user_accounts_1",
+    userKey: 7,
     tenantId: DEFAULT_TENANT_ID,
     name: "Amy Accounts",
     email: "accounts@travelsuite.com",
@@ -85,6 +92,7 @@ export const users: User[] = [
   },
   {
     id: "user_crm_1",
+    userKey: 8,
     tenantId: DEFAULT_TENANT_ID,
     name: "Chris CRM",
     email: "crm@travelsuite.com",
@@ -97,6 +105,7 @@ export const users: User[] = [
   },
   {
     id: "user_supplier_1",
+    userKey: 9,
     tenantId: DEFAULT_TENANT_ID,
     name: "Sofia Supplier",
     email: "supplier@travelsuite.com",
@@ -107,6 +116,7 @@ export const users: User[] = [
   },
   {
     id: "user_agent_1",
+    userKey: 10,
     tenantId: DEFAULT_TENANT_ID,
     name: "Andy Agent",
     email: "agent@travelsuite.com",
@@ -117,6 +127,7 @@ export const users: User[] = [
   },
   {
     id: "user_corporate_1",
+    userKey: 11,
     tenantId: DEFAULT_TENANT_ID,
     name: "Cara Corporate",
     email: "corporate@travelsuite.com",

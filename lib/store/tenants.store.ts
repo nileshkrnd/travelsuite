@@ -25,6 +25,7 @@ const EMPTY_CONTACT: TenantContact = { email: "", dialCode: "", phone: "" };
 function withDefaults(tenant: Tenant): Tenant {
   return {
     ...tenant,
+    tenantKey: tenant.tenantKey ?? 0,
     groupName: tenant.groupName || tenant.branding?.name || "Ungrouped",
     address: tenant.address ?? EMPTY_ADDRESS,
     contact: tenant.contact ?? EMPTY_CONTACT,
@@ -35,12 +36,14 @@ function withDefaults(tenant: Tenant): Tenant {
  *  which tracks only the one tenant currently active for theming/login preview. */
 export const useTenantsStore = create<TenantsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       tenants: seedTenants,
 
       addTenant: (input) => {
+        const nextKey = Math.max(0, ...get().tenants.map((t) => t.tenantKey ?? 0)) + 1;
         const tenant: Tenant = {
           id: `tenant_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          tenantKey: nextKey,
           slug: input.slug,
           groupName: input.groupName?.trim() || input.name,
           branding: { name: input.name, logoUrl: "", primaryColor: DEFAULT_BRANDING.primaryColor },
@@ -75,7 +78,7 @@ export const useTenantsStore = create<TenantsState>()(
     }),
     {
       name: "travelsuite.tenants",
-      version: 4,
+      version: 5,
       migrate: () => ({ tenants: seedTenants.map(withDefaults) }),
     }
   )

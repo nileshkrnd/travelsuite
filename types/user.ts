@@ -2,6 +2,8 @@ export type UserStatus = "active" | "invited" | "deactivated";
 
 export interface User {
   id: string;
+  /** Numeric key for DB audit columns (CreatedBy / ModifiedBy). */
+  userKey: number;
   tenantId: string;
   name: string;
   email: string;

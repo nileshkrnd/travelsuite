@@ -28,6 +28,8 @@ export interface TenantContact {
 
 export interface Tenant {
   id: string;
+  /** Numeric key for DB scope columns (TenantID). */
+  tenantKey: number;
   slug: string;
   branding: TenantBranding;
   /**

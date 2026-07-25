@@ -16,19 +16,21 @@ interface CompaniesState {
   deleteCompany: (id: string) => void;
 }
 
-/** Backfills the code field on companies persisted before it existed. */
+/** Backfills code / companyKey on companies persisted before those fields existed. */
 function withDefaults(company: Company): Company {
-  return { ...company, code: company.code ?? "" };
+  return { ...company, code: company.code ?? "", companyKey: company.companyKey ?? 0 };
 }
 
 export const useCompaniesStore = create<CompaniesState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       companies: seedCompanies,
 
       addCompany: (input) => {
+        const nextKey = Math.max(0, ...get().companies.map((c) => c.companyKey ?? 0)) + 1;
         const company: Company = {
           id: `company_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          companyKey: nextKey,
           tenantId: useTenantStore.getState().tenantId,
           name: input.name,
           code: input.code,
@@ -51,7 +53,7 @@ export const useCompaniesStore = create<CompaniesState>()(
     }),
     {
       name: "travelsuite.companies",
-      version: 2,
+      version: 3,
       migrate: () => ({ companies: seedCompanies.map(withDefaults) }),
     }
   )
