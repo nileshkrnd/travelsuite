@@ -3,6 +3,7 @@ export * from "./role";
 export * from "./access-role";
 export * from "./tenant";
 export * from "./user";
+export * from "./user-type";
 export * from "./booking";
 export * from "./activity";
 export * from "./company";

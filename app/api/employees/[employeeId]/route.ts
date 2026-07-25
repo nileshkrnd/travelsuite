@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { hashPassword } from "@/lib/password";
+import { UserType } from "@/types";
 
 const idSchema = z.coerce.number().int().positive();
 
@@ -133,6 +134,7 @@ export async function PUT(request: Request, context: RouteContext) {
         data: {
           username,
           userDisplayName: displayName,
+          userTypeId: UserType.InternalEmployee,
           companyId: data.companyId,
           tenantId: data.tenantId,
           isActive: data.isActive ?? existing.isActive,

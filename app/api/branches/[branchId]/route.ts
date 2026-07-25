@@ -39,10 +39,9 @@ const branchInclude = {
 
 type RouteContext = { params: Promise<{ branchId: string }> };
 
-async function attachTenantUid<T extends { company?: { tenantId: number } | null }>(row: T) {
-  if (!row.company) return { ...row, tenantUid: undefined };
+async function attachTenantUid<T extends { tenantId: number }>(row: T) {
   const tenant = await prisma.tenant.findUnique({
-    where: { tenantId: row.company.tenantId },
+    where: { tenantId: row.tenantId },
     select: { tenantUid: true },
   });
   return { ...row, tenantUid: tenant?.tenantUid };
@@ -81,6 +80,15 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const data = parsed.data;
+    const company = await prisma.company.findUnique({ where: { companyId: data.companyId } });
+    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
+
+    const branchType = await prisma.branchType.findUnique({ where: { branchTypeId: data.branchTypeId } });
+    if (!branchType) return NextResponse.json({ error: "Branch type not found" }, { status: 400 });
+    if (branchType.tenantId !== company.tenantId || branchType.companyId !== company.companyId) {
+      return NextResponse.json({ error: "Branch type does not belong to this company" }, { status: 400 });
+    }
+
     const city = await prisma.city.findUnique({ where: { cityId: data.cityId } });
     if (!city || city.countryId !== data.countryId) {
       return NextResponse.json({ error: "City does not belong to the selected country" }, { status: 400 });
@@ -92,6 +100,7 @@ export async function PUT(request: Request, context: RouteContext) {
         branchTypeId: data.branchTypeId,
         branchName: data.branchName.trim(),
         companyId: data.companyId,
+        tenantId: company.tenantId,
         address1: data.address1.trim(),
         address2: (data.address2 ?? "").trim(),
         countryId: data.countryId,

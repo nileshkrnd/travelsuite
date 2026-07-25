@@ -50,6 +50,8 @@ export interface UserWriteInput {
   userDisplayName: string;
   tenantId: number;
   companyId: number;
+  /** UserTypeID enum 1–8; defaults from TenantID/CompanyID when omitted. */
+  userTypeId?: number;
   isActive?: boolean;
   createdBy?: number;
   modifiedBy?: number;

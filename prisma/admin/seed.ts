@@ -271,7 +271,7 @@ async function seedUsers() {
   const passwordHash = hashPassword(DEMO_PASSWORD);
   const now = new Date();
 
-  // Super Admin — TenantID=0, CompanyID=0
+  // Super Admin — UserTypeID=1, TenantID=0, CompanyID=0
   await prisma.user.upsert({
     where: { username: "superadmin@travelsuite.com" },
     create: {
@@ -279,6 +279,7 @@ async function seedUsers() {
       username: "superadmin@travelsuite.com",
       passwordHash,
       userDisplayName: "Super Admin",
+      userTypeId: 1,
       tenantId: 0,
       companyId: 0,
       isActive: true,
@@ -288,13 +289,14 @@ async function seedUsers() {
     update: {
       passwordHash,
       userDisplayName: "Super Admin",
+      userTypeId: 1,
       tenantId: 0,
       companyId: 0,
       isActive: true,
     },
   });
 
-  // Tenant Admin for Regency (TenantID=1, CompanyID=0)
+  // Tenant Admin for Regency — UserTypeID=2, TenantID=1, CompanyID=0
   await prisma.user.upsert({
     where: { username: "admin@travelsuite.com" },
     create: {
@@ -302,6 +304,7 @@ async function seedUsers() {
       username: "admin@travelsuite.com",
       passwordHash,
       userDisplayName: "Alex Tenant Admin",
+      userTypeId: 2,
       tenantId: 1,
       companyId: 0,
       isActive: true,
@@ -311,6 +314,7 @@ async function seedUsers() {
     update: {
       passwordHash,
       userDisplayName: "Alex Tenant Admin",
+      userTypeId: 2,
       tenantId: 1,
       companyId: 0,
       isActive: true,
@@ -699,6 +703,7 @@ async function seedBranches() {
   ] as const;
 
   for (const row of rows) {
+    const company = row.companyId === leisure.companyId ? leisure : corporate;
     await prisma.branch.upsert({
       where: { branchUid: row.branchUid },
       create: {
@@ -706,6 +711,7 @@ async function seedBranches() {
         branchTypeId: row.branchTypeId,
         branchName: row.branchName,
         companyId: row.companyId,
+        tenantId: company.tenantId,
         address1: "Business Bay",
         address2: "",
         countryId: row.countryId,
@@ -723,6 +729,7 @@ async function seedBranches() {
         branchTypeId: row.branchTypeId,
         branchName: row.branchName,
         companyId: row.companyId,
+        tenantId: company.tenantId,
         countryId: row.countryId,
         cityId: row.cityId,
         isActive: true,
@@ -788,6 +795,7 @@ async function seedEmployees() {
       data: {
         passwordHash,
         userDisplayName: "Raj Kumar",
+        userTypeId: 3,
         isActive: true,
         lastPasswordChangeDtTm: now,
       },
@@ -821,6 +829,7 @@ async function seedEmployees() {
         username,
         passwordHash,
         userDisplayName: "Raj Kumar",
+        userTypeId: 3,
         tenantId: leisure.tenantId,
         companyId: leisure.companyId,
         isActive: true,

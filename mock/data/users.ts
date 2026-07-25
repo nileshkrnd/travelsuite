@@ -1,4 +1,5 @@
 import type { User } from "@/types";
+import { UserType } from "@/types";
 import { DEFAULT_PREVIEW_TENANT, DEFAULT_TENANT_ID } from "./tenants";
 
 /** Legacy mock cache — login and User master are DB-backed. Kept for store migrate fallback. */
@@ -11,6 +12,7 @@ export const users: User[] = [
     email: "superadmin@travelsuite.com",
     tenantKey: 0,
     companyKey: 0,
+    userTypeId: UserType.SuperAdmin,
     tenantId: DEFAULT_PREVIEW_TENANT.id,
     roleId: "role_super_admin",
     scope: "superAdmin",
@@ -26,6 +28,7 @@ export const users: User[] = [
     email: "admin@travelsuite.com",
     tenantKey: 1,
     companyKey: 0,
+    userTypeId: UserType.TenantAdmin,
     tenantId: DEFAULT_TENANT_ID,
     roleId: "role_administrator",
     scope: "tenantAdmin",

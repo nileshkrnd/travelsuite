@@ -117,15 +117,17 @@ model Region {
   @@map("Region")
 }
 
-/// User master — scope by TenantID / CompanyID:
-/// - TenantID=0, CompanyID=0 → Super Admin (platform / tenant configuration)
-/// - TenantID>0, CompanyID=0 → Tenant Admin
-/// - TenantID>0, CompanyID>0 → Employee login under a company
+/// User master — UserTypeID enum:
+/// 1 SuperAdmin, 2 TenantAdmin, 3 InternalEmployee, 4 AgencyUser,
+/// 5 SubAgencyUser, 6 CorporateUser, 7 CashCustomer, 8 SupplierUser.
+/// TenantID / CompanyID still scope the workspace.
 model User {
   userId                 Int       @id @default(autoincrement()) @map("UserID")
   username               String    @unique @map("Username") @db.VarChar(200)
   passwordHash           String    @map("PasswordHash") @db.VarChar(500)
   userDisplayName        String    @map("UserDisplayName") @db.VarChar(200)
+  /// Enum: 1=SuperAdmin … 8=SupplierUser (see types/user-type.ts).
+  userTypeId             Int       @default(3) @map("UserTypeID")
   tenantId               Int       @default(0) @map("TenantID")
   companyId              Int       @default(0) @map("CompanyID")
   lastLoggedInDtTm       DateTime? @map("LastLoggedInDtTm") @db.Timestamptz(6)
@@ -139,6 +141,7 @@ model User {
   employee Employee?
 
   @@index([tenantId, companyId], map: "User_TenantID_CompanyID_idx")
+  @@index([userTypeId], map: "User_UserTypeID_idx")
   @@map("User")
 }
 
@@ -289,7 +292,7 @@ model BranchType {
   @@map("BranchType")
 }
 
-/// Branch master — scoped by CompanyID (a company's operating branches).
+/// Branch master — scoped by TenantID + CompanyID.
 model Branch {
   branchId        Int       @id @default(autoincrement()) @map("BranchID")
   /// Stable app string id (e.g. branch_mumbai) for employee FKs.
@@ -297,6 +300,8 @@ model Branch {
   branchTypeId    Int       @map("BranchTypeID")
   branchName      String    @map("BranchName") @db.VarChar(100)
   companyId       Int       @map("CompanyID")
+  /// Denormalized TenantID (from Company) for tenant-scoped lists.
+  tenantId        Int       @map("TenantID")
   address1        String    @map("Address1") @db.VarChar(200)
   address2        String?   @map("Address2") @db.VarChar(200)
   countryId       Int       @map("CountryID")
@@ -320,6 +325,8 @@ model Branch {
   employees  Employee[]
 
   @@unique([companyId, branchName], map: "Branch_Company_Name_key")
+  @@index([tenantId], map: "Branch_TenantID_idx")
+  @@index([tenantId, companyId], map: "Branch_TenantID_CompanyID_idx")
   @@index([companyId], map: "Branch_CompanyID_idx")
   @@index([branchTypeId], map: "Branch_BranchTypeID_idx")
   @@index([countryId], map: "Branch_CountryID_idx")

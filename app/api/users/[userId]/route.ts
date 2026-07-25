@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { USER_TYPE_IDS, defaultUserTypeId } from "@/types";
 
 const idSchema = z.coerce.number().int().positive();
 
@@ -12,6 +13,9 @@ const updateSchema = z.object({
   userDisplayName: z.string().trim().min(1).max(200),
   tenantId: z.number().int().min(0),
   companyId: z.number().int().min(0),
+  userTypeId: z.number().int().refine((v) => (USER_TYPE_IDS as readonly number[]).includes(v), {
+    message: "Invalid UserTypeID",
+  }).optional(),
   isActive: z.boolean().optional(),
   modifiedBy: z.number().int().positive(),
 });
@@ -33,6 +37,7 @@ async function enrich(row: {
   userId: number;
   username: string;
   userDisplayName: string;
+  userTypeId: number;
   tenantId: number;
   companyId: number;
   lastLoggedInDtTm: Date | null;
@@ -94,11 +99,13 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const now = new Date();
+    const userTypeId = data.userTypeId ?? defaultUserTypeId(data.tenantId, data.companyId);
     const updated = await prisma.user.update({
       where: { userId: id.data },
       data: {
         username: data.username.trim().toLowerCase(),
         userDisplayName: data.userDisplayName.trim(),
+        userTypeId,
         tenantId: data.tenantId,
         companyId: data.companyId,
         isActive: data.isActive,

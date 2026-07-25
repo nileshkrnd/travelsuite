@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { hashPassword } from "@/lib/password";
+import { UserType } from "@/types";
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(10),
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
           username,
           passwordHash: hashPassword(data.password),
           userDisplayName: displayName,
+          userTypeId: UserType.InternalEmployee,
           tenantId: data.tenantId,
           companyId: data.companyId,
           isActive: data.isActive ?? true,

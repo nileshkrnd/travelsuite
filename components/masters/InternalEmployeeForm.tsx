@@ -20,6 +20,7 @@ import { useRolesStore } from "@/lib/store/roles.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { createUser, updateUser, UsersApiError } from "@/lib/services/db-users.service";
+import { UserType } from "@/types";
 import { initials } from "@/lib/utils";
 import type { User } from "@/types";
 
@@ -119,6 +120,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
           userDisplayName: name,
           tenantId: tenantKey,
           companyId: company.companyKey,
+          userTypeId: UserType.InternalEmployee,
           isActive: employee.isActive,
           modifiedBy: actorKey,
         });
@@ -139,6 +141,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
           userDisplayName: name,
           tenantId: tenantKey,
           companyId: company.companyKey,
+          userTypeId: UserType.InternalEmployee,
           createdBy: actorKey,
         });
         upsertUser({

@@ -29,7 +29,7 @@ export const useBranchesStore = create<BranchesState>()(
     }),
     {
       name: "travelsuite.branches",
-      version: 3,
+      version: 4,
       migrate: () => ({ branches: seedBranches }),
     }
   )

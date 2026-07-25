@@ -16,7 +16,7 @@ import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { createUser, updateUser, UsersApiError } from "@/lib/services/db-users.service";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type { User } from "@/types";
+import { USER_TYPE_LABELS, UserType, type User } from "@/types";
 
 function useUserSchema(isCreate: boolean) {
   return z.object({
@@ -85,6 +85,7 @@ export function UserForm({ user }: { user?: User }) {
           userDisplayName: values.userDisplayName.trim(),
           tenantId,
           companyId,
+          userTypeId: UserType.SuperAdmin,
           isActive: user.isActive,
           modifiedBy: actorKey,
         });
@@ -98,6 +99,7 @@ export function UserForm({ user }: { user?: User }) {
           userDisplayName: values.userDisplayName.trim(),
           tenantId,
           companyId,
+          userTypeId: UserType.SuperAdmin,
           createdBy: actorKey,
         });
         upsertLocal(created);
@@ -114,8 +116,18 @@ export function UserForm({ user }: { user?: User }) {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <p className="text-sm text-muted-foreground">
-            Super Admin — TenantID 0, CompanyID 0 (T0C0).
+            Super Admin — UserTypeID {UserType.SuperAdmin}, TenantID 0, CompanyID 0 (T0C0).
           </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="userType">User type</Label>
+            <Input
+              id="userType"
+              value={`${UserType.SuperAdmin} — ${USER_TYPE_LABELS[UserType.SuperAdmin]}`}
+              disabled
+              readOnly
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="userDisplayName" required>

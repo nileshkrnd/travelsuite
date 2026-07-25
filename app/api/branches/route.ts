@@ -31,14 +31,14 @@ const branchInclude = {
   city: { select: { cityName: true } },
 } as const;
 
-async function withTenantUid<T extends { company?: { tenantId: number } | null }>(rows: T[]) {
-  const tenantIds = [...new Set(rows.map((r) => r.company?.tenantId).filter((id): id is number => !!id))];
+async function withTenantUid<T extends { tenantId: number }>(rows: T[]) {
+  const tenantIds = [...new Set(rows.map((r) => r.tenantId).filter((id) => id > 0))];
   const tenants = await prisma.tenant.findMany({
     where: { tenantId: { in: tenantIds } },
     select: { tenantId: true, tenantUid: true },
   });
   const map = new Map(tenants.map((t) => [t.tenantId, t.tenantUid]));
-  return rows.map((row) => ({ ...row, tenantUid: row.company ? map.get(row.company.tenantId) : undefined }));
+  return rows.map((row) => ({ ...row, tenantUid: map.get(row.tenantId) }));
 }
 
 export async function GET(request: Request) {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     if (companyIdParam != null && companyIdParam !== "") {
       where.companyId = Number(companyIdParam);
     } else if (tenantIdParam != null && tenantIdParam !== "") {
-      where.company = { tenantId: Number(tenantIdParam) };
+      where.tenantId = Number(tenantIdParam);
     }
     if (activeOnly) where.isActive = true;
 
@@ -85,6 +85,9 @@ export async function POST(request: Request) {
 
     const branchType = await prisma.branchType.findUnique({ where: { branchTypeId: data.branchTypeId } });
     if (!branchType) return NextResponse.json({ error: "Branch type not found" }, { status: 400 });
+    if (branchType.tenantId !== company.tenantId || branchType.companyId !== company.companyId) {
+      return NextResponse.json({ error: "Branch type does not belong to this company" }, { status: 400 });
+    }
 
     const city = await prisma.city.findUnique({ where: { cityId: data.cityId } });
     if (!city || city.countryId !== data.countryId) {
@@ -101,6 +104,7 @@ export async function POST(request: Request) {
         branchTypeId: data.branchTypeId,
         branchName: data.branchName.trim(),
         companyId: data.companyId,
+        tenantId: company.tenantId,
         address1: data.address1.trim(),
         address2: (data.address2 ?? "").trim(),
         countryId: data.countryId,

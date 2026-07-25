@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useBranchesStore } from "@/lib/store/branches.store";
 import { listCountries } from "@/lib/services/countries.service";
 import { listCities } from "@/lib/services/cities.service";
 import { listCompanies } from "@/lib/services/db-companies.service";
@@ -56,6 +57,42 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+function emptyFormValues(): FormValues {
+  return {
+    branchName: "",
+    branchTypeId: 0,
+    companyId: 0,
+    address1: "",
+    address2: "",
+    countryId: 0,
+    cityId: 0,
+    zipCode: "",
+    contactPerson: "",
+    emailAddress: "",
+    countryDialCode: "",
+    phoneNumber: "",
+    faxNumber: "",
+  };
+}
+
+function formValuesFromBranch(branch: Branch): FormValues {
+  return {
+    branchName: branch.name,
+    branchTypeId: branch.branchTypeId,
+    companyId: branch.companyKey,
+    address1: branch.address1,
+    address2: branch.address2 ?? "",
+    countryId: branch.countryId,
+    cityId: branch.cityId,
+    zipCode: branch.zipCode,
+    contactPerson: branch.contactPerson,
+    emailAddress: branch.emailAddress,
+    countryDialCode: branch.countryDialCode,
+    phoneNumber: branch.phoneNumber,
+    faxNumber: branch.faxNumber ?? "",
+  };
+}
+
 function resolveDialCode(raw: string | undefined, countries: Country[], countryId?: number): string {
   if (countryId) {
     const byCountry = countries.find((c) => c.countryKey === countryId);
@@ -77,6 +114,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
   const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
+  const upsertBranch = useBranchesStore((s) => s.upsertBranch);
   const isEdit = !!branch;
   const actorKey = sessionUser?.userKey ?? 0;
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
@@ -92,31 +130,30 @@ export function BranchForm({ branch }: { branch?: Branch }) {
     handleSubmit,
     control,
     setValue,
+    getValues,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: "onBlur",
-    values: {
-      branchName: branch?.name ?? "",
-      branchTypeId: branch?.branchTypeId ?? 0,
-      companyId: branch?.companyKey ?? 0,
-      address1: branch?.address1 ?? "",
-      address2: branch?.address2 ?? "",
-      countryId: branch?.countryId ?? 0,
-      cityId: branch?.cityId ?? 0,
-      zipCode: branch?.zipCode ?? "",
-      contactPerson: branch?.contactPerson ?? "",
-      emailAddress: branch?.emailAddress ?? "",
-      countryDialCode: branch?.countryDialCode ?? "",
-      phoneNumber: branch?.phoneNumber ?? "",
-      faxNumber: branch?.faxNumber ?? "",
-    },
+    // Avoid RHF controlled `values` — it resets country/city on every parent re-render.
+    defaultValues: branch ? formValuesFromBranch(branch) : emptyFormValues(),
   });
+
+  const editBranchKey = branch?.branchKey ?? 0;
+  useEffect(() => {
+    // Hydrate only when opening a different edit record — never wipe create form mid-edit.
+    if (editBranchKey > 0 && branch) {
+      reset(formValuesFromBranch(branch));
+    }
+  }, [editBranchKey, branch, reset]);
 
   const nameValue = useWatch({ control, name: "branchName" });
   const countryId = useWatch({ control, name: "countryId" });
+  const cityId = useWatch({ control, name: "cityId" });
   const companyId = useWatch({ control, name: "companyId" });
   const previewName = nameValue?.trim() || "Branch name";
+  const [citiesLoading, setCitiesLoading] = useState(false);
 
   const dialOptions = useMemo(() => {
     const map = new Map<string, Country>();
@@ -194,19 +231,32 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   useEffect(() => {
     if (!countryId) {
       setCities([]);
+      setCitiesLoading(false);
       return;
     }
     let cancelled = false;
+    setCitiesLoading(true);
     listCities({ countryId, activeOnly: true })
       .then((rows) => {
-        if (!cancelled) setCities(rows);
+        if (cancelled) return;
+        setCities(rows);
+        // Drop stale city if it no longer belongs to this country.
+        const currentCityId = getValues("cityId");
+        if (currentCityId && !rows.some((c) => c.cityKey === currentCityId)) {
+          setValue("cityId", 0, { shouldValidate: false });
+        }
       })
       .catch(() => {
         if (!cancelled) setCities([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCitiesLoading(false);
       });
     return () => {
       cancelled = true;
     };
+    // getValues/setValue are stable from RHF; re-running on their identity causes flicker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reload when country changes
   }, [countryId]);
 
   async function onSubmit(values: FormValues) {
@@ -255,10 +305,12 @@ export function BranchForm({ branch }: { branch?: Branch }) {
           isActive: branch.isActive,
           modifiedBy: actorKey,
         });
+        upsertBranch(saved);
         toast.success("Branch updated");
         router.push(`/${role}/masters/branch/${saved.id}`);
       } else {
         const created = await createBranch({ ...payload, createdBy: actorKey });
+        upsertBranch(created);
         toast.success("Branch created");
         router.push(`/${role}/masters/branch/${created.id}`);
       }
@@ -385,74 +437,79 @@ export function BranchForm({ branch }: { branch?: Branch }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Country</Label>
+                <Label htmlFor="branch-country" required>
+                  Country
+                </Label>
                 <Controller
                   control={control}
                   name="countryId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => {
-                        const id = Number(v);
-                        field.onChange(id);
-                        setValue("cityId", 0, { shouldValidate: true });
+                    <select
+                      id="branch-country"
+                      className="flex h-10 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+                      aria-invalid={!!errors.countryId}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        field.onChange(Number.isFinite(id) && id > 0 ? id : 0);
+                        setValue("cityId", 0, { shouldValidate: false });
                         const selected = countries.find((c) => c.countryKey === id);
                         if (selected?.dialCode) {
                           setValue("countryDialCode", selected.dialCode.slice(0, 5), { shouldValidate: true });
                         }
                       }}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.countryId}>
-                        <SelectValue>
-                          {(value: string | null) =>
-                            value
-                              ? (countries.find((c) => String(c.countryKey) === value)?.name ?? value)
-                              : "Select country"
-                          }
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c) => (
-                          <SelectItem key={c.id} value={String(c.countryKey)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">Select country</option>
+                      {countries.map((c) => (
+                        <option key={c.id} value={String(c.countryKey)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label required>City</Label>
+                <Label htmlFor="branch-city" required>
+                  City
+                </Label>
                 <Controller
                   control={control}
                   name="cityId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => field.onChange(Number(v))}
-                      disabled={!countryId || cities.length === 0}
+                    <select
+                      id="branch-city"
+                      className="flex h-10 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+                      aria-invalid={!!errors.cityId}
+                      disabled={!countryId || citiesLoading || cities.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        field.onChange(Number.isFinite(id) && id > 0 ? id : 0);
+                      }}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.cityId}>
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value) return !countryId ? "Select a country first" : "Select city";
-                            return cities.find((c) => String(c.cityKey) === value)?.name ?? value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((c) => (
-                          <SelectItem key={c.id} value={String(c.cityKey)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">
+                        {!countryId
+                          ? "Select a country first"
+                          : citiesLoading
+                            ? "Loading cities…"
+                            : cities.length === 0
+                              ? "No cities for this country"
+                              : "Select city"}
+                      </option>
+                      {cities.map((c) => (
+                        <option key={c.id} value={String(c.cityKey)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.cityId && <p className="text-sm text-destructive">{errors.cityId.message}</p>}
+                {countryId > 0 && cityId > 0 && !cities.some((c) => c.cityKey === cityId) && !citiesLoading && (
+                  <p className="text-xs text-muted-foreground">Selected city is not in the list — pick again.</p>
+                )}
               </div>
             </div>
 

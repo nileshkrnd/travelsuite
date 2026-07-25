@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Loader2,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AccessGate } from "@/components/shared/AccessGate";
@@ -33,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CreateTenantAdminDialog } from "@/components/masters/CreateTenantAdminDialog";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useSessionStore } from "@/lib/store/session.store";
@@ -81,9 +83,17 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const canCreate = can(roleDef, "tenantProfile", "create");
   const canEdit = can(roleDef, "tenantProfile", "edit");
+  const canCreateAdmin = can(roleDef, "users", "create");
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminTenant, setAdminTenant] = useState<Tenant | null>(null);
   const actorKey = user
     ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
     : 0;
+
+  function openCreateAdmin(tenant: Tenant) {
+    setAdminTenant(tenant);
+    setAdminDialogOpen(true);
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -309,6 +319,12 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
                           <Eye className="h-4 w-4" />
                           View
                         </DropdownMenuItem>
+                        {canCreateAdmin && (
+                          <DropdownMenuItem onClick={() => openCreateAdmin(tenant)}>
+                            <UserPlus className="h-4 w-4" />
+                            Create Tenant Admin
+                          </DropdownMenuItem>
+                        )}
                         {canEdit && (
                           <>
                             <DropdownMenuItem
@@ -336,6 +352,18 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
           </Table>
         )}
       </Card>
+
+      {adminTenant && canCreateAdmin && (
+        <CreateTenantAdminDialog
+          open={adminDialogOpen}
+          onOpenChange={(open) => {
+            setAdminDialogOpen(open);
+            if (!open) setAdminTenant(null);
+          }}
+          tenant={adminTenant}
+          createdBy={actorKey}
+        />
+      )}
     </div>
   );
 }

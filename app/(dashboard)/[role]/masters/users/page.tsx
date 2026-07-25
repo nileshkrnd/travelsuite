@@ -39,7 +39,7 @@ import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users
 import { can } from "@/config/permissions";
 import { initials } from "@/lib/utils";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type { RoleDef, User } from "@/types";
+import { userTypeLabel, type RoleDef, type User } from "@/types";
 
 type SortKey = "name" | "username" | "createdAt";
 
@@ -241,7 +241,7 @@ function UsersList({ roleDef }: { roleDef: RoleDef }) {
                 >
                   Username
                 </SortableTableHead>
-                <TableHead>Scope</TableHead>
+                <TableHead>User type</TableHead>
                 <TableHead>T / C</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20 text-right">Actions</TableHead>
@@ -260,7 +260,11 @@ function UsersList({ roleDef }: { roleDef: RoleDef }) {
                     </div>
                   </TableCell>
                   <TableCell>{user.username}</TableCell>
-                  <TableCell>Super Admin</TableCell>
+                  <TableCell>
+                    <span className="text-sm">
+                      {user.userTypeId} — {userTypeLabel(user.userTypeId)}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs tabular-nums">T0 / C0</TableCell>
                   <TableCell>
                     <Badge variant={user.isActive ? "default" : "secondary"}>

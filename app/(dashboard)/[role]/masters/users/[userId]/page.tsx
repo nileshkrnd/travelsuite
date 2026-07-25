@@ -17,13 +17,7 @@ import { useUsersStore } from "@/lib/store/users.store";
 import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users.service";
 import { initials } from "@/lib/utils";
 import { can } from "@/config/permissions";
-import type { RoleDef, UserScope } from "@/types";
-
-function scopeLabel(scope: UserScope) {
-  if (scope === "superAdmin") return "Super Admin";
-  if (scope === "tenantAdmin") return "Tenant Admin";
-  return "Employee";
-}
+import { userTypeLabel, type RoleDef } from "@/types";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -143,7 +137,9 @@ function UserView({ roleDef }: { roleDef: RoleDef }) {
           </div>
           <dl>
             <DetailRow label="User ID">{user.userKey}</DetailRow>
-            <DetailRow label="Scope">{scopeLabel(user.scope)}</DetailRow>
+            <DetailRow label="User type">
+              {user.userTypeId} — {userTypeLabel(user.userTypeId)}
+            </DetailRow>
             <DetailRow label="Tenant ID">{user.tenantKey}</DetailRow>
             <DetailRow label="Company ID">{user.companyKey}</DetailRow>
             <DetailRow label="Status">

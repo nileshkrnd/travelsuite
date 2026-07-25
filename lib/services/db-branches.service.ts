@@ -1,4 +1,3 @@
-import { toAppBranch, type BranchRow } from "@/lib/mappers/branch.mapper";
 import type { Branch } from "@/types";
 
 export class BranchesApiError extends Error {
@@ -20,10 +19,6 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-function mapRow(row: BranchRow): Branch {
-  return toAppBranch(row);
-}
-
 export async function listBranches(options?: {
   companyId?: number;
   tenantId?: number;
@@ -36,7 +31,8 @@ export async function listBranches(options?: {
   const qs = params.toString();
   const res = await fetch(`/api/branches${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new BranchesApiError(await parseError(res), res.status);
-  return ((await res.json()) as BranchRow[]).map(mapRow);
+  // API already returns app-shaped Branch[]
+  return (await res.json()) as Branch[];
 }
 
 export interface BranchWriteInput {
@@ -66,7 +62,7 @@ export async function createBranch(input: BranchWriteInput & { createdBy: number
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new BranchesApiError(await parseError(res), res.status);
-  return mapRow(await res.json());
+  return (await res.json()) as Branch;
 }
 
 export async function updateBranch(
@@ -79,7 +75,7 @@ export async function updateBranch(
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new BranchesApiError(await parseError(res), res.status);
-  return mapRow(await res.json());
+  return (await res.json()) as Branch;
 }
 
 export async function setBranchActive(
@@ -93,5 +89,5 @@ export async function setBranchActive(
     body: JSON.stringify({ isActive, modifiedBy }),
   });
   if (!res.ok) throw new BranchesApiError(await parseError(res), res.status);
-  return mapRow(await res.json());
+  return (await res.json()) as Branch;
 }

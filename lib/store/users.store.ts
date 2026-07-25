@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, UserStatus } from "@/types";
+import { defaultUserTypeId, userScopeFromKeys } from "@/types";
 import { users as seedUsers } from "@/mock/data/users";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { userScopeFromKeys } from "@/types";
 
 export interface NewEmployeeInput {
   name: string;
@@ -66,6 +66,7 @@ export const useUsersStore = create<UsersState>()(
         const nextKey = Math.max(0, ...get().users.map((u) => u.userKey ?? 0)) + 1;
         const tenantKey = tenant.tenantKey ?? 0;
         const companyKey = 0;
+        const userTypeId = defaultUserTypeId(tenantKey, companyKey);
         const user: User = {
           id: `user_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
           userKey: nextKey,
@@ -74,6 +75,7 @@ export const useUsersStore = create<UsersState>()(
           email: input.email,
           tenantKey,
           companyKey,
+          userTypeId,
           tenantId: useTenantStore.getState().tenantId,
           roleId: input.roleId,
           scope: userScopeFromKeys(tenantKey, companyKey),

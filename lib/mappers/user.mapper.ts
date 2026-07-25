@@ -1,6 +1,13 @@
 import { DEFAULT_PREVIEW_TENANT } from "@/mock/data/tenants";
 import { SUPER_ADMIN_ROLE_ID, TENANT_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import { userScopeFromKeys, type User, type UserScope } from "@/types";
+import {
+  defaultUserTypeId,
+  isUserTypeId,
+  userScopeFromTypeId,
+  type User,
+  type UserScope,
+  type UserTypeId,
+} from "@/types";
 
 const PLATFORM_TENANT_ID = DEFAULT_PREVIEW_TENANT.id;
 
@@ -8,6 +15,7 @@ export interface UserRow {
   userId: number;
   username: string;
   userDisplayName: string;
+  userTypeId: number;
   tenantId: number;
   companyId: number;
   lastLoggedInDtTm: Date | string | null;
@@ -30,6 +38,11 @@ function roleIdForScope(scope: UserScope): string {
   return "role_hr"; // default employee-facing role until role master moves to DB
 }
 
+function resolveUserTypeId(row: UserRow): UserTypeId {
+  if (isUserTypeId(row.userTypeId)) return row.userTypeId;
+  return defaultUserTypeId(row.tenantId, row.companyId);
+}
+
 /**
  * Maps a DB User row to the app User.
  * `tenantUidByKey` / `companyUidByKey` resolve numeric FKs to app string ids.
@@ -41,7 +54,8 @@ export function toAppUser(
     companyUidByKey?: Map<number, string>;
   }
 ): User {
-  const scope = userScopeFromKeys(row.tenantId, row.companyId);
+  const userTypeId = resolveUserTypeId(row);
+  const scope = userScopeFromTypeId(userTypeId);
   const tenantUid =
     row.tenantId === 0
       ? PLATFORM_TENANT_ID
@@ -57,6 +71,7 @@ export function toAppUser(
     email: row.username,
     tenantKey: row.tenantId,
     companyKey: row.companyId,
+    userTypeId,
     tenantId: tenantUid,
     companyId: companyUid,
     roleId: roleIdForScope(scope),

@@ -6,6 +6,7 @@ export interface BranchRow {
   branchTypeId: number;
   branchName: string;
   companyId: number;
+  tenantId: number;
   address1: string;
   address2: string | null;
   countryId: number;
@@ -22,7 +23,7 @@ export interface BranchRow {
   modifiedBy: number | null;
   modifiedDtTm: Date | string | null;
   branchType?: { branchTypeName: string } | null;
-  company?: { companyUid: string; companyName: string; tenantId: number } | null;
+  company?: { companyUid: string; companyName: string; tenantId?: number } | null;
   country?: { countryName: string } | null;
   city?: { cityName: string } | null;
   tenantUid?: string;
@@ -35,11 +36,12 @@ function toIso(value: Date | string | null | undefined): string | null {
 
 export function toAppBranch(row: BranchRow): Branch {
   const isActive = row.isActive ?? true;
+  const tenantKey = row.tenantId || row.company?.tenantId || 0;
   return {
     id: row.branchUid,
     branchKey: row.branchId,
-    tenantId: row.tenantUid ?? `tenant_${row.company?.tenantId ?? 0}`,
-    tenantKey: row.company?.tenantId ?? 0,
+    tenantId: row.tenantUid ?? `tenant_${tenantKey}`,
+    tenantKey,
     companyId: row.company?.companyUid ?? `company_${row.companyId}`,
     companyKey: row.companyId,
     branchTypeId: row.branchTypeId,
