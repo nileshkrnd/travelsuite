@@ -53,6 +53,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
               collapsed={collapsed}
               onNavigate={onNavigate}
               t={t}
+              depth={0}
             />
           ) : (
             <SidebarLeaf
@@ -95,6 +96,18 @@ function isItemActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function groupHasActivePath(pathname: string, slug: string, items: MenuItem[]): boolean {
+  return items.some((child) =>
+    child.children
+      ? groupHasActivePath(pathname, slug, child.children)
+      : isItemActive(pathname, itemHref(slug, child))
+  );
+}
+
+function flattenLeaves(items: MenuItem[]): MenuItem[] {
+  return items.flatMap((item) => (item.children ? flattenLeaves(item.children) : [item]));
+}
+
 function SidebarGroup({
   item,
   slug,
@@ -102,6 +115,7 @@ function SidebarGroup({
   collapsed,
   onNavigate,
   t,
+  depth,
 }: {
   item: MenuItem;
   slug: string;
@@ -109,17 +123,18 @@ function SidebarGroup({
   collapsed: boolean;
   onNavigate?: () => void;
   t: (key: string) => string;
+  depth: number;
 }) {
   const children = item.children!;
-  const isActiveGroup = children.some((child) => isItemActive(pathname, itemHref(slug, child)));
+  const isActiveGroup = groupHasActivePath(pathname, slug, children);
   const [open, setOpen] = useState(isActiveGroup);
   const GroupIcon = ICONS[item.icon];
 
   if (collapsed) {
-    // Collapsed rail has no room for a group header — flatten children into their own tooltip icons.
+    // Collapsed rail has no room for group headers — flatten nested leaves into tooltip icons.
     return (
       <>
-        {children.map((child) => (
+        {flattenLeaves(children).map((child) => (
           <SidebarLeaf
             key={child.key}
             item={child}
@@ -141,6 +156,7 @@ function SidebarGroup({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          depth > 0 && "py-1.5 text-[13px]",
           isActiveGroup ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
       >
@@ -149,18 +165,36 @@ function SidebarGroup({
         <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="ml-[1.15rem] space-y-0.5 border-l border-sidebar-border py-0.5 pl-2.5">
-          {children.map((child) => (
-            <SidebarLeaf
-              key={child.key}
-              item={child}
-              slug={slug}
-              pathname={pathname}
-              collapsed={false}
-              onNavigate={onNavigate}
-              label={t(child.key)}
-            />
-          ))}
+        <div
+          className={cn(
+            "space-y-0.5 border-l border-sidebar-border py-0.5 pl-2.5",
+            depth === 0 ? "ml-[1.15rem]" : "ml-3"
+          )}
+        >
+          {children.map((child) =>
+            child.children ? (
+              <SidebarGroup
+                key={child.key}
+                item={child}
+                slug={slug}
+                pathname={pathname}
+                collapsed={false}
+                onNavigate={onNavigate}
+                t={t}
+                depth={depth + 1}
+              />
+            ) : (
+              <SidebarLeaf
+                key={child.key}
+                item={child}
+                slug={slug}
+                pathname={pathname}
+                collapsed={false}
+                onNavigate={onNavigate}
+                label={t(child.key)}
+              />
+            )
+          )}
         </div>
       )}
     </div>

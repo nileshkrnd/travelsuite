@@ -66,7 +66,12 @@ function StatCard({
 function CompanyList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
-  const companies = useCompaniesStore((s) => s.companies);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const allCompanies = useCompaniesStore((s) => s.companies);
+  const companies = useMemo(
+    () => allCompanies.filter((c) => c.tenantId === tenantId),
+    [allCompanies, tenantId]
+  );
   const updateCompany = useCompaniesStore((s) => s.updateCompany);
   const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
   const [search, setSearch] = useState("");

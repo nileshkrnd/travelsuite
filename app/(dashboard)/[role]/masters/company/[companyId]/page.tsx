@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useBranchesStore } from "@/lib/store/branches.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { getCountry } from "@/config/countries";
 import { can } from "@/config/permissions";
 import type { RoleDef } from "@/types";
@@ -26,9 +27,10 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function CompanyView({ roleDef }: { roleDef: RoleDef }) {
   const { role, companyId } = useParams<{ role: string; companyId: string }>();
+  const tenantId = useTenantStore((s) => s.tenantId);
   const companies = useCompaniesStore((s) => s.companies);
   const branches = useBranchesStore((s) => s.branches);
-  const company = companies.find((c) => c.id === companyId);
+  const company = companies.find((c) => c.id === companyId && c.tenantId === tenantId);
   const canEdit = can(roleDef, "company", "edit");
 
   if (!company) {

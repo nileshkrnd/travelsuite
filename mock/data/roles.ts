@@ -146,8 +146,8 @@ export const roles: RoleDef[] = [
     description:
       "Owns one tenant end-to-end — companies, branches, masters, roles, and every operating module. Cannot switch tenants.",
     category: "internal",
-    // Full product surface within the assigned tenant (Super Admin alone switches tenants).
-    permissions: grant(allLeafModuleKeys()),
+    // Full product surface within the assigned tenant — no multi-tenant registry.
+    permissions: grant(allLeafModuleKeys().filter((key) => key !== "tenantProfile")),
   }),
   seedRole({
     id: "role_hr",

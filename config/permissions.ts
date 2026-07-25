@@ -1,4 +1,5 @@
 import type { RoleDef } from "@/types";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 
 export type PermissionAction = "view" | "create" | "edit" | "delete" | "approve";
 
@@ -243,30 +244,30 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "insurance", labelKey: "sidebar.insurance", icon: "Shield", path: "sales/insurance" },
       { key: "visa", labelKey: "sidebar.visa", icon: "Stamp", path: "sales/visa" },
       { key: "carRental", labelKey: "sidebar.carRental", icon: "CarFront", path: "sales/car-rental" },
-    ],
-  },
-  {
-    key: "bookOffline",
-    labelKey: "sidebar.bookOffline",
-    icon: "BookMarked",
-    path: "book-offline",
-    children: [
-      { key: "offlineFlight", labelKey: "sidebar.offlineFlight", icon: "Plane", path: "book-offline/flight" },
-      { key: "offlineHotel", labelKey: "sidebar.offlineHotel", icon: "BedDouble", path: "book-offline/hotel" },
-      { key: "offlineTransfer", labelKey: "sidebar.offlineTransfer", icon: "Car", path: "book-offline/transfer" },
-      { key: "offlineRail", labelKey: "sidebar.offlineRail", icon: "TrainFront", path: "book-offline/rail" },
-      { key: "offlineMiscellaneous", labelKey: "sidebar.offlineMiscellaneous", icon: "MoreHorizontal", path: "book-offline/miscellaneous" },
-    ],
-  },
-  {
-    key: "bookOnline",
-    labelKey: "sidebar.bookOnline",
-    icon: "Globe",
-    path: "book-online",
-    children: [
-      { key: "onlineFlight", labelKey: "sidebar.onlineFlight", icon: "Plane", path: "book-online/flight" },
-      { key: "onlineHotel", labelKey: "sidebar.onlineHotel", icon: "BedDouble", path: "book-online/hotel" },
-      { key: "onlineTransfer", labelKey: "sidebar.onlineTransfer", icon: "Car", path: "book-online/transfer" },
+      {
+        key: "bookOffline",
+        labelKey: "sidebar.bookOffline",
+        icon: "BookMarked",
+        path: "book-offline",
+        children: [
+          { key: "offlineFlight", labelKey: "sidebar.offlineFlight", icon: "Plane", path: "book-offline/flight" },
+          { key: "offlineHotel", labelKey: "sidebar.offlineHotel", icon: "BedDouble", path: "book-offline/hotel" },
+          { key: "offlineTransfer", labelKey: "sidebar.offlineTransfer", icon: "Car", path: "book-offline/transfer" },
+          { key: "offlineRail", labelKey: "sidebar.offlineRail", icon: "TrainFront", path: "book-offline/rail" },
+          { key: "offlineMiscellaneous", labelKey: "sidebar.offlineMiscellaneous", icon: "MoreHorizontal", path: "book-offline/miscellaneous" },
+        ],
+      },
+      {
+        key: "bookOnline",
+        labelKey: "sidebar.bookOnline",
+        icon: "Globe",
+        path: "book-online",
+        children: [
+          { key: "onlineFlight", labelKey: "sidebar.onlineFlight", icon: "Plane", path: "book-online/flight" },
+          { key: "onlineHotel", labelKey: "sidebar.onlineHotel", icon: "BedDouble", path: "book-online/hotel" },
+          { key: "onlineTransfer", labelKey: "sidebar.onlineTransfer", icon: "Car", path: "book-online/transfer" },
+        ],
+      },
     ],
   },
   {
@@ -426,12 +427,15 @@ export const MENU_ITEMS: MenuItem[] = [
 
 /** Flat lookup by ModuleKey, including nested group children — used by Topbar/menu lookups. */
 export function findMenuItem(key: ModuleKey): MenuItem | undefined {
-  for (const item of MENU_ITEMS) {
-    if (item.key === key) return item;
-    const child = item.children?.find((c) => c.key === key);
-    if (child) return child;
+  function search(items: MenuItem[]): MenuItem | undefined {
+    for (const item of items) {
+      if (item.key === key) return item;
+      const nested = item.children ? search(item.children) : undefined;
+      if (nested) return nested;
+    }
+    return undefined;
   }
-  return undefined;
+  return search(MENU_ITEMS);
 }
 
 /** Resolve a menu leaf by its path segment (e.g. "sales/customers"). */
@@ -440,9 +444,21 @@ export function findMenuItemByPath(path: string): MenuItem | undefined {
   return flatMenuItems().find((item) => item.path === normalized);
 }
 
-/** Flat list of every leaf item (group children included, group nodes excluded). */
+/** Flat list of every navigable leaf (nested group nodes excluded). */
 export function flatMenuItems(): MenuItem[] {
-  return MENU_ITEMS.flatMap((item) => (item.children ? item.children : [item]));
+  function leaves(items: MenuItem[]): MenuItem[] {
+    return items.flatMap((item) => (item.children ? leaves(item.children) : [item]));
+  }
+  return leaves(MENU_ITEMS);
+}
+
+/** Top-level menu group that contains a leaf/sub-group key (for breadcrumbs / topbar). */
+export function findTopMenuGroup(key: ModuleKey): MenuItem | undefined {
+  function contains(items: MenuItem[] | undefined, target: ModuleKey): boolean {
+    if (!items) return false;
+    return items.some((item) => item.key === target || contains(item.children, target));
+  }
+  return MENU_ITEMS.find((group) => group.key === key || contains(group.children, key));
 }
 
 export function can(roleDef: RoleDef | undefined, module: ModuleKey, action: PermissionAction): boolean {
@@ -452,6 +468,7 @@ export function can(roleDef: RoleDef | undefined, module: ModuleKey, action: Per
 
 export function getMenuForRole(roleDef: RoleDef | undefined): MenuItem[] {
   if (!roleDef) return [];
+  const role = roleDef;
 
   function filterItems(items: MenuItem[]): MenuItem[] {
     return items.reduce<MenuItem[]>((acc, item) => {
@@ -460,7 +477,9 @@ export function getMenuForRole(roleDef: RoleDef | undefined): MenuItem[] {
         if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
         return acc;
       }
-      if (can(roleDef, item.key, "view")) acc.push(item);
+      // Tenant registry is Super Admin only — never show in Tenant Admin menus.
+      if (item.key === "tenantProfile" && role.id !== SUPER_ADMIN_ROLE_ID) return acc;
+      if (can(role, item.key, "view")) acc.push(item);
       return acc;
     }, []);
   }

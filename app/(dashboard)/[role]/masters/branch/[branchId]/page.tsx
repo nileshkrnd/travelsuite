@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useUsersStore } from "@/lib/store/users.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { getCountry } from "@/config/countries";
 import { can } from "@/config/permissions";
 import type { RoleDef } from "@/types";
@@ -27,10 +28,11 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function BranchView({ roleDef }: { roleDef: RoleDef }) {
   const { role, branchId } = useParams<{ role: string; branchId: string }>();
+  const tenantId = useTenantStore((s) => s.tenantId);
   const branches = useBranchesStore((s) => s.branches);
   const companies = useCompaniesStore((s) => s.companies);
   const users = useUsersStore((s) => s.users);
-  const branch = branches.find((b) => b.id === branchId);
+  const branch = branches.find((b) => b.id === branchId && b.tenantId === tenantId);
   const canEdit = can(roleDef, "branch", "edit");
 
   if (!branch) {

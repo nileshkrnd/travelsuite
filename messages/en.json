@@ -174,7 +174,7 @@
     "blackoutDates": "Blackout Dates",
     "extranetBookings": "Bookings",
 
-    "assets": "Assets",
+    "assets": "Asset Management",
     "assetsDashboard": "Assets Dashboard",
     "assetList": "Asset List",
     "assetCategories": "Asset Categories",
@@ -182,7 +182,7 @@
     "maintenance": "Maintenance",
     "depreciation": "Depreciation",
 
-    "inventory": "Inventory",
+    "inventory": "Inventory Management",
     "inventoryDashboard": "Inventory Dashboard",
     "warehouse": "Warehouse",
     "products": "Products",

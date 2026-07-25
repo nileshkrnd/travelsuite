@@ -14,7 +14,6 @@ import {
   type TenantPerformanceSummary,
 } from "@/lib/services/performance.service";
 import { getRecentActivity } from "@/lib/services/activity.service";
-import { useOrgScopeStore } from "@/lib/store/org-scope.store";
 import type { ActivityItem, RoleDef, User } from "@/types";
 
 function moneyValue(n: number) {
@@ -33,8 +32,6 @@ export function TenantAdminDashboard({
   /** Overrides the default role line under the welcome title. */
   subtitle?: string;
 }) {
-  const companyId = useOrgScopeStore((s) => s.companyId);
-  const branchId = useOrgScopeStore((s) => s.branchId);
   const [loading, setLoading] = useState(true);
   const [perf, setPerf] = useState<TenantPerformanceSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -43,31 +40,25 @@ export function TenantAdminDashboard({
     let cancelled = false;
     setLoading(true);
 
-    Promise.all([
-      getTenantPerformance(tenantId, { companyId, branchId }),
-      getRecentActivity(tenantId),
-    ]).then(([perfRes, activityRes]) => {
-      if (cancelled) return;
-      setPerf(perfRes);
-      setActivity(activityRes);
-      setLoading(false);
-    });
+    Promise.all([getTenantPerformance(tenantId), getRecentActivity(tenantId)]).then(
+      ([perfRes, activityRes]) => {
+        if (cancelled) return;
+        setPerf(perfRes);
+        setActivity(activityRes);
+        setLoading(false);
+      }
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [tenantId, companyId, branchId]);
-
-  const scopeHint =
-    companyId || branchId
-      ? "Filtered by the company / branch selected in the top bar"
-      : "All companies and branches under your tenant";
+  }, [tenantId]);
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title={`Welcome back, ${user.name.split(" ")[0]}`}
-        description={subtitle ?? `Tenant Admin · ${scopeHint}`}
+        description={subtitle ?? "Tenant Admin · all companies and branches under your tenant"}
         actions={<QuickActions roleDef={roleDef} />}
       />
 

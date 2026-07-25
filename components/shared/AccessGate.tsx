@@ -5,6 +5,7 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { can, type ModuleKey, type PermissionAction } from "@/config/permissions";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { RoleDef } from "@/types";
 
 interface AccessGateProps {
@@ -14,13 +15,21 @@ interface AccessGateProps {
   children: (roleDef: RoleDef) => React.ReactNode;
 }
 
+/** Multi-tenant registry is Super Admin only — never expose to Tenant Admin. */
+const SUPER_ADMIN_ONLY_MODULES = new Set<ModuleKey>(["tenantProfile"]);
+
 /** Gates a full page behind a permission check, showing a consistent "Access restricted" state otherwise. */
 export function AccessGate({ module, action = "view", children }: AccessGateProps) {
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const superAdminOnly = SUPER_ADMIN_ONLY_MODULES.has(module);
+  const allowed =
+    !!roleDef &&
+    can(roleDef, module, action) &&
+    (!superAdminOnly || user?.roleId === SUPER_ADMIN_ROLE_ID);
 
-  if (!roleDef || !can(roleDef, module, action)) {
+  if (!allowed) {
     return (
       <EmptyState
         icon={ShieldAlert}
@@ -31,5 +40,5 @@ export function AccessGate({ module, action = "view", children }: AccessGateProp
     );
   }
 
-  return <>{children(roleDef)}</>;
+  return <>{children(roleDef!)}</>;
 }

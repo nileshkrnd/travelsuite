@@ -17,11 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { contrastForeground } from "@/lib/color";
 import { cn, initials } from "@/lib/utils";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { Tenant } from "@/types";
 
 /**
  * Super Admin workspace picker — selects a tenant (holding).
- * Operating businesses under that holding are Companies, not listed here.
+ * Tenant Admin and every other role are redirected away; they cannot preview or switch tenants.
  */
 export function TenantSelection() {
   const t = useTranslations("auth.selectTenant");
@@ -36,6 +37,7 @@ export function TenantSelection() {
   const [query, setQuery] = useState("");
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const isSuperAdmin = user?.roleId === SUPER_ADMIN_ROLE_ID;
 
   const visibleTenants = useMemo(() => {
     const active = tenants.filter((tenant) => tenant.status === "active");
@@ -48,10 +50,17 @@ export function TenantSelection() {
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!user) router.replace("/login");
-  }, [hydrated, user, router]);
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!isSuperAdmin && roleDef) {
+      setTenant(user.tenantId);
+      router.replace(roleHomePath(roleDef));
+    }
+  }, [hydrated, user, isSuperAdmin, roleDef, router, setTenant]);
 
-  if (!hydrated || !user || !roleDef) return null;
+  if (!hydrated || !user || !roleDef || !isSuperAdmin) return null;
 
   function selectTenant(tenant: Tenant) {
     setTenant(tenant.id);

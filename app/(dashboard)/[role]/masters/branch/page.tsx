@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBranchesStore } from "@/lib/store/branches.store";
 import { useCompaniesStore } from "@/lib/store/companies.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
 import { getCountry } from "@/config/countries";
 import { can } from "@/config/permissions";
 import type { Branch, RoleDef } from "@/types";
@@ -66,9 +67,18 @@ function StatCard({
 function BranchList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
-  const branches = useBranchesStore((s) => s.branches);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const allBranches = useBranchesStore((s) => s.branches);
+  const branches = useMemo(
+    () => allBranches.filter((b) => b.tenantId === tenantId),
+    [allBranches, tenantId]
+  );
   const updateBranch = useBranchesStore((s) => s.updateBranch);
-  const companies = useCompaniesStore((s) => s.companies);
+  const allCompanies = useCompaniesStore((s) => s.companies);
+  const companies = useMemo(
+    () => allCompanies.filter((c) => c.tenantId === tenantId),
+    [allCompanies, tenantId]
+  );
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
