@@ -7,14 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:create": "node scripts/create-dbs.mjs",
+    "db:generate": "prisma generate --schema prisma/admin/schema.prisma && prisma generate --schema prisma/base/schema.prisma && prisma generate --schema prisma/accounts/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/admin/schema.prisma",
+    "db:migrate:admin": "prisma migrate deploy --schema prisma/admin/schema.prisma",
+    "db:migrate:base": "prisma migrate deploy --schema prisma/base/schema.prisma",
+    "db:migrate:accounts": "prisma migrate deploy --schema prisma/accounts/schema.prisma",
+    "db:migrate:all": "npm run db:migrate:admin && npm run db:migrate:base && npm run db:migrate:accounts",
+    "db:push": "prisma db push --schema prisma/admin/schema.prisma",
+    "db:studio": "prisma studio --schema prisma/admin/schema.prisma",
+    "db:studio:base": "prisma studio --schema prisma/base/schema.prisma",
+    "db:studio:accounts": "prisma studio --schema prisma/accounts/schema.prisma",
+    "db:seed": "tsx prisma/admin/seed.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "schema": "prisma/admin/schema.prisma",
+    "seed": "tsx prisma/admin/seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

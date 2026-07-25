@@ -1,6 +1,11 @@
 import type { User } from "@/types";
 
-export class InvalidCredentialsError extends Error {}
+export class InvalidCredentialsError extends Error {
+  constructor(message = "Invalid credentials") {
+    super(message);
+    this.name = "InvalidCredentialsError";
+  }
+}
 
 async function loginRequest(body: {
   username: string;
@@ -12,7 +17,16 @@ async function loginRequest(body: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new InvalidCredentialsError();
+  if (!res.ok) {
+    let message = "Invalid credentials";
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      /* ignore */
+    }
+    throw new InvalidCredentialsError(message);
+  }
   return (await res.json()) as User;
 }
 

@@ -1,10 +1,11 @@
+/// KlyraAdmin — masters & configuration (Tenant, User, Company, geo, aviation, …).
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("ADMINCNX_URL")
 }
 
 /// Tenant master — primary org entry point (holding / legal entity).

@@ -65,7 +65,7 @@ function EditCompany() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title={`Edit ${company.name}`}
         description="Update this company's details."

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { adminDb } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { toAppUser } from "@/lib/mappers/user.mapper";
 
@@ -14,7 +14,9 @@ const schema = z.object({
 function dbUnavailable(error: unknown) {
   const message = error instanceof Error ? error.message : "Database error";
   return NextResponse.json(
-    { error: `Database unavailable: ${message}. Ensure PostgreSQL is running and DATABASE_URL is set.` },
+    {
+      error: `Database unavailable: ${message}. Ensure PostgreSQL is running and ADMINCNX_URL points to KlyraAdmin.`,
+    },
     { status: 503 }
   );
 }
@@ -28,14 +30,14 @@ export async function POST(request: Request) {
     }
 
     const username = parsed.data.username.trim().toLowerCase();
-    const row = await prisma.user.findUnique({ where: { username } });
+    const row = await adminDb.user.findUnique({ where: { username } });
     if (!row || !row.isActive || !verifyPassword(parsed.data.password, row.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
     let tenantUid: string | undefined;
     if (row.tenantId > 0) {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await adminDb.tenant.findUnique({
         where: { tenantId: row.tenantId },
         select: { tenantUid: true, tenantCode: true, status: true },
       });
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
     }
     // Super Admin (TenantID=0): tenant code is ignored when present.
 
-    await prisma.user.update({
+    await adminDb.user.update({
       where: { userId: row.userId },
       data: { lastLoggedInDtTm: new Date() },
     });

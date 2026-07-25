@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "BaseSchemaInfo" (
+    "Id" INTEGER NOT NULL DEFAULT 1,
+    "Name" VARCHAR(50) NOT NULL DEFAULT 'KlyraBase',
+    "CreatedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "BaseSchemaInfo_pkey" PRIMARY KEY ("Id")
+);

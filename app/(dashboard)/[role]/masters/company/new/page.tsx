@@ -12,7 +12,7 @@ function NewCompany() {
   const { role } = useParams<{ role: string }>();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title="Add company"
         description="Register a new company under your tenant."

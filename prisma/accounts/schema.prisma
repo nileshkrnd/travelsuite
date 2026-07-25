@@ -1,0 +1,19 @@
+/// KlyraAccounts — finance / accounting transaction data.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/accounts-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ACCOUNTSCNX_URL")
+}
+
+/// Schema marker until finance models are added.
+model AccountsSchemaInfo {
+  id        Int      @id @default(1) @map("Id")
+  name      String   @default("KlyraAccounts") @map("Name") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("CreatedAt") @db.Timestamptz(6)
+
+  @@map("AccountsSchemaInfo")
+}

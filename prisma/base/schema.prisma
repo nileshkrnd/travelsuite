@@ -1,0 +1,19 @@
+/// KlyraBase — booking / operational transaction data.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/base-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BASECNX_URL")
+}
+
+/// Schema marker until booking models are added.
+model BaseSchemaInfo {
+  id        Int      @id @default(1) @map("Id")
+  name      String   @default("KlyraBase") @map("Name") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("CreatedAt") @db.Timestamptz(6)
+
+  @@map("BaseSchemaInfo")
+}

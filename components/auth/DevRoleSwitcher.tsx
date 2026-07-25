@@ -3,53 +3,60 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { authenticate, authenticateByEmail } from "@/lib/services/auth.service";
+import { authenticateByEmail, InvalidCredentialsError } from "@/lib/services/auth.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
-import { useUsersStore } from "@/lib/store/users.store";
 import { roleHomePath } from "@/config/permissions";
-import { MOCK_PASSWORD } from "@/mock/data/users";
+import { MOCK_PASSWORD, users as demoUsers } from "@/mock/data/users";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import { tenants } from "@/mock/data/tenants";
 
 /**
- * Phase 1 only: lets reviewers jump straight into any role's dashboard
- * without knowing mock credentials. In real auth, role is always derived
- * from the authenticated account — DELETE this component entirely once
- * Phase 2 wires real login (do not gate behind an env flag and ship it).
+ * Phase 1 only: jump into seeded DB accounts (Super Admin / Tenant Admin).
+ * DELETE once real auth replaces demo switcher.
  */
 export function DevRoleSwitcher() {
   const t = useTranslations("auth.login");
   const login = useSessionStore((s) => s.login);
   const setTenant = useTenantStore((s) => s.setTenant);
   const roles = useRolesStore((s) => s.roles);
-  const users = useUsersStore((s) => s.users);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pendingRoleId, setPendingRoleId] = useState<string | null>(null);
 
+  /** Only roles that have a seeded Admin-DB login. */
+  const demoRoles = roles.filter((roleDef) => demoUsers.some((u) => u.roleId === roleDef.id));
+
   async function signInAs(roleId: string) {
-    const user = users.find((u) => u.roleId === roleId);
+    const user = demoUsers.find((u) => u.roleId === roleId);
     const roleDef = roles.find((r) => r.id === roleId);
     if (!user || !roleDef) return;
+
     setPendingRoleId(roleId);
-    const isSuperAdmin = roleId === SUPER_ADMIN_ROLE_ID || user.scope === "superAdmin";
-    const userTenant = tenants.find((t) => t.id === user.tenantId);
-    const authed = isSuperAdmin
-      ? await authenticateByEmail(user.email, MOCK_PASSWORD)
-      : userTenant?.slug
-        ? await authenticate(userTenant.slug, user.email, MOCK_PASSWORD)
-        : await authenticateByEmail(user.email, MOCK_PASSWORD);
-    login(authed);
-    if (isSuperAdmin) {
-      router.push("/select-tenant");
-      return;
+    try {
+      const isSuperAdmin = roleId === SUPER_ADMIN_ROLE_ID || user.scope === "superAdmin";
+      // Username+password only — do not send tenantCode (mismatch → 401).
+      const authed = await authenticateByEmail(user.email, MOCK_PASSWORD);
+
+      login(authed);
+      if (isSuperAdmin) {
+        router.push("/select-tenant");
+        return;
+      }
+      setTenant(authed.tenantId);
+      router.push(roleHomePath(roleDef));
+    } catch (error) {
+      toast.error(
+        error instanceof InvalidCredentialsError
+          ? error.message || "Invalid credentials (seeded password is 123456)"
+          : "Login failed"
+      );
+    } finally {
+      setPendingRoleId(null);
     }
-    setTenant(authed.tenantId);
-    router.push(roleHomePath(roleDef));
   }
 
   return (
@@ -67,22 +74,19 @@ export function DevRoleSwitcher() {
       </button>
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-1.5">
-          {roles.map((roleDef) => {
-            const hasUser = users.some((u) => u.roleId === roleDef.id);
-            return (
-              <Button
-                key={roleDef.id}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="justify-start text-xs"
-                disabled={pendingRoleId !== null || !hasUser}
-                onClick={() => signInAs(roleDef.id)}
-              >
-                {pendingRoleId === roleDef.id ? "…" : roleDef.name}
-              </Button>
-            );
-          })}
+          {demoRoles.map((roleDef) => (
+            <Button
+              key={roleDef.id}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start text-xs"
+              disabled={pendingRoleId !== null}
+              onClick={() => void signInAs(roleDef.id)}
+            >
+              {pendingRoleId === roleDef.id ? "…" : roleDef.name}
+            </Button>
+          ))}
         </div>
       )}
     </div>
