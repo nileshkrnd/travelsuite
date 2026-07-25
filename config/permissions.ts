@@ -36,7 +36,7 @@ export type ModuleKey =
   | "letters"
   | "gratuity"
   | "settlement"
-  // Sales
+  // POS — Point of Sales
   | "sales"
   | "salesDashboard"
   | "salesCustomers"
@@ -227,7 +227,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     key: "sales",
     labelKey: "sidebar.sales",
-    icon: "ShoppingBag",
+    icon: "Store",
     path: "sales",
     children: [
       { key: "salesDashboard", labelKey: "sidebar.salesDashboard", icon: "LayoutDashboard", path: "sales/dashboard" },

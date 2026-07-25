@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "TravelSuite",
+    "appName": "Klyra",
     "loading": "Loading…",
     "cancel": "Cancel",
     "save": "Save",
@@ -28,11 +28,13 @@
     },
     "selectTenant": {
       "title": "Choose a workspace",
-      "subtitle": "Search and select the tenant you'd like to manage, {name}",
-      "searchPlaceholder": "Search by tenant, group, city, or code…",
-      "resultCount": "{count} workspaces in {groups} groups",
+      "subtitle": "Select the holding tenant you'd like to manage, {name}",
+      "companiesHint": "Operating businesses (e.g. Regency Travel & Tours) are Companies inside the tenant — switch them from the top bar after you enter.",
+      "searchPlaceholder": "Search by tenant name, city, or code…",
+      "tenantCount": "{count} tenants",
+      "companyCount": "{count} companies",
       "emptyTitle": "No tenants found",
-      "emptyDescription": "Try a different name, holding group, or tenant code.",
+      "emptyDescription": "Try a different name, city, or tenant code.",
       "clearSearch": "Clear search",
       "select": "Enter workspace",
       "success": "Switched to {name}",
@@ -112,8 +114,8 @@
     "gratuity": "Gratuity",
     "settlement": "Full & Final Settlement",
 
-    "sales": "Sales",
-    "salesDashboard": "Sales Dashboard",
+    "sales": "POS",
+    "salesDashboard": "POS Dashboard",
     "salesCustomers": "Customers",
     "salesLeads": "Leads",
     "quotations": "Quotations",
@@ -223,7 +225,7 @@
     "corporateReports": "Reports",
 
     "reports": "Reports",
-    "reportSales": "Sales Report",
+    "reportSales": "POS Report",
     "reportFinance": "Finance Report",
     "reportOperations": "Operations Report",
     "reportHr": "HR Report",

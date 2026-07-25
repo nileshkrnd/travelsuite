@@ -128,3 +128,9 @@
     @apply font-sans;
   }
 }
+
+@keyframes ts-route {
+  to {
+    stroke-dashoffset: -320;
+  }
+}

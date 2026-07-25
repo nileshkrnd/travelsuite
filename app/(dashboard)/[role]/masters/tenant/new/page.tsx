@@ -15,7 +15,7 @@ function NewTenant() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Register tenant"
-        description="Set up a new organization on TravelSuite."
+        description="Set up a new organization on Klyra."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/tenant`} />}>
             <ArrowLeft className="h-4 w-4" />

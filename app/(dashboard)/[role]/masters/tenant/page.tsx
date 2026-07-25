@@ -132,7 +132,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Tenant"
-        description="Organizations registered on TravelSuite. Each tenant has its own companies, branches, and employees."
+        description="Organizations registered on Klyra. Each tenant has its own companies, branches, and employees."
         actions={
           canCreate ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/tenant/new`} />}>

@@ -10,8 +10,8 @@ export default function BookingsPage() {
         <ModulePrototypePage
           moduleKey="salesBookings"
           title="Bookings"
-          groupLabel="Sales"
-          description="Sales booking pipeline and reservation overview"
+          groupLabel="POS"
+          description="Point of Sales booking pipeline and reservation overview"
         />
       )}
     </AccessGate>

@@ -1,13 +1,17 @@
 import type { Tenant, TenantBranding } from "@/types";
 
+/**
+ * Tenants = holding / legal entities Super Admin switches between.
+ * Operating businesses (e.g. Regency Travel & Tours) live under Companies
+ * inside a tenant — see mock/data/companies.ts.
+ */
 export const tenants: Tenant[] = [
-  // ── Regency Group Holding ──────────────────────────────────────────────
   {
     id: "tenant_regency",
-    slug: "regencyTravel",
+    slug: "regencyGroupHolding",
     groupName: "Regency Group Holding",
     branding: {
-      name: "Regency Travel & Tours",
+      name: "Regency Group Holding",
       logoUrl: "",
       primaryColor: "#2563EB",
     },
@@ -26,69 +30,11 @@ export const tenants: Tenant[] = [
       timezone: "Asia/Qatar",
     },
     contact: {
-      email: "hello@regencytravel.example",
+      email: "hello@regencygroup.example",
       dialCode: "+974",
       phone: "44441234",
     },
   },
-  {
-    id: "tenant_myholidays",
-    slug: "myHolidays",
-    groupName: "Regency Group Holding",
-    branding: {
-      name: "MyHolidays",
-      logoUrl: "",
-      primaryColor: "#0D9488",
-    },
-    defaultCurrency: "AED",
-    supportedCurrencies: ["AED", "USD", "EUR"],
-    defaultLocale: "en",
-    supportedLocales: ["en", "ar"],
-    status: "active",
-    createdAt: "2024-03-12T09:00:00.000Z",
-    address: {
-      line1: "West Bay",
-      country: "QA",
-      city: "Doha",
-      zip: "00000",
-      timezone: "Asia/Qatar",
-    },
-    contact: {
-      email: "hello@myholidays.example",
-      dialCode: "+974",
-      phone: "44445678",
-    },
-  },
-  {
-    id: "tenant_alasmakh",
-    slug: "alAsmakhRealEstate",
-    groupName: "Regency Group Holding",
-    branding: {
-      name: "Al Asmakh Real Estate",
-      logoUrl: "",
-      primaryColor: "#B45309",
-    },
-    defaultCurrency: "AED",
-    supportedCurrencies: ["AED", "USD"],
-    defaultLocale: "en",
-    supportedLocales: ["en", "ar"],
-    status: "active",
-    createdAt: "2024-04-01T09:00:00.000Z",
-    address: {
-      line1: "Al Asmakh Street",
-      country: "QA",
-      city: "Doha",
-      zip: "00000",
-      timezone: "Asia/Qatar",
-    },
-    contact: {
-      email: "hello@alasmakh.example",
-      dialCode: "+974",
-      phone: "44449012",
-    },
-  },
-
-  // ── Mannai Travel Corporation ──────────────────────────────────────────
   {
     id: "tenant_mannai",
     slug: "mannaiTravel",
@@ -117,8 +63,6 @@ export const tenants: Tenant[] = [
       phone: "44221100",
     },
   },
-
-  // ── Tawfeeq Group ──────────────────────────────────────────────────────
   {
     id: "tenant_tawfeeq",
     slug: "tawfeeqGroup",
@@ -147,8 +91,6 @@ export const tenants: Tenant[] = [
       phone: "44332200",
     },
   },
-
-  // ── Ali Bin Ali Group ──────────────────────────────────────────────────
   {
     id: "tenant_alibinali",
     slug: "aliBinAliGroup",
@@ -177,8 +119,6 @@ export const tenants: Tenant[] = [
       phone: "44445500",
     },
   },
-
-  // ── SEERA Group ────────────────────────────────────────────────────────
   {
     id: "tenant_seera",
     slug: "seeraGroup",
@@ -207,8 +147,6 @@ export const tenants: Tenant[] = [
       phone: "114600000",
     },
   },
-
-  // ── Nilesh Group Holding ───────────────────────────────────────────────
   {
     id: "tenant_nilesh",
     slug: "nileshGroupHolding",
@@ -243,16 +181,16 @@ export const DEFAULT_TENANT_ID = tenants[0].id;
 
 /** Neutral, platform-level branding shown on the generic /login page before a tenant code is entered. */
 export const DEFAULT_BRANDING: TenantBranding = {
-  name: "TravelSuite",
+  name: "Klyra",
   logoUrl: "",
-  primaryColor: "#4F46E5",
+  primaryColor: "#C45C26",
 };
 
 /** Placeholder Tenant shape carrying DEFAULT_BRANDING, so the tenant store always holds a valid Tenant. */
 export const DEFAULT_PREVIEW_TENANT: Tenant = {
   id: "default",
   slug: "",
-  groupName: "TravelSuite",
+  groupName: "Klyra",
   branding: DEFAULT_BRANDING,
   defaultCurrency: "USD",
   supportedCurrencies: ["USD"],

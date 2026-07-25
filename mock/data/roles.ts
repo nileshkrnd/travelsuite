@@ -193,8 +193,8 @@ export const roles: RoleDef[] = [
   }),
   seedRole({
     id: "role_sales",
-    name: "Sales",
-    description: "Front-line selling — leads, quotations, and bookings across every product line.",
+    name: "POS",
+    description: "Point of Sales — front-desk bookings, quotations, and walk-in customers across every product line.",
     category: "internal",
     permissions: mergePermissions(
       grant(["dashboard"], ["view"]),

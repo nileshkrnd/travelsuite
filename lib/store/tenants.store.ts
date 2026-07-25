@@ -75,7 +75,7 @@ export const useTenantsStore = create<TenantsState>()(
     }),
     {
       name: "travelsuite.tenants",
-      version: 3,
+      version: 4,
       migrate: () => ({ tenants: seedTenants.map(withDefaults) }),
     }
   )

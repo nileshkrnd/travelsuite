@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TravelSuite Admin",
-  description: "Multi-tenant travel admin panel",
+  title: "Klyra Admin",
+  description: "Multi-tenant travel, property & CRM platform",
 };
 
 export default async function RootLayout({

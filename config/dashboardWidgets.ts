@@ -31,10 +31,10 @@ const DASHBOARD_KPIS_BY_ROLE_ID: Record<string, KpiWidget[]> = {
     { key: "servicesListed", label: "Open Positions", icon: "UserPlus", format: "number" },
   ],
   role_sales: [
-    { key: "totalBookings", label: "Total Bookings", icon: "CalendarCheck", format: "number" },
-    { key: "totalRevenue", label: "Total Revenue", icon: "TrendingUp", format: "money" },
-    { key: "avgBookingValue", label: "Avg. Deal Value", icon: "Receipt", format: "money" },
-    { key: "pendingBookings", label: "Open Leads", icon: "ClipboardCheck", format: "number" },
+    { key: "totalBookings", label: "POS Bookings", icon: "CalendarCheck", format: "number" },
+    { key: "totalRevenue", label: "POS Revenue", icon: "TrendingUp", format: "money" },
+    { key: "avgBookingValue", label: "Avg. Ticket Value", icon: "Receipt", format: "money" },
+    { key: "pendingBookings", label: "Open Counters", icon: "ClipboardCheck", format: "number" },
   ],
   role_back_office: [
     { key: "pendingBookings", label: "Pending Booking Queue", icon: "ClipboardCheck", format: "number" },

@@ -51,11 +51,8 @@ export const useCompaniesStore = create<CompaniesState>()(
     }),
     {
       name: "travelsuite.companies",
-      version: 1,
-      migrate: (persistedState) => {
-        const state = persistedState as CompaniesState;
-        return { ...state, companies: (state.companies ?? []).map(withDefaults) };
-      },
+      version: 2,
+      migrate: () => ({ companies: seedCompanies.map(withDefaults) }),
     }
   )
 );

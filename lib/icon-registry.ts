@@ -81,6 +81,11 @@ import {
   ScrollText,
   TrainFront,
   MoreHorizontal,
+  Smartphone,
+  TabletSmartphone,
+  Home,
+  Truck,
+  Code2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -171,4 +176,9 @@ export const ICONS: Record<string, LucideIcon> = {
   ScrollText,
   TrainFront,
   MoreHorizontal,
+  Smartphone,
+  TabletSmartphone,
+  Home,
+  Truck,
+  Code2,
 };

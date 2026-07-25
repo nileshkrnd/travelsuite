@@ -87,7 +87,7 @@ export const useUsersStore = create<UsersState>()(
     }),
     {
       name: "travelsuite.users",
-      version: 2,
+      version: 3,
       migrate: () => ({ users: seedUsers }),
     }
   )
