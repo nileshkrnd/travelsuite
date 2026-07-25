@@ -180,7 +180,9 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+                <Label htmlFor="name" required>
+                  Full name
+                </Label>
                 <div className="relative">
                   <UserIcon className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -196,7 +198,9 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Company email (login username)</Label>
+                <Label htmlFor="email" required>
+                  Company email (login username)
+                </Label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -214,7 +218,9 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">{isEdit ? "New password (optional)" : "Login password"}</Label>
+              <Label htmlFor="password" required={!isEdit}>
+                {isEdit ? "New password (optional)" : "Login password"}
+              </Label>
               <div className="relative">
                 <Lock className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                 <Input
@@ -229,7 +235,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label required>Role</Label>
               <Controller
                 control={control}
                 name="roleId"
@@ -258,7 +264,7 @@ export function InternalEmployeeForm({ employee }: { employee?: User }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Company</Label>
+                <Label required>Company</Label>
                 <Controller
                   control={control}
                   name="companyId"

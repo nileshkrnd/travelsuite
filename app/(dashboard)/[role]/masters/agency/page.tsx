@@ -70,7 +70,9 @@ function AgencyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="agencyName">Agency name</Label>
+            <Label htmlFor="agencyName" required>
+              Agency name
+            </Label>
             <Input id="agencyName" autoFocus {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>

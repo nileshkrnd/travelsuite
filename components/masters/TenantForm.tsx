@@ -189,7 +189,9 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
               <h3 className="text-sm font-semibold text-foreground">Basic details</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Tenant name</Label>
+                <Label htmlFor="name" required>
+                  Tenant name
+                </Label>
                 <div className="relative">
                   <Building2 className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -206,7 +208,9 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="slug">Tenant code</Label>
+                  <Label htmlFor="slug" required>
+                    Tenant code
+                  </Label>
                   <div className="relative">
                     <Hash className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                     <Input
@@ -222,7 +226,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Currency</Label>
+                  <Label required>Currency</Label>
                   <Controller
                     control={control}
                     name="defaultCurrency"
@@ -259,7 +263,9 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
               <h3 className="text-sm font-semibold text-foreground">Address</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="addressLine1">Address line 1</Label>
+                <Label htmlFor="addressLine1" required>
+                  Address line 1
+                </Label>
                 <div className="relative">
                   <MapPin className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -290,7 +296,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Country</Label>
+                  <Label required>Country</Label>
                   <Controller
                     control={control}
                     name="country"
@@ -329,7 +335,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>City</Label>
+                  <Label required>City</Label>
                   <Controller
                     control={control}
                     name="city"
@@ -367,13 +373,15 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="zip">Zip / postal code</Label>
+                  <Label htmlFor="zip" required>
+                    Zip / postal code
+                  </Label>
                   <Input id="zip" placeholder="e.g. 10006" aria-invalid={!!errors.zip} className="h-10" {...register("zip")} />
                   {errors.zip && <p className="text-sm text-destructive">{errors.zip.message}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Timezone</Label>
+                  <Label required>Timezone</Label>
                   <Controller
                     control={control}
                     name="timezone"
@@ -402,7 +410,9 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
               <h3 className="text-sm font-semibold text-foreground">Contact</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email" required>
+                  Email address
+                </Label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -418,7 +428,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
               </div>
 
               <div className="space-y-2">
-                <Label>Phone number</Label>
+                <Label required>Phone number</Label>
                 <div className="flex gap-2">
                   <Controller
                     control={control}

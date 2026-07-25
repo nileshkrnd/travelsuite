@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -95,23 +95,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
-function RequiredLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Label htmlFor={htmlFor}>
-      {children}
-      <span className="text-destructive" aria-hidden>
-        *
-      </span>
-    </Label>
-  );
-}
 
 /** Map stored dial (with/without +) onto Country Master dialCode. */
 function resolveDialCode(raw: string | undefined, countries: Country[], countryId?: number): string {
@@ -322,7 +305,9 @@ export function CompanyForm({ company }: { company?: Company }) {
           <form onSubmit={handleSubmit(onSubmit)} className="min-w-0 space-y-5" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <RequiredLabel htmlFor="companyName">Company name</RequiredLabel>
+                <Label htmlFor="companyName" required>
+                  Company name
+                </Label>
                 <div className="relative">
                   <Building2 className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -336,7 +321,9 @@ export function CompanyForm({ company }: { company?: Company }) {
                 {errors.companyName && <p className="text-sm text-destructive">{errors.companyName.message}</p>}
               </div>
               <div className="space-y-2">
-                <RequiredLabel htmlFor="companyCode">Company code</RequiredLabel>
+                <Label htmlFor="companyCode" required>
+                  Company code
+                </Label>
                 <div className="relative">
                   <Hash className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -352,7 +339,9 @@ export function CompanyForm({ company }: { company?: Company }) {
             </div>
 
             <div className="space-y-2">
-              <RequiredLabel htmlFor="address1">Address 1</RequiredLabel>
+              <Label htmlFor="address1" required>
+                Address 1
+              </Label>
               <Input id="address1" aria-invalid={!!errors.address1} {...register("address1")} />
               {errors.address1 && <p className="text-sm text-destructive">{errors.address1.message}</p>}
             </div>
@@ -363,7 +352,7 @@ export function CompanyForm({ company }: { company?: Company }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <RequiredLabel>Country</RequiredLabel>
+                <Label required>Country</Label>
                 <Controller
                   control={control}
                   name="countryId"
@@ -404,7 +393,7 @@ export function CompanyForm({ company }: { company?: Company }) {
                 {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
               </div>
               <div className="space-y-2">
-                <RequiredLabel>City</RequiredLabel>
+                <Label required>City</Label>
                 <Controller
                   control={control}
                   name="cityId"
@@ -440,7 +429,7 @@ export function CompanyForm({ company }: { company?: Company }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <RequiredLabel>Currency</RequiredLabel>
+                <Label required>Currency</Label>
                 <Controller
                   control={control}
                   name="currencyId"
@@ -471,7 +460,9 @@ export function CompanyForm({ company }: { company?: Company }) {
                 {errors.currencyId && <p className="text-sm text-destructive">{errors.currencyId.message}</p>}
               </div>
               <div className="space-y-2">
-                <RequiredLabel htmlFor="zipCode">Zip code</RequiredLabel>
+                <Label htmlFor="zipCode" required>
+                  Zip code
+                </Label>
                 <Input id="zipCode" aria-invalid={!!errors.zipCode} {...register("zipCode")} />
                 {errors.zipCode && <p className="text-sm text-destructive">{errors.zipCode.message}</p>}
               </div>
@@ -480,7 +471,7 @@ export function CompanyForm({ company }: { company?: Company }) {
             <div className="space-y-2">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:gap-2">
                 <div className="w-full shrink-0 space-y-2 sm:w-[8.5rem]">
-                  <RequiredLabel>Dial code</RequiredLabel>
+                  <Label required>Dial code</Label>
                   <Controller
                     control={control}
                     name="countryDialCode"
@@ -554,7 +545,9 @@ export function CompanyForm({ company }: { company?: Company }) {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <RequiredLabel htmlFor="noOfSignificantDigits">Significant digits</RequiredLabel>
+                <Label htmlFor="noOfSignificantDigits" required>
+                  Significant digits
+                </Label>
                 <Input
                   id="noOfSignificantDigits"
                   type="number"

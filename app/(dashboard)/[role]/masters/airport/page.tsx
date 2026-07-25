@@ -167,17 +167,21 @@ function Panel({
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="airportCode">Airport code</Label>
+          <Label htmlFor="airportCode" required>
+            Airport code
+          </Label>
           <Input id="airportCode" disabled={isReadOnly || mode === "edit"} {...register("airportCode")} />
           {errors.airportCode && <p className="text-sm text-destructive">{errors.airportCode.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="airportName">Airport name</Label>
+          <Label htmlFor="airportName" required>
+            Airport name
+          </Label>
           <Input id="airportName" disabled={isReadOnly} {...register("airportName")} />
           {errors.airportName && <p className="text-sm text-destructive">{errors.airportName.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Country</Label>
+          <Label required>Country</Label>
           <Controller
             control={control}
             name="countryId"
@@ -206,7 +210,7 @@ function Panel({
           {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>City</Label>
+          <Label required>City</Label>
           <Controller
             control={control}
             name="cityId"

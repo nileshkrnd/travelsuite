@@ -128,7 +128,9 @@ export function EmployeeForm({ employee }: { employee?: User }) {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+                <Label htmlFor="name" required>
+                  Full name
+                </Label>
                 <div className="relative">
                   <UserIcon className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -144,7 +146,9 @@ export function EmployeeForm({ employee }: { employee?: User }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" required>
+                  Email
+                </Label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -162,7 +166,7 @@ export function EmployeeForm({ employee }: { employee?: User }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label required>Category</Label>
                 <Controller
                   control={control}
                   name="category"
@@ -194,7 +198,7 @@ export function EmployeeForm({ employee }: { employee?: User }) {
               </div>
 
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label required>Role</Label>
                 <Controller
                   control={control}
                   name="roleId"

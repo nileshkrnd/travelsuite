@@ -148,7 +148,7 @@ function CityPanel({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Country</Label>
+          <Label required>Country</Label>
           <Controller
             control={control}
             name="countryId"
@@ -181,7 +181,9 @@ function CityPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cityCode">City code</Label>
+          <Label htmlFor="cityCode" required>
+            City code
+          </Label>
           <Input
             id="cityCode"
             autoFocus={mode !== "view"}
@@ -194,7 +196,9 @@ function CityPanel({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="cityName">City name</Label>
+          <Label htmlFor="cityName" required>
+            City name
+          </Label>
           <Input
             id="cityName"
             disabled={isReadOnly}

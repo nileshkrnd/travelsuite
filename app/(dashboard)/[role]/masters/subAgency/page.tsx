@@ -80,12 +80,14 @@ function SubAgencyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="subAgencyName">SubAgency name</Label>
+            <Label htmlFor="subAgencyName" required>
+              SubAgency name
+            </Label>
             <Input id="subAgencyName" autoFocus {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label>Parent agency</Label>
+            <Label required>Parent agency</Label>
             <Controller
               control={control}
               name="agencyId"

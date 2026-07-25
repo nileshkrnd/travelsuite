@@ -46,13 +46,8 @@ export function ImageUploadField({ id, label, value, onChange, error, required, 
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>
+      <Label htmlFor={id} required={required}>
         {label}
-        {required ? (
-          <span className="text-destructive" aria-hidden>
-            *
-          </span>
-        ) : null}
       </Label>
       <div
         className={cn(

@@ -123,7 +123,9 @@ export function BranchForm({ branch }: { branch?: Branch }) {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">Branch name</Label>
+              <Label htmlFor="name" required>
+                Branch name
+              </Label>
               <div className="relative">
                 <GitBranch className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                 <Input
@@ -140,7 +142,9 @@ export function BranchForm({ branch }: { branch?: Branch }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="code">Branch code</Label>
+                <Label htmlFor="code" required>
+                  Branch code
+                </Label>
                 <div className="relative">
                   <Hash className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                   <Input
@@ -155,7 +159,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
               </div>
 
               <div className="space-y-2">
-                <Label>Company</Label>
+                <Label required>Company</Label>
                 <Controller
                   control={control}
                   name="companyId"
@@ -185,7 +189,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Country</Label>
+                <Label required>Country</Label>
                 <Controller
                   control={control}
                   name="country"
@@ -221,7 +225,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
               </div>
 
               <div className="space-y-2">
-                <Label>City</Label>
+                <Label required>City</Label>
                 <Controller
                   control={control}
                   name="city"

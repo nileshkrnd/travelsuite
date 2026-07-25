@@ -121,7 +121,9 @@ function Panel({
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="airlineTypeName">Airline type name</Label>
+          <Label htmlFor="airlineTypeName" required>
+            Airline type name
+          </Label>
           <Input id="airlineTypeName" autoFocus={!isReadOnly} disabled={isReadOnly} {...register("airlineTypeName")} />
           {errors.airlineTypeName && (
             <p className="text-sm text-destructive">{errors.airlineTypeName.message}</p>

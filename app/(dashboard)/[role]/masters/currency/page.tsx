@@ -151,7 +151,9 @@ function CurrencyPanel({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="currencyCode">Currency code</Label>
+          <Label htmlFor="currencyCode" required>
+            Currency code
+          </Label>
           <Input
             id="currencyCode"
             autoFocus={mode !== "view"}
@@ -163,7 +165,9 @@ function CurrencyPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currencyName">Currency name</Label>
+          <Label htmlFor="currencyName" required>
+            Currency name
+          </Label>
           <Input
             id="currencyName"
             disabled={isReadOnly}
@@ -174,7 +178,9 @@ function CurrencyPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="smallCurrencyName">Small currency name</Label>
+          <Label htmlFor="smallCurrencyName" required>
+            Small currency name
+          </Label>
           <Input
             id="smallCurrencyName"
             disabled={isReadOnly}
@@ -187,7 +193,9 @@ function CurrencyPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="significantDigit">Significant digit</Label>
+          <Label htmlFor="significantDigit" required>
+            Significant digit
+          </Label>
           <Input
             id="significantDigit"
             type="number"

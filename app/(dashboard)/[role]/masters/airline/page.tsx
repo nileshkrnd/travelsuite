@@ -146,7 +146,7 @@ function Panel({
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label>Airline type</Label>
+          <Label required>Airline type</Label>
           <Controller
             control={control}
             name="airlineTypeId"
@@ -172,7 +172,9 @@ function Panel({
           {errors.airlineTypeId && <p className="text-sm text-destructive">{errors.airlineTypeId.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="airlineCode">Airline code</Label>
+          <Label htmlFor="airlineCode" required>
+            Airline code
+          </Label>
           <Input id="airlineCode" disabled={isReadOnly || mode === "edit"} {...register("airlineCode")} />
           {errors.airlineCode && <p className="text-sm text-destructive">{errors.airlineCode.message}</p>}
         </div>
@@ -181,12 +183,16 @@ function Panel({
           <Input id="airlineNumericCode" disabled={isReadOnly} {...register("airlineNumericCode")} />
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="airlineName">Airline name</Label>
+          <Label htmlFor="airlineName" required>
+            Airline name
+          </Label>
           <Input id="airlineName" disabled={isReadOnly} {...register("airlineName")} />
           {errors.airlineName && <p className="text-sm text-destructive">{errors.airlineName.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="pnrMaxDigit">PNR max digit</Label>
+          <Label htmlFor="pnrMaxDigit" required>
+            PNR max digit
+          </Label>
           <Input
             id="pnrMaxDigit"
             type="number"
@@ -196,7 +202,9 @@ function Panel({
           {errors.pnrMaxDigit && <p className="text-sm text-destructive">{errors.pnrMaxDigit.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="tktMaxDigit">Ticket max digit</Label>
+          <Label htmlFor="tktMaxDigit" required>
+            Ticket max digit
+          </Label>
           <Input
             id="tktMaxDigit"
             type="number"

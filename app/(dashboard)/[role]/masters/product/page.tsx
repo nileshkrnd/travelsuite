@@ -145,7 +145,9 @@ function ProductPanel({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="productCode">Product code</Label>
+          <Label htmlFor="productCode" required>
+            Product code
+          </Label>
           <Input
             id="productCode"
             autoFocus={mode !== "view"}
@@ -157,7 +159,9 @@ function ProductPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="productName">Product name</Label>
+          <Label htmlFor="productName" required>
+            Product name
+          </Label>
           <Input
             id="productName"
             disabled={isReadOnly}
@@ -168,7 +172,7 @@ function ProductPanel({
         </div>
 
         <div className="space-y-2">
-          <Label>Country</Label>
+          <Label required>Country</Label>
           <Controller
             control={control}
             name="country"
@@ -202,7 +206,7 @@ function ProductPanel({
         </div>
 
         <div className="space-y-2">
-          <Label>City</Label>
+          <Label required>City</Label>
           <Controller
             control={control}
             name="city"
@@ -237,7 +241,7 @@ function ProductPanel({
         </div>
 
         <div className="space-y-2">
-          <Label>Supplier</Label>
+          <Label required>Supplier</Label>
           <Controller
             control={control}
             name="supplierId"
@@ -274,7 +278,7 @@ function ProductPanel({
         </div>
 
         <div className="space-y-2">
-          <Label>Product type</Label>
+          <Label required>Product type</Label>
           <Controller
             control={control}
             name="productType"

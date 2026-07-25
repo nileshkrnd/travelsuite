@@ -132,12 +132,14 @@ function SupplierDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="supplierName">Supplier name</Label>
+            <Label htmlFor="supplierName" required>
+              Supplier name
+            </Label>
             <Input id="supplierName" autoFocus {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label required>Type</Label>
             <Controller
               control={control}
               name="supplierTypeId"

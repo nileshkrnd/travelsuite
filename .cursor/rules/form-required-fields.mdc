@@ -1,0 +1,22 @@
+---
+description: Mark mandatory form fields with Label required asterisk
+globs: components/**/*Form*.tsx,app/**/masters/**/*.tsx
+alwaysApply: false
+---
+
+# Mandatory form fields
+
+When building or editing create/edit forms:
+
+1. Use `<Label required>` (from `@/components/ui/label`) for every field that is required by the Zod schema / server validation.
+2. Do **not** put `required` on optional fields. Prefer placeholders like “Optional” only when helpful.
+3. Keep Zod (or API) validation in sync — if the label has `required`, validation must reject empty values.
+4. Do not invent a separate `RequiredLabel` component; always use the shared `Label` `required` prop.
+5. For image uploads, pass `required` through to `ImageUploadField` / `Label` the same way.
+
+Example:
+
+```tsx
+<Label htmlFor="name" required>Tenant name</Label>
+<Label htmlFor="addressLine2">Address line 2</Label> {/* optional */}
+```

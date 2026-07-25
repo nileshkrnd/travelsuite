@@ -137,7 +137,9 @@ function CountryPanel({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="countryCode">Country code</Label>
+          <Label htmlFor="countryCode" required>
+            Country code
+          </Label>
           <Input
             id="countryCode"
             autoFocus={mode !== "view"}
@@ -150,7 +152,9 @@ function CountryPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="countryName">Country name</Label>
+          <Label htmlFor="countryName" required>
+            Country name
+          </Label>
           <Input
             id="countryName"
             disabled={isReadOnly}
@@ -161,7 +165,9 @@ function CountryPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dialCode">Dial code</Label>
+          <Label htmlFor="dialCode" required>
+            Dial code
+          </Label>
           <Input
             id="dialCode"
             disabled={isReadOnly}

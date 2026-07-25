@@ -118,7 +118,9 @@ export function UserForm({ user }: { user?: User }) {
           </p>
 
           <div className="space-y-2">
-            <Label htmlFor="userDisplayName">Display name</Label>
+            <Label htmlFor="userDisplayName" required>
+              Display name
+            </Label>
             <Input id="userDisplayName" autoFocus {...register("userDisplayName")} />
             {errors.userDisplayName && (
               <p className="text-sm text-destructive">{errors.userDisplayName.message}</p>
@@ -126,7 +128,9 @@ export function UserForm({ user }: { user?: User }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="username">Username (email)</Label>
+            <Label htmlFor="username" required>
+              Username (email)
+            </Label>
             <Input
               id="username"
               type="email"
@@ -138,7 +142,9 @@ export function UserForm({ user }: { user?: User }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">{isCreate ? "Password" : "New password (optional)"}</Label>
+            <Label htmlFor="password" required={isCreate}>
+              {isCreate ? "Password" : "New password (optional)"}
+            </Label>
             <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>

@@ -70,7 +70,9 @@ function CorporateDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="corporateName">Company name</Label>
+            <Label htmlFor="corporateName" required>
+              Company name
+            </Label>
             <Input id="corporateName" autoFocus {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>

@@ -132,7 +132,9 @@ function RegionPanel({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="regionCode">Region code</Label>
+          <Label htmlFor="regionCode" required>
+            Region code
+          </Label>
           <Input
             id="regionCode"
             autoFocus={mode !== "view"}
@@ -144,7 +146,9 @@ function RegionPanel({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="regionName">Region name</Label>
+          <Label htmlFor="regionName" required>
+            Region name
+          </Label>
           <Input
             id="regionName"
             disabled={isReadOnly}

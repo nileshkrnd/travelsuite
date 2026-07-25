@@ -127,7 +127,9 @@ function RoleDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="roleName">Role name</Label>
+              <Label htmlFor="roleName" required>
+                Role name
+              </Label>
               <Input id="roleName" autoFocus disabled={role?.isSystem} {...register("name")} />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               {role?.isSystem && (
