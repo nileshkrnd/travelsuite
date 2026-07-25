@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file");
     const folderRaw = String(formData.get("folder") ?? "companies");
-    const folder = folderRaw === "companies" ? "companies" : "misc";
+    const folder =
+      folderRaw === "companies" || folderRaw === "employees" ? folderRaw : "misc";
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });

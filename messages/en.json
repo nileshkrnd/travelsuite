@@ -87,6 +87,7 @@
     "administration": "Administration",
     "company": "Company",
     "branch": "Branch",
+    "branchType": "Branch Type",
     "department": "Department",
     "designation": "Designation",
     "employee": "Employee",

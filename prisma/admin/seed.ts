@@ -583,14 +583,32 @@ async function seedDesignations() {
 }
 
 async function seedBranchTypes() {
-  const rows = ["Head Office", "Branch Office", "Regional Office", "Sales Office"];
+  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
+  const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
+  if (!leisure || !corporate) return;
 
-  for (const branchTypeName of rows) {
-    await prisma.branchType.upsert({
-      where: { branchTypeName },
-      create: { branchTypeName, isActive: true, createdBy: CREATED_BY },
-      update: { isActive: true },
-    });
+  const names = ["Head Office", "Branch Office", "Regional Office", "Sales Office"];
+
+  for (const company of [leisure, corporate]) {
+    for (const branchTypeName of names) {
+      await prisma.branchType.upsert({
+        where: {
+          tenantId_companyId_branchTypeName: {
+            tenantId: company.tenantId,
+            companyId: company.companyId,
+            branchTypeName,
+          },
+        },
+        create: {
+          branchTypeName,
+          tenantId: company.tenantId,
+          companyId: company.companyId,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: { isActive: true },
+      });
+    }
   }
 
   await prisma.$executeRawUnsafe(
@@ -601,12 +619,49 @@ async function seedBranchTypes() {
 async function seedBranches() {
   const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
   const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
-  const headOffice = await prisma.branchType.findUnique({ where: { branchTypeName: "Head Office" } });
-  const branchOffice = await prisma.branchType.findUnique({ where: { branchTypeName: "Branch Office" } });
+  if (!leisure || !corporate) return;
+
+  const headOfficeLeisure = await prisma.branchType.findUnique({
+    where: {
+      tenantId_companyId_branchTypeName: {
+        tenantId: leisure.tenantId,
+        companyId: leisure.companyId,
+        branchTypeName: "Head Office",
+      },
+    },
+  });
+  const branchOfficeLeisure = await prisma.branchType.findUnique({
+    where: {
+      tenantId_companyId_branchTypeName: {
+        tenantId: leisure.tenantId,
+        companyId: leisure.companyId,
+        branchTypeName: "Branch Office",
+      },
+    },
+  });
+  const branchOfficeCorporate = await prisma.branchType.findUnique({
+    where: {
+      tenantId_companyId_branchTypeName: {
+        tenantId: corporate.tenantId,
+        companyId: corporate.companyId,
+        branchTypeName: "Branch Office",
+      },
+    },
+  });
   const inCountry = await prisma.country.findUnique({ where: { countryCode: "IN" } });
   const aeCountry = await prisma.country.findUnique({ where: { countryCode: "AE" } });
   const gbCountry = await prisma.country.findUnique({ where: { countryCode: "GB" } });
-  if (!leisure || !corporate || !headOffice || !branchOffice || !inCountry || !aeCountry || !gbCountry) return;
+  if (
+    !leisure ||
+    !corporate ||
+    !headOfficeLeisure ||
+    !branchOfficeLeisure ||
+    !branchOfficeCorporate ||
+    !inCountry ||
+    !aeCountry ||
+    !gbCountry
+  )
+    return;
 
   const mumbai = await prisma.city.findFirst({ where: { countryId: inCountry.countryId, cityCode: "MUMBAI" } });
   const dubai = await prisma.city.findFirst({ where: { countryId: aeCountry.countryId, cityCode: "DUBAI" } });
@@ -616,7 +671,7 @@ async function seedBranches() {
   const rows = [
     {
       branchUid: "branch_mumbai",
-      branchTypeId: headOffice.branchTypeId,
+      branchTypeId: headOfficeLeisure.branchTypeId,
       branchName: "Mumbai",
       companyId: leisure.companyId,
       countryId: inCountry.countryId,
@@ -625,7 +680,7 @@ async function seedBranches() {
     },
     {
       branchUid: "branch_dubai",
-      branchTypeId: branchOffice.branchTypeId,
+      branchTypeId: branchOfficeLeisure.branchTypeId,
       branchName: "Dubai",
       companyId: leisure.companyId,
       countryId: aeCountry.countryId,
@@ -634,7 +689,7 @@ async function seedBranches() {
     },
     {
       branchUid: "branch_london",
-      branchTypeId: branchOffice.branchTypeId,
+      branchTypeId: branchOfficeCorporate.branchTypeId,
       branchName: "London",
       companyId: corporate.companyId,
       countryId: gbCountry.countryId,
@@ -680,6 +735,135 @@ async function seedBranches() {
   );
 }
 
+async function seedEmployees() {
+  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
+  const mumbaiBranch = await prisma.branch.findUnique({ where: { branchUid: "branch_mumbai" } });
+  const designation = leisure
+    ? await prisma.designation.findFirst({
+        where: {
+          tenantId: leisure.tenantId,
+          companyId: leisure.companyId,
+          designationCode: "EXE",
+        },
+      })
+    : null;
+  const accessRole = await prisma.accessRole.findFirst({
+    where: { tenantId: 1, companyId: 0, accessRoleName: "Tenant Admin" },
+  });
+  const salesDept = leisure
+    ? await prisma.department.findFirst({
+        where: {
+          tenantId: leisure.tenantId,
+          companyId: leisure.companyId,
+          departmentCode: "SALES",
+        },
+      })
+    : null;
+  const inCountry = await prisma.country.findUnique({ where: { countryCode: "IN" } });
+  const mumbai =
+    inCountry != null
+      ? await prisma.city.findFirst({
+          where: { countryId: inCountry.countryId, cityCode: "MUMBAI" },
+        })
+      : null;
+
+  if (!leisure || !mumbaiBranch || !designation || !accessRole || !inCountry || !mumbai) return;
+
+  const passwordHash = hashPassword(DEMO_PASSWORD);
+  const now = new Date();
+  const username = "employee@travelsuite.com";
+  const employeeNumber = "EMP001";
+
+  const existing = await prisma.employee.findFirst({
+    where: {
+      tenantId: leisure.tenantId,
+      companyId: leisure.companyId,
+      employeeNumber,
+    },
+  });
+
+  if (existing) {
+    await prisma.user.update({
+      where: { userId: existing.userId },
+      data: {
+        passwordHash,
+        userDisplayName: "Raj Kumar",
+        isActive: true,
+        lastPasswordChangeDtTm: now,
+      },
+    });
+    await prisma.employee.update({
+      where: { employeeId: existing.employeeId },
+      data: {
+        title: "Mr",
+        firstName: "Raj",
+        lastName: "Kumar",
+        gender: "Male",
+        countryDialCode: "+91",
+        phoneNumber: "9876543210",
+        email: username,
+        address: "123 Business Park, Mumbai",
+        countryId: inCountry.countryId,
+        cityId: mumbai.cityId,
+        designationId: designation.designationId,
+        accessRoleId: accessRole.accessRoleId,
+        departmentId: salesDept?.departmentId ?? null,
+        branchId: mumbaiBranch.branchId,
+        isActive: true,
+      },
+    });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        username,
+        passwordHash,
+        userDisplayName: "Raj Kumar",
+        tenantId: leisure.tenantId,
+        companyId: leisure.companyId,
+        isActive: true,
+        createdBy: CREATED_BY,
+        lastPasswordChangeDtTm: now,
+      },
+    });
+
+    await tx.employee.create({
+      data: {
+        title: "Mr",
+        firstName: "Raj",
+        lastName: "Kumar",
+        gender: "Male",
+        countryDialCode: "+91",
+        phoneNumber: "9876543210",
+        faxNumber: null,
+        email: username,
+        address: "123 Business Park, Mumbai",
+        countryId: inCountry.countryId,
+        cityId: mumbai.cityId,
+        employeeNumber,
+        designationId: designation.designationId,
+        joiningDate: now,
+        accessRoleId: accessRole.accessRoleId,
+        departmentId: salesDept?.departmentId ?? null,
+        reportingEmployeeId: null,
+        companyId: leisure.companyId,
+        branchId: mumbaiBranch.branchId,
+        userId: user.userId,
+        employeeImage: null,
+        tenantId: leisure.tenantId,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+    });
+  });
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Employee"', 'EmployeeID'), (SELECT COALESCE(MAX("EmployeeID"), 1) FROM "Employee"))`
+  );
+}
+
 async function main() {
   await seedReferenceMasters();
   await seedTenants();
@@ -692,6 +876,7 @@ async function main() {
   await seedDesignations();
   await seedBranchTypes();
   await seedBranches();
+  await seedEmployees();
 }
 
 main()

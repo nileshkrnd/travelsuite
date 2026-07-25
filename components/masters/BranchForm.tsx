@@ -115,6 +115,7 @@ export function BranchForm({ branch }: { branch?: Branch }) {
 
   const nameValue = useWatch({ control, name: "branchName" });
   const countryId = useWatch({ control, name: "countryId" });
+  const companyId = useWatch({ control, name: "companyId" });
   const previewName = nameValue?.trim() || "Branch name";
 
   const dialOptions = useMemo(() => {
@@ -126,13 +127,26 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   }, [countries]);
 
   useEffect(() => {
-    void Promise.all([listCountries({ activeOnly: true }), listBranchTypes({ activeOnly: true })]).then(
-      ([countryRows, branchTypeRows]) => {
-        setCountries(countryRows);
-        setBranchTypes(branchTypeRows);
-      }
-    );
+    void listCountries({ activeOnly: true }).then(setCountries);
   }, []);
+
+  useEffect(() => {
+    if (!companyId || tenantKey <= 0) {
+      setBranchTypes([]);
+      return;
+    }
+    let cancelled = false;
+    listBranchTypes({ tenantId: tenantKey, companyId, activeOnly: true })
+      .then((rows) => {
+        if (!cancelled) setBranchTypes(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setBranchTypes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, tenantKey]);
 
   useEffect(() => {
     if (tenantKey <= 0) {
@@ -297,20 +311,20 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                     <Select
                       value={field.value ? String(field.value) : ""}
                       onValueChange={(v) => field.onChange(Number(v))}
+                      disabled={!companyId || branchTypes.length === 0}
                     >
                       <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.branchTypeId}>
                         <SelectValue>
-                          {(value: string | null) =>
-                            value
-                              ? (branchTypes.find((t) => String(t.branchTypeKey) === value)?.name ?? value)
-                              : "Select branch type"
-                          }
+                          {(value: string | null) => {
+                            if (!value) return !companyId ? "Select a company first" : "Select branch type";
+                            return branchTypes.find((t) => String(t.branchTypeId) === value)?.branchTypeName ?? value;
+                          }}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {branchTypes.map((t) => (
-                          <SelectItem key={t.id} value={String(t.branchTypeKey)}>
-                            {t.name}
+                          <SelectItem key={t.branchTypeId} value={String(t.branchTypeId)}>
+                            {t.branchTypeName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -329,7 +343,10 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                 render={({ field }) => (
                   <Select
                     value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => field.onChange(Number(v))}
+                    onValueChange={(v) => {
+                      field.onChange(Number(v));
+                      setValue("branchTypeId", 0, { shouldValidate: true });
+                    }}
                   >
                     <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
                       <Building2 className="h-4 w-4 text-muted-foreground" />

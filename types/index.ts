@@ -8,6 +8,7 @@ export * from "./activity";
 export * from "./company";
 export * from "./department";
 export * from "./designation";
+export * from "./employee";
 export * from "./branch";
 export * from "./branch-type";
 export * from "./region";

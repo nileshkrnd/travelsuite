@@ -56,6 +56,7 @@ model Country {
   airports  Airport[]
   companies Company[]
   branches  Branch[]
+  employees Employee[]
 
   @@map("Country")
 }
@@ -72,10 +73,11 @@ model City {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  country   Country   @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  country   Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
   airports  Airport[]
   companies Company[]
   branches  Branch[]
+  employees Employee[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -134,6 +136,8 @@ model User {
   modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
   isActive               Boolean   @default(true) @map("IsActive")
 
+  employee Employee?
+
   @@index([tenantId, companyId], map: "User_TenantID_CompanyID_idx")
   @@map("User")
 }
@@ -150,6 +154,8 @@ model AccessRole {
   modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
   tenantId       Int       @map("TenantID")
   companyId      Int       @map("CompanyID")
+
+  employees Employee[]
 
   @@unique([tenantId, companyId, accessRoleName], map: "AccessRole_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "AccessRole_TenantID_CompanyID_idx")
@@ -249,10 +255,11 @@ model Company {
   companyLogo                String    @default("") @map("CompanyLogo") @db.VarChar(100)
   companyFavIcon             String    @default("") @map("CompanyFavIcon") @db.VarChar(100)
 
-  country  Country  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  city     City     @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
-  currency Currency @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
-  branches Branch[]
+  country   Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city      City       @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  currency  Currency   @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  branches  Branch[]
+  employees Employee[]
 
   @@unique([tenantId, companyCode], map: "Company_Tenant_Code_key")
   @@index([tenantId], map: "Company_TenantID_idx")
@@ -263,17 +270,22 @@ model Company {
 }
 
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).
+/// Branch type master — scoped by TenantID + CompanyID.
 model BranchType {
   branchTypeId   Int       @id @default(autoincrement()) @map("BranchTypeID")
-  branchTypeName String    @unique @map("BranchTypeName") @db.VarChar(100)
+  branchTypeName String    @map("BranchTypeName") @db.VarChar(100)
   isActive       Boolean   @default(true) @map("IsActive")
   createdBy      Int       @map("CreatedBy")
   createdDtTm    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy     Int?      @map("ModifiedBy")
   modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId       Int       @map("TenantID")
+  companyId      Int       @map("CompanyID")
 
   branches Branch[]
 
+  @@unique([tenantId, companyId, branchTypeName], map: "BranchType_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "BranchType_TenantID_CompanyID_idx")
   @@map("BranchType")
 }
 
@@ -305,6 +317,7 @@ model Branch {
   company    Company    @relation(fields: [companyId], references: [companyId], onDelete: Restrict)
   country    Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
   city       City       @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  employees  Employee[]
 
   @@unique([companyId, branchName], map: "Branch_Company_Name_key")
   @@index([companyId], map: "Branch_CompanyID_idx")
@@ -327,6 +340,8 @@ model Department {
   tenantId       Int       @map("TenantID")
   companyId      Int       @map("CompanyID")
 
+  employees Employee[]
+
   @@unique([tenantId, companyId, departmentCode], map: "Department_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Department_TenantID_CompanyID_idx")
   @@map("Department")
@@ -345,7 +360,62 @@ model Designation {
   tenantId        Int       @map("TenantID")
   companyId       Int       @map("CompanyID")
 
+  employees Employee[]
+
   @@unique([tenantId, companyId, designationCode], map: "Designation_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Designation_TenantID_CompanyID_idx")
   @@map("Designation")
+}
+
+/// Employee master — HR record linked to a login User (UserID). Scoped by TenantID + CompanyID.
+model Employee {
+  employeeId          Int       @id @default(autoincrement()) @map("EmployeeID")
+  title               String    @map("Title") @db.VarChar(10)
+  firstName           String    @map("FirstName") @db.VarChar(50)
+  lastName            String    @map("LastName") @db.VarChar(50)
+  gender              String    @map("Gender") @db.VarChar(10)
+  countryDialCode     String    @map("CountryDialCode") @db.VarChar(5)
+  phoneNumber         String    @map("PhoneNumber") @db.VarChar(20)
+  faxNumber           String?   @map("FaxNumber") @db.VarChar(50)
+  email               String    @map("Email") @db.VarChar(50)
+  address             String    @map("Address") @db.VarChar(50)
+  countryId           Int       @map("CountryID")
+  cityId              Int       @map("CityID")
+  employeeNumber      String    @map("EmployeeNumber") @db.VarChar(50)
+  designationId       Int       @map("DesignationId")
+  joiningDate         DateTime  @map("JoiningDate") @db.Timestamptz(6)
+  accessRoleId        Int       @map("AccessRoleID")
+  departmentId        Int?      @map("DepartmentID")
+  reportingEmployeeId Int?      @map("ReportingEmployeeID")
+  companyId           Int       @map("CompanyID")
+  branchId            Int       @map("BranchID")
+  userId              Int       @unique @map("UserID")
+  employeeImage       String?   @map("EmployeeImage") @db.VarChar(100)
+  tenantId            Int       @map("TenantID")
+  isActive            Boolean   @default(true) @map("IsActive")
+  createdBy           Int       @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("ModifiedBy")
+  modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  country           Country     @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city              City        @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  designation       Designation @relation(fields: [designationId], references: [designationId], onDelete: Restrict)
+  accessRole        AccessRole  @relation(fields: [accessRoleId], references: [accessRoleId], onDelete: Restrict)
+  department        Department? @relation(fields: [departmentId], references: [departmentId], onDelete: SetNull)
+  reportingEmployee Employee?   @relation("EmployeeReportsTo", fields: [reportingEmployeeId], references: [employeeId], onDelete: SetNull)
+  directReports     Employee[]  @relation("EmployeeReportsTo")
+  company           Company     @relation(fields: [companyId], references: [companyId], onDelete: Restrict)
+  branch            Branch      @relation(fields: [branchId], references: [branchId], onDelete: Restrict)
+  user              User        @relation(fields: [userId], references: [userId], onDelete: Restrict)
+
+  @@unique([tenantId, companyId, employeeNumber], map: "Employee_Tenant_Company_Number_key")
+  @@index([tenantId, companyId], map: "Employee_TenantID_CompanyID_idx")
+  @@index([branchId], map: "Employee_BranchID_idx")
+  @@index([departmentId], map: "Employee_DepartmentID_idx")
+  @@index([designationId], map: "Employee_DesignationId_idx")
+  @@index([accessRoleId], map: "Employee_AccessRoleID_idx")
+  @@index([countryId], map: "Employee_CountryID_idx")
+  @@index([cityId], map: "Employee_CityID_idx")
+  @@map("Employee")
 }

@@ -1,10 +1,14 @@
-import type { ReferenceStatus } from "./country";
-
-/** Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office). */
+/** Branch Type master — scoped by TenantID + CompanyID. */
 export interface BranchType {
-  id: string;
-  branchTypeKey: number;
-  name: string;
-  status: ReferenceStatus;
-  createdAt: string;
+  branchTypeId: number;
+  branchTypeName: string;
+  isActive: boolean;
+  createdBy: number;
+  createdDtTm: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
+  tenantId: number;
+  companyId: number;
+  /** Optional display name when company join is available. */
+  companyName?: string;
 }

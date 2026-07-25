@@ -16,9 +16,20 @@ type Props = {
   /** Optional — logos are not mandatory unless marked. */
   required?: boolean;
   hint?: string;
+  /** Upload folder under /uploads (companies | employees). */
+  folder?: "companies" | "employees";
 };
 
-export function ImageUploadField({ id, label, value, onChange, error, required, hint }: Props) {
+export function ImageUploadField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  hint,
+  folder = "companies",
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -28,7 +39,7 @@ export function ImageUploadField({ id, label, value, onChange, error, required, 
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("folder", "companies");
+      body.append("folder", folder);
       const res = await fetch("/api/uploads", { method: "POST", body });
       const data = (await res.json()) as { path?: string; error?: string };
       if (!res.ok || !data.path) {

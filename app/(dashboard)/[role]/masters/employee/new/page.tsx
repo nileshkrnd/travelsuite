@@ -6,16 +6,16 @@ import { ArrowLeft } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
-import { InternalEmployeeForm } from "@/components/masters/InternalEmployeeForm";
+import { EmployeeMasterForm } from "@/components/masters/EmployeeMasterForm";
 
 function NewEmployee() {
   const { role } = useParams<{ role: string }>();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title="Register employee"
-        description="Registers the employee and creates their login with the company email. No separate Users screen inside a tenant."
+        description="Creates the employee record and login user with the company email as username."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/employee`} />}>
             <ArrowLeft className="h-4 w-4" />
@@ -23,7 +23,7 @@ function NewEmployee() {
           </Button>
         }
       />
-      <InternalEmployeeForm />
+      <EmployeeMasterForm />
     </div>
   );
 }

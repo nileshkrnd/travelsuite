@@ -14,7 +14,8 @@ import {
   Power,
   PowerOff,
   CheckCircle2,
-  MailQuestion,
+  CircleDashed,
+  Trash2,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -23,7 +24,7 @@ import { SortableTableHead, type SortDirection } from "@/components/shared/Sorta
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,17 +35,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSessionStore } from "@/lib/store/session.store";
-import { useUsersStore } from "@/lib/store/users.store";
-import { useRolesStore } from "@/lib/store/roles.store";
-import { useCompaniesStore } from "@/lib/store/companies.store";
-import { useBranchesStore } from "@/lib/store/branches.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
-import { listUsers, setUserActive, UsersApiError } from "@/lib/services/db-users.service";
+import { listCompanies } from "@/lib/services/db-companies.service";
+import {
+  listEmployees,
+  setEmployeeActive,
+  deleteEmployee,
+  EmployeesApiError,
+} from "@/lib/services/employees.service";
 import { can } from "@/config/permissions";
 import { initials } from "@/lib/utils";
-import type { RoleDef, User } from "@/types";
+import type { Company, Employee, RoleDef } from "@/types";
+import { employeeDisplayName } from "@/types/employee";
 
-type SortKey = "name" | "status" | "createdAt";
+type SortKey = "name" | "employeeNumber" | "email" | "status";
 
 function StatCard({
   icon: Icon,
@@ -74,16 +78,10 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
   const sessionUser = useSessionStore((s) => s.user);
-  const tenantId = useTenantStore((s) => s.tenantId);
   const activeTenant = useTenantStore((s) => s.tenant);
-  const users = useUsersStore((s) => s.users);
-  const setUsers = useUsersStore((s) => s.setUsers);
-  const upsertUser = useUsersStore((s) => s.upsertUser);
-  const roles = useRolesStore((s) => s.roles);
-  const companies = useCompaniesStore((s) => s.companies);
-  const branches = useBranchesStore((s) => s.branches);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -95,9 +93,19 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
   const actorKey = sessionUser?.userKey ?? 0;
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
 
-  const roleFor = (id: string) => roles.find((r) => r.id === id);
-  const companyName = (id?: string) => companies.find((c) => c.id === id)?.name ?? "—";
-  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
+  async function refresh() {
+    if (tenantKey <= 0) {
+      setEmployees([]);
+      setCompanies([]);
+      return;
+    }
+    const [employeeRows, companyRows] = await Promise.all([
+      listEmployees({ tenantId: tenantKey }),
+      listCompanies({ tenantId: tenantKey, activeOnly: true }),
+    ]);
+    setEmployees(employeeRows);
+    setCompanies(companyRows);
+  }
 
   useEffect(() => {
     if (tenantKey <= 0) {
@@ -106,36 +114,19 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
     }
     let cancelled = false;
     setLoading(true);
-    listUsers({ tenantId: tenantKey })
-      .then((rows) => {
-        if (cancelled) return;
-        const existing = useUsersStore.getState().users;
-        const companyByKey = new Map(companies.map((c) => [c.companyKey, c.id]));
-        const employees = rows
-          .filter((u) => u.companyKey > 0)
-          .map((row) => {
-            const prev = existing.find((u) => u.userKey === row.userKey || u.id === row.id);
-            return {
-              ...row,
-              roleId: prev?.roleId && prev.roleId !== "role_hr" ? prev.roleId : row.roleId,
-              companyId: prev?.companyId ?? companyByKey.get(row.companyKey) ?? row.companyId,
-              branchId: prev?.branchId,
-              department: prev?.department,
-            };
-          });
-        const others = existing.filter((u) => u.tenantKey !== tenantKey || u.companyKey === 0);
-        setUsers([...others, ...employees]);
-        setLoading(false);
-      })
+    refresh()
       .catch((err) => {
-        if (cancelled) return;
-        toast.error(err instanceof UsersApiError ? err.message : "Failed to load employees");
-        setLoading(false);
+        if (!cancelled) {
+          toast.error(err instanceof EmployeesApiError ? err.message : "Failed to load employees");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [tenantKey, companies, setUsers]);
+  }, [tenantKey]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -146,63 +137,78 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
     }
   }
 
-  const employees = useMemo(
-    () => users.filter((u) => u.tenantId === tenantId && u.companyKey > 0),
-    [users, tenantId]
-  );
+  const companyName = (companyId: number) =>
+    companies.find((c) => c.companyKey === companyId)?.name ??
+    employees.find((e) => e.companyId === companyId)?.companyName ??
+    "—";
 
   const visibleEmployees = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = employees;
     if (companyFilter !== "all") {
-      result = result.filter((u) => u.companyId === companyFilter);
+      result = result.filter((e) => String(e.companyId) === companyFilter);
     }
     if (term) {
-      result = result.filter(
-        (u) => u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
-      );
+      result = result.filter((e) => {
+        const name = employeeDisplayName(e).toLowerCase();
+        return (
+          name.includes(term) ||
+          e.employeeNumber.toLowerCase().includes(term) ||
+          e.email.toLowerCase().includes(term)
+        );
+      });
     }
     if (sortKey) {
       result = [...result].sort((a, b) => {
-        const cmp = a[sortKey].localeCompare(b[sortKey]);
+        let cmp = 0;
+        if (sortKey === "name") {
+          cmp = employeeDisplayName(a).localeCompare(employeeDisplayName(b));
+        } else if (sortKey === "status") {
+          cmp = Number(a.isActive) - Number(b.isActive);
+        } else {
+          cmp = a[sortKey].localeCompare(b[sortKey]);
+        }
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
     return result;
   }, [employees, search, companyFilter, sortKey, sortDirection]);
 
-  const activeCount = employees.filter((u) => u.status === "active").length;
-  const invitedCount = employees.filter((u) => u.status === "invited").length;
+  const activeCount = employees.filter((e) => e.isActive).length;
 
-  async function toggleStatus(user: User) {
+  async function toggleStatus(employee: Employee) {
     if (!actorKey) {
       toast.error("Missing user key — sign in again.");
       return;
     }
     try {
-      const saved = await setUserActive(user.userKey, !user.isActive, actorKey);
-      upsertUser({
-        ...saved,
-        roleId: user.roleId,
-        companyId: user.companyId,
-        branchId: user.branchId,
-        department: user.department,
-      });
+      const saved = await setEmployeeActive(employee.employeeId, !employee.isActive, actorKey);
+      setEmployees((prev) => prev.map((e) => (e.employeeId === saved.employeeId ? saved : e)));
       toast.success(saved.isActive ? "Employee activated" : "Employee deactivated");
     } catch (error) {
-      toast.error(error instanceof UsersApiError ? error.message : "Could not update employee");
+      toast.error(error instanceof EmployeesApiError ? error.message : "Could not update employee");
     }
   }
 
-  function goToView(user: User) {
-    router.push(`/${role}/masters/employee/${user.id}`);
+  async function removeEmployee(employee: Employee) {
+    try {
+      await deleteEmployee(employee.employeeId);
+      setEmployees((prev) => prev.filter((e) => e.employeeId !== employee.employeeId));
+      toast.success("Employee deleted");
+    } catch (error) {
+      toast.error(error instanceof EmployeesApiError ? error.message : "Could not delete employee");
+    }
+  }
+
+  function goToView(employee: Employee) {
+    router.push(`/${role}/masters/employee/${employee.employeeId}`);
   }
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
         title="Employee"
-        description="Register staff under a company — their company email becomes the login. Users master is only in Tenant Configuration."
+        description="HR records linked to company login users."
         actions={
           canCreate ? (
             <Button
@@ -223,7 +229,7 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-xl">
           <StatCard icon={UserCog} label="Total employees" value={employees.length} />
           <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
-          <StatCard icon={MailQuestion} label="Invited" value={invitedCount} />
+          <StatCard icon={CircleDashed} label="Inactive" value={employees.length - activeCount} />
         </div>
       )}
 
@@ -232,7 +238,7 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
           <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or email..."
+              placeholder="Search name, number, email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="ps-9"
@@ -241,13 +247,15 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
           <Select value={companyFilter} onValueChange={(v) => setCompanyFilter(v ?? "all")}>
             <SelectTrigger className="w-56">
               <SelectValue>
-                {(value: string | null) => (!value || value === "all" ? "All companies" : companyName(value))}
+                {(value: string | null) =>
+                  !value || value === "all" ? "All companies" : companyName(Number(value))
+                }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All companies</SelectItem>
               {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
+                <SelectItem key={c.id} value={String(c.companyKey)}>
                   {c.name}
                 </SelectItem>
               ))}
@@ -257,7 +265,7 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       <Card>
-        {companies.length === 0 ? (
+        {companies.length === 0 && !loading ? (
           <EmptyState
             icon={UserCog}
             tone="muted"
@@ -265,7 +273,7 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
             description="Employees belong to a company and branch — create one under Masters → Company."
             size="compact"
           />
-        ) : employees.length === 0 ? (
+        ) : employees.length === 0 && !loading ? (
           <EmptyState
             icon={UserCog}
             tone="primary"
@@ -289,95 +297,107 @@ function EmployeeList({ roleDef }: { roleDef: RoleDef }) {
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Branch</TableHead>
                 <SortableTableHead
-                  sortKey="status"
+                  sortKey="employeeNumber"
                   activeKey={sortKey}
                   direction={sortDirection}
                   onSort={toggleSort}
                 >
-                  Status
+                  Employee #
                 </SortableTableHead>
-                <SortableTableHead
-                  sortKey="createdAt"
-                  activeKey={sortKey}
-                  direction={sortDirection}
-                  onSort={toggleSort}
-                >
-                  Created
+                <TableHead>Company</TableHead>
+                <TableHead>Designation</TableHead>
+                <SortableTableHead sortKey="email" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Email
+                </SortableTableHead>
+                <SortableTableHead sortKey="status" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Status
                 </SortableTableHead>
                 <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleEmployees.map((user, index) => (
-                <TableRow key={user.id} onClick={() => goToView(user)} className="cursor-pointer">
-                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <Avatar size="sm">
-                        <AvatarFallback>{initials(user.name)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{user.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              {visibleEmployees.map((employee, index) => {
+                const name = employeeDisplayName(employee);
+                return (
+                  <TableRow
+                    key={employee.employeeId}
+                    onClick={() => goToView(employee)}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar size="sm">
+                          {employee.employeeImage ? (
+                            <AvatarImage src={employee.employeeImage} alt="" />
+                          ) : null}
+                          <AvatarFallback>{initials(name)}</AvatarFallback>
+                        </Avatar>
+                        <p className="truncate font-medium">{name}</p>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{roleFor(user.roleId)?.name ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{companyName(user.companyId)}</TableCell>
-                  <TableCell className="text-muted-foreground">{branchName(user.branchId)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.status === "active" ? "default" : user.status === "invited" ? "secondary" : "outline"
-                      }
-                    >
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    {(canEdit || canDelete) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem render={<Link href={`/${role}/masters/employee/${user.id}`} />}>
-                            <Eye className="h-4 w-4" />
-                            View
-                          </DropdownMenuItem>
-                          {canEdit && (
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{employee.employeeNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {employee.companyName ?? companyName(employee.companyId)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {employee.designationName ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{employee.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={employee.isActive ? "default" : "outline"}>
+                        {employee.isActive ? "active" : "inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {(canEdit || canDelete) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              render={<Link href={`/${role}/masters/employee/${user.id}/edit`} />}
+                              render={<Link href={`/${role}/masters/employee/${employee.employeeId}`} />}
                             >
-                              <Pencil className="h-4 w-4" />
-                              Modify
+                              <Eye className="h-4 w-4" />
+                              View
                             </DropdownMenuItem>
-                          )}
-                          {canDelete && user.status !== "deactivated" && (
-                            <DropdownMenuItem variant="destructive" onClick={() => toggleStatus(user)}>
-                              <PowerOff className="h-4 w-4" />
-                              Deactivate
-                            </DropdownMenuItem>
-                          )}
-                          {canDelete && user.status === "deactivated" && (
-                            <DropdownMenuItem onClick={() => toggleStatus(user)}>
-                              <Power className="h-4 w-4" />
-                              Reactivate
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                            {canEdit && (
+                              <DropdownMenuItem
+                                render={
+                                  <Link href={`/${role}/masters/employee/${employee.employeeId}/edit`} />
+                                }
+                              >
+                                <Pencil className="h-4 w-4" />
+                                Modify
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && employee.isActive && (
+                              <DropdownMenuItem variant="destructive" onClick={() => toggleStatus(employee)}>
+                                <PowerOff className="h-4 w-4" />
+                                Deactivate
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && !employee.isActive && (
+                              <DropdownMenuItem onClick={() => toggleStatus(employee)}>
+                                <Power className="h-4 w-4" />
+                                Reactivate
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <DropdownMenuItem variant="destructive" onClick={() => removeEmployee(employee)}>
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

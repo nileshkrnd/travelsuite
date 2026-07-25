@@ -144,7 +144,7 @@ export const roles: RoleDef[] = [
       grant(["dashboard"], ["view"]),
       grant(HRMS_KEYS),
       grant(["employee"]),
-      grant(["company", "branch", "department"], ["view"]),
+      grant(["company", "branch", "branchType", "department"], ["view"]),
       grant(["settings"], ["view", "edit"])
     ),
   }),

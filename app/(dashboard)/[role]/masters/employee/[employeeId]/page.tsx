@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, UserCog, Pencil, Power, PowerOff } from "lucide-react";
@@ -10,14 +11,14 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useUsersStore } from "@/lib/store/users.store";
-import { useRolesStore } from "@/lib/store/roles.store";
-import { useCompaniesStore } from "@/lib/store/companies.store";
-import { useBranchesStore } from "@/lib/store/branches.store";
-import { initials } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { getEmployee, setEmployeeActive, EmployeesApiError } from "@/lib/services/employees.service";
 import { can } from "@/config/permissions";
-import type { RoleDef } from "@/types";
+import { initials } from "@/lib/utils";
+import type { Employee, RoleDef } from "@/types";
+import { employeeDisplayName } from "@/types/employee";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -30,16 +31,64 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function EmployeeView({ roleDef }: { roleDef: RoleDef }) {
   const { role, employeeId } = useParams<{ role: string; employeeId: string }>();
-  const users = useUsersStore((s) => s.users);
-  const setUserStatus = useUsersStore((s) => s.setUserStatus);
-  const roles = useRolesStore((s) => s.roles);
-  const companies = useCompaniesStore((s) => s.companies);
-  const branches = useBranchesStore((s) => s.branches);
-  const employee = users.find((u) => u.id === employeeId);
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenant = useTenantStore((s) => s.tenant);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const canEdit = can(roleDef, "employee", "edit");
   const canDelete = can(roleDef, "employee", "delete");
+  const actorKey = sessionUser?.userKey ?? 0;
 
-  if (!employee) {
+  useEffect(() => {
+    const id = Number(employeeId);
+    if (!Number.isFinite(id) || id <= 0) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    getEmployee(id)
+      .then((row) => {
+        if (!cancelled) {
+          setEmployee(row);
+          setNotFound(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setEmployee(null);
+          setNotFound(err instanceof EmployeesApiError && err.status === 404);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, activeTenant.tenantKey]);
+
+  async function toggleStatus() {
+    if (!employee || !actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    try {
+      const saved = await setEmployeeActive(employee.employeeId, !employee.isActive, actorKey);
+      setEmployee(saved);
+      toast.success(saved.isActive ? "Employee activated" : "Employee deactivated");
+    } catch (error) {
+      toast.error(error instanceof EmployeesApiError ? error.message : "Could not update employee");
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading employee…</div>;
+  }
+
+  if (notFound || !employee) {
     return (
       <div className="p-6">
         <EmptyState
@@ -57,19 +106,12 @@ function EmployeeView({ roleDef }: { roleDef: RoleDef }) {
     );
   }
 
-  const employeeRole = roles.find((r) => r.id === employee.roleId);
-  const company = companies.find((c) => c.id === employee.companyId);
-  const branch = branches.find((b) => b.id === employee.branchId);
-
-  function toggleStatus() {
-    setUserStatus(employee!.id, employee!.status === "deactivated" ? "active" : "deactivated");
-    toast.success(employee!.status === "deactivated" ? "Employee reactivated" : "Employee deactivated");
-  }
+  const displayName = employeeDisplayName(employee);
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title={employee.name}
+        title={displayName}
         description="Employee details."
         actions={
           <div className="flex items-center gap-2">
@@ -79,16 +121,15 @@ function EmployeeView({ roleDef }: { roleDef: RoleDef }) {
             </Button>
             {canDelete && (
               <Button variant="outline" onClick={toggleStatus}>
-                {employee.status === "deactivated" ? (
-                  <Power className="h-4 w-4" />
-                ) : (
-                  <PowerOff className="h-4 w-4" />
-                )}
-                {employee.status === "deactivated" ? "Reactivate" : "Deactivate"}
+                {employee.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                {employee.isActive ? "Deactivate" : "Reactivate"}
               </Button>
             )}
             {canEdit && (
-              <Button nativeButton={false} render={<Link href={`/${role}/masters/employee/${employee.id}/edit`} />}>
+              <Button
+                nativeButton={false}
+                render={<Link href={`/${role}/masters/employee/${employee.employeeId}/edit`} />}
+              >
                 <Pencil className="h-4 w-4" />
                 Modify
               </Button>
@@ -97,32 +138,45 @@ function EmployeeView({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      <Card className="max-w-xl">
+      <Card className="max-w-2xl">
         <CardContent>
           <div className="mb-4 flex items-center gap-3">
             <Avatar size="lg">
-              <AvatarFallback>{initials(employee.name)}</AvatarFallback>
+              {employee.employeeImage ? <AvatarImage src={employee.employeeImage} alt="" /> : null}
+              <AvatarFallback>{initials(displayName)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-base font-semibold text-foreground">{employee.name}</p>
+              <p className="text-base font-semibold text-foreground">{displayName}</p>
               <p className="text-sm text-muted-foreground">{employee.email}</p>
             </div>
           </div>
           <dl>
-            <DetailRow label="Role">{employeeRole?.name ?? "—"}</DetailRow>
-            <DetailRow label="Company">{company?.name ?? "—"}</DetailRow>
-            <DetailRow label="Branch">{branch?.name ?? "—"}</DetailRow>
-            <DetailRow label="Department">{employee.department || "—"}</DetailRow>
+            <DetailRow label="Employee number">{employee.employeeNumber}</DetailRow>
+            <DetailRow label="Gender">{employee.gender}</DetailRow>
+            <DetailRow label="Company">{employee.companyName ?? "—"}</DetailRow>
+            <DetailRow label="Branch">{employee.branchName ?? "—"}</DetailRow>
+            <DetailRow label="Designation">{employee.designationName ?? "—"}</DetailRow>
+            <DetailRow label="Department">{employee.departmentName ?? "—"}</DetailRow>
+            <DetailRow label="Access role">{employee.accessRoleName ?? "—"}</DetailRow>
+            <DetailRow label="Reporting to">{employee.reportingEmployeeName ?? "—"}</DetailRow>
+            <DetailRow label="Country">{employee.countryName ?? "—"}</DetailRow>
+            <DetailRow label="City">{employee.cityName ?? "—"}</DetailRow>
+            <DetailRow label="Address">{employee.address}</DetailRow>
+            <DetailRow label="Phone">
+              {employee.countryDialCode} {employee.phoneNumber}
+            </DetailRow>
+            <DetailRow label="Fax">{employee.faxNumber ?? "—"}</DetailRow>
+            <DetailRow label="Joining date">
+              {new Date(employee.joiningDate).toLocaleDateString()}
+            </DetailRow>
             <DetailRow label="Status">
-              <Badge
-                variant={
-                  employee.status === "active" ? "default" : employee.status === "invited" ? "secondary" : "outline"
-                }
-              >
-                {employee.status}
+              <Badge variant={employee.isActive ? "default" : "outline"}>
+                {employee.isActive ? "active" : "inactive"}
               </Badge>
             </DetailRow>
-            <DetailRow label="Registered">{new Date(employee.createdAt).toLocaleDateString()}</DetailRow>
+            <DetailRow label="Created">
+              {new Date(employee.createdDtTm).toLocaleDateString()}
+            </DetailRow>
           </dl>
         </CardContent>
       </Card>

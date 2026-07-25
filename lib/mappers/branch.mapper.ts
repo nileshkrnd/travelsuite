@@ -1,14 +1,4 @@
-import type { Branch, BranchType } from "@/types";
-
-export interface BranchTypeRow {
-  branchTypeId: number;
-  branchTypeName: string;
-  isActive: boolean;
-  createdBy: number;
-  createdDtTm: Date | string;
-  modifiedBy: number | null;
-  modifiedDtTm: Date | string | null;
-}
+import type { Branch } from "@/types";
 
 export interface BranchRow {
   branchId: number;
@@ -41,16 +31,6 @@ export interface BranchRow {
 function toIso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   return typeof value === "string" ? value : value.toISOString();
-}
-
-export function toAppBranchType(row: BranchTypeRow): BranchType {
-  return {
-    id: String(row.branchTypeId),
-    branchTypeKey: row.branchTypeId,
-    name: row.branchTypeName,
-    status: row.isActive ? "active" : "inactive",
-    createdAt: toIso(row.createdDtTm) ?? new Date().toISOString(),
-  };
 }
 
 export function toAppBranch(row: BranchRow): Branch {
