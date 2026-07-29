@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Home,
+  Pencil,
   Plus,
   Search,
   SearchX,
@@ -27,6 +29,7 @@ import type { ModuleKey } from "@/config/permissions";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { KpiCard } from "@/components/shared/KpiCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { hasPrototypeForm } from "@/components/shared/ModulePrototypeFormDialog";
 import { ChartTooltip } from "@/components/dashboard/ChartTooltip";
 import { Money } from "@/components/shared/Money";
 import { ICONS } from "@/lib/icon-registry";
@@ -70,14 +73,18 @@ interface ModulePrototypePageProps {
   title: string;
   groupLabel?: string;
   description?: string;
+  /** Menu leaf path without role prefix (for New / View / Edit links). */
+  listPath?: string;
 }
 
 function statusVariant(
   status: string,
 ): "default" | "secondary" | "destructive" | "outline" {
-  if (["Active", "Confirmed", "Completed"].includes(status)) return "default";
-  if (["Pending", "On Hold", "Draft"].includes(status)) return "secondary";
-  if (status === "Cancelled") return "destructive";
+  if (["Active", "Confirmed", "Completed", "Approved", "Posted", "Received", "Issued", "Closed"].includes(status))
+    return "default";
+  if (["Pending", "On Hold", "Draft", "Open", "In Transit", "Counted", "Variance"].includes(status))
+    return "secondary";
+  if (status === "Cancelled" || status === "Rejected" || status === "Inactive") return "destructive";
   return "outline";
 }
 
@@ -94,9 +101,13 @@ export function ModulePrototypePage({
   title,
   groupLabel,
   description,
+  listPath,
 }: ModulePrototypePageProps) {
   const { role } = useParams<{ role: string }>();
+  const router = useRouter();
   const data = useMemo(() => getModulePrototypeData(moduleKey), [moduleKey]);
+  const showForm = hasPrototypeForm(moduleKey);
+  const basePath = listPath ?? moduleKey;
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -109,7 +120,7 @@ export function ModulePrototypePage({
     return () => window.clearTimeout(timer);
   }, [moduleKey]);
 
-  const isMoneyColumn = data.amountColumnLabel === "Amount";
+  const isMoneyColumn = data.amountIsMoney;
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -161,7 +172,26 @@ export function ModulePrototypePage({
         title={title}
         description={
           description ??
-          `Sample workspace for ${title.toLowerCase()} — prototype data for demos.`
+          (moduleKey.startsWith("hrms") ||
+          moduleKey.startsWith("attendance") ||
+          moduleKey.startsWith("leave") ||
+          moduleKey.startsWith("payroll") ||
+          moduleKey.startsWith("recruitment") ||
+          moduleKey.startsWith("performance") ||
+          moduleKey === "letters" ||
+          moduleKey === "employeeDocuments" ||
+          moduleKey === "resignation" ||
+          moduleKey === "gratuity" ||
+          moduleKey === "settlement"
+            ? `HR workspace prototype for ${title.toLowerCase()} — mock data for demos. Org & HR masters are maintained under Administration.`
+            : moduleKey.startsWith("inventory") ||
+                moduleKey === "warehouse" ||
+                moduleKey === "products" ||
+                moduleKey === "purchaseOrders" ||
+                moduleKey.startsWith("stock") ||
+                moduleKey === "lowStock"
+              ? `Inventory workspace prototype for ${title.toLowerCase()} — industry-standard fields & mock stock data for demos.`
+              : `Sample workspace for ${title.toLowerCase()} — prototype data for demos.`)
         }
         actions={
           <>
@@ -169,10 +199,17 @@ export function ModulePrototypePage({
               <Download className="h-4 w-4" />
               Export
             </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              New
-            </Button>
+            {showForm ? (
+              <Button size="sm" nativeButton={false} render={<Link href={`/${role}/${basePath}/new`} />}>
+                <Plus className="h-4 w-4" />
+                New
+              </Button>
+            ) : (
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                New
+              </Button>
+            )}
           </>
         }
       />
@@ -212,6 +249,8 @@ export function ModulePrototypePage({
                   {status}
                 </SelectItem>
               ))}
+              <SelectItem value="Approved">Approved</SelectItem>
+              <SelectItem value="Rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
           <Input
@@ -347,11 +386,18 @@ export function ModulePrototypePage({
                       {data.amountColumnLabel}
                     </TableHead>
                     <TableHead>Updated</TableHead>
+                    {showForm && <TableHead className="w-24 text-end">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedRows.map((row) => (
-                    <TableRow key={row.id}>
+                    <TableRow
+                      key={row.id}
+                      className={showForm ? "cursor-pointer" : undefined}
+                      onClick={() => {
+                        if (showForm) router.push(`/${role}/${basePath}/${row.id}`);
+                      }}
+                    >
                       <TableCell className="font-mono text-xs">
                         {row.reference}
                       </TableCell>
@@ -368,6 +414,30 @@ export function ModulePrototypePage({
                       <TableCell className="text-muted-foreground">
                         {row.updated}
                       </TableCell>
+                      {showForm && (
+                        <TableCell className="text-end" onClick={(e) => e.stopPropagation()}>
+                          <div className="inline-flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="View"
+                              nativeButton={false}
+                              render={<Link href={`/${role}/${basePath}/${row.id}`} />}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Edit"
+                              nativeButton={false}
+                              render={<Link href={`/${role}/${basePath}/${row.id}/edit`} />}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

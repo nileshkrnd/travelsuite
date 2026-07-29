@@ -39,14 +39,49 @@ export type ModuleKey =
   | "hrms"
   | "hrmsDashboard"
   | "hrmsEmployees"
+  | "hrmsMasters"
+  | "hrmsMasterDepartment"
+  | "hrmsMasterDesignation"
+  | "hrmsMasterEmployee"
+  | "adminHrMasters"
+  | "hrmsGrade"
+  | "hrmsShift"
+  | "hrmsLeaveType"
+  | "hrmsHolidayCalendar"
+  | "hrmsSalaryComponent"
+  | "hrmsDocumentType"
+  | "hrmsAttendance"
+  | "attendanceDaily"
+  | "attendanceRoster"
+  | "attendanceRegularization"
+  | "hrmsLeave"
+  | "leaveRequests"
+  | "leaveBalance"
+  | "leavePolicy"
+  | "hrmsPayroll"
+  | "payrollStructure"
+  | "payrollRun"
+  | "payrollLoans"
+  | "hrmsRecruitment"
+  | "recruitmentJobs"
+  | "recruitmentCandidates"
+  | "recruitmentInterviews"
+  | "hrmsPerformance"
+  | "performanceGoals"
+  | "performanceAppraisals"
+  | "hrmsDocuments"
+  | "letters"
+  | "employeeDocuments"
+  | "hrmsExit"
+  | "resignation"
+  | "gratuity"
+  | "settlement"
+  // Legacy flat HRMS keys (kept for older role payloads / redirects)
   | "attendance"
   | "leave"
   | "payroll"
   | "recruitment"
   | "performance"
-  | "letters"
-  | "gratuity"
-  | "settlement"
   // POS — Point of Sales
   | "sales"
   | "salesDashboard"
@@ -100,13 +135,18 @@ export type ModuleKey =
   // Extranet
   | "extranet"
   | "extranetDashboard"
+  | "extranetProperty"
   | "contracts"
   | "extranetInventory"
   | "rates"
+  | "extranetAvailability"
   | "promotions"
   | "stopSales"
   | "blackoutDates"
+  | "extranetConnectivity"
+  | "extranetReviews"
   | "extranetBookings"
+  | "extranetReports"
   // Asset Management
   | "assets"
   | "assetsDashboard"
@@ -118,22 +158,54 @@ export type ModuleKey =
   // Inventory
   | "inventory"
   | "inventoryDashboard"
+  | "inventoryMasters"
   | "warehouse"
   | "products"
+  | "inventoryCategory"
+  | "inventoryUom"
+  | "inventoryPurchasing"
   | "purchaseOrders"
+  | "inventoryStockOps"
   | "stockIn"
   | "stockOut"
   | "stockTransfers"
-  // Accounts
+  | "stockAdjustment"
+  | "stockTake"
+  | "inventoryReports"
+  | "stockOnHand"
+  | "stockLedger"
+  | "lowStock"
+  // Procurement
+  | "procurement"
+  | "procurementDashboard"
+  | "purchaseRequisitions"
+  | "rfq"
+  | "procurementOrders"
+  | "vendors"
+  | "goodsReceipt"
+  | "vendorInvoices"
+  | "procurementContracts"
+  | "procurementReports"
+  // Accounts / Finance
   | "accounts"
   | "accountsDashboard"
+  | "accountGroup"
+  | "ledger"
   | "chartOfAccounts"
-  | "journal"
-  | "payments"
-  | "receipts"
+  | "vouchers"
+  | "voucherJournal"
+  | "voucherSales"
+  | "voucherPurchase"
+  | "voucherContra"
+  | "voucherReceipt"
+  | "voucherPayment"
+  | "voucherCreditNote"
+  | "voucherDebitNote"
   | "invoices"
-  | "bank"
   | "accountsReports"
+  | "reportBalanceSheet"
+  | "reportProfitAndLoss"
+  | "reportTrialBalance"
   // CRM
   | "crm"
   | "crmDashboard"
@@ -239,6 +311,50 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "department", labelKey: "sidebar.department", icon: "Network", path: "masters/department" },
       { key: "designation", labelKey: "sidebar.designation", icon: "Briefcase", path: "masters/designation" },
       { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
+      {
+        key: "adminHrMasters",
+        labelKey: "sidebar.adminHrMasters",
+        icon: "Users",
+        path: "administration/hr-masters",
+        children: [
+          {
+            key: "hrmsGrade",
+            labelKey: "sidebar.hrmsGrade",
+            icon: "Tags",
+            path: "administration/hr-masters/grade",
+          },
+          {
+            key: "hrmsShift",
+            labelKey: "sidebar.hrmsShift",
+            icon: "Clock",
+            path: "administration/hr-masters/shift",
+          },
+          {
+            key: "hrmsLeaveType",
+            labelKey: "sidebar.hrmsLeaveType",
+            icon: "PalmTree",
+            path: "administration/hr-masters/leave-type",
+          },
+          {
+            key: "hrmsHolidayCalendar",
+            labelKey: "sidebar.hrmsHolidayCalendar",
+            icon: "CalendarDays",
+            path: "administration/hr-masters/holiday-calendar",
+          },
+          {
+            key: "hrmsSalaryComponent",
+            labelKey: "sidebar.hrmsSalaryComponent",
+            icon: "BadgeDollarSign",
+            path: "administration/hr-masters/salary-component",
+          },
+          {
+            key: "hrmsDocumentType",
+            labelKey: "sidebar.hrmsDocumentType",
+            icon: "FileBadge",
+            path: "administration/hr-masters/document-type",
+          },
+        ],
+      },
       { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
       { key: "roles", labelKey: "sidebar.roles", icon: "KeyRound", path: "masters/roles" },
       { key: "permissions", labelKey: "sidebar.permissions", icon: "Lock", path: "administration/permissions" },
@@ -267,15 +383,167 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "hrms",
     children: [
       { key: "hrmsDashboard", labelKey: "sidebar.hrmsDashboard", icon: "LayoutDashboard", path: "hrms/dashboard" },
-      { key: "hrmsEmployees", labelKey: "sidebar.hrmsEmployees", icon: "UserCog", path: "hrms/employees" },
-      { key: "attendance", labelKey: "sidebar.attendance", icon: "Clock", path: "hrms/attendance" },
-      { key: "leave", labelKey: "sidebar.leave", icon: "PalmTree", path: "hrms/leave" },
-      { key: "payroll", labelKey: "sidebar.payroll", icon: "Wallet", path: "hrms/payroll" },
-      { key: "recruitment", labelKey: "sidebar.recruitment", icon: "UserPlus", path: "hrms/recruitment" },
-      { key: "performance", labelKey: "sidebar.performance", icon: "TrendingUp", path: "hrms/performance" },
-      { key: "letters", labelKey: "sidebar.letters", icon: "FileText", path: "hrms/letters" },
-      { key: "gratuity", labelKey: "sidebar.gratuity", icon: "Gift", path: "hrms/gratuity" },
-      { key: "settlement", labelKey: "sidebar.settlement", icon: "Scale", path: "hrms/settlement" },
+      { key: "hrmsEmployees", labelKey: "sidebar.hrmsEmployees", icon: "Users2", path: "hrms/employees" },
+      {
+        key: "hrmsAttendance",
+        labelKey: "sidebar.hrmsAttendance",
+        icon: "Clock",
+        path: "hrms/attendance",
+        children: [
+          {
+            key: "attendanceDaily",
+            labelKey: "sidebar.attendanceDaily",
+            icon: "CalendarCheck",
+            path: "hrms/attendance/daily",
+          },
+          {
+            key: "attendanceRoster",
+            labelKey: "sidebar.attendanceRoster",
+            icon: "ListOrdered",
+            path: "hrms/attendance/roster",
+          },
+          {
+            key: "attendanceRegularization",
+            labelKey: "sidebar.attendanceRegularization",
+            icon: "RefreshCw",
+            path: "hrms/attendance/regularization",
+          },
+        ],
+      },
+      {
+        key: "hrmsLeave",
+        labelKey: "sidebar.hrmsLeave",
+        icon: "PalmTree",
+        path: "hrms/leave",
+        children: [
+          {
+            key: "leaveRequests",
+            labelKey: "sidebar.leaveRequests",
+            icon: "FilePlus",
+            path: "hrms/leave/requests",
+          },
+          {
+            key: "leaveBalance",
+            labelKey: "sidebar.leaveBalance",
+            icon: "Scale",
+            path: "hrms/leave/balance",
+          },
+          {
+            key: "leavePolicy",
+            labelKey: "sidebar.leavePolicy",
+            icon: "ClipboardCheck",
+            path: "hrms/leave/policy",
+          },
+        ],
+      },
+      {
+        key: "hrmsPayroll",
+        labelKey: "sidebar.hrmsPayroll",
+        icon: "Wallet",
+        path: "hrms/payroll",
+        children: [
+          {
+            key: "payrollStructure",
+            labelKey: "sidebar.payrollStructure",
+            icon: "Layers",
+            path: "hrms/payroll/structure",
+          },
+          {
+            key: "payrollRun",
+            labelKey: "sidebar.payrollRun",
+            icon: "Receipt",
+            path: "hrms/payroll/run",
+          },
+          {
+            key: "payrollLoans",
+            labelKey: "sidebar.payrollLoans",
+            icon: "CreditCard",
+            path: "hrms/payroll/loans",
+          },
+        ],
+      },
+      {
+        key: "hrmsRecruitment",
+        labelKey: "sidebar.hrmsRecruitment",
+        icon: "UserPlus",
+        path: "hrms/recruitment",
+        children: [
+          {
+            key: "recruitmentJobs",
+            labelKey: "sidebar.recruitmentJobs",
+            icon: "Briefcase",
+            path: "hrms/recruitment/jobs",
+          },
+          {
+            key: "recruitmentCandidates",
+            labelKey: "sidebar.recruitmentCandidates",
+            icon: "UserCheck",
+            path: "hrms/recruitment/candidates",
+          },
+          {
+            key: "recruitmentInterviews",
+            labelKey: "sidebar.recruitmentInterviews",
+            icon: "Users",
+            path: "hrms/recruitment/interviews",
+          },
+        ],
+      },
+      {
+        key: "hrmsPerformance",
+        labelKey: "sidebar.hrmsPerformance",
+        icon: "TrendingUp",
+        path: "hrms/performance",
+        children: [
+          {
+            key: "performanceGoals",
+            labelKey: "sidebar.performanceGoals",
+            icon: "Target",
+            path: "hrms/performance/goals",
+          },
+          {
+            key: "performanceAppraisals",
+            labelKey: "sidebar.performanceAppraisals",
+            icon: "ClipboardCheck",
+            path: "hrms/performance/appraisals",
+          },
+        ],
+      },
+      {
+        key: "hrmsDocuments",
+        labelKey: "sidebar.hrmsDocuments",
+        icon: "FileText",
+        path: "hrms/documents",
+        children: [
+          { key: "letters", labelKey: "sidebar.letters", icon: "FileSignature", path: "hrms/documents/letters" },
+          {
+            key: "employeeDocuments",
+            labelKey: "sidebar.employeeDocuments",
+            icon: "FileBadge",
+            path: "hrms/documents/employee-documents",
+          },
+        ],
+      },
+      {
+        key: "hrmsExit",
+        labelKey: "sidebar.hrmsExit",
+        icon: "LogOut",
+        path: "hrms/exit",
+        children: [
+          {
+            key: "resignation",
+            labelKey: "sidebar.resignation",
+            icon: "FileText",
+            path: "hrms/exit/resignation",
+          },
+          { key: "gratuity", labelKey: "sidebar.gratuity", icon: "Gift", path: "hrms/exit/gratuity" },
+          {
+            key: "settlement",
+            labelKey: "sidebar.settlement",
+            icon: "Scale",
+            path: "hrms/exit/settlement",
+          },
+        ],
+      },
     ],
   },
   {
@@ -353,13 +621,18 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "extranet",
     children: [
       { key: "extranetDashboard", labelKey: "sidebar.extranetDashboard", icon: "LayoutDashboard", path: "extranet/dashboard" },
+      { key: "extranetProperty", labelKey: "sidebar.extranetProperty", icon: "Home", path: "extranet/property" },
       { key: "contracts", labelKey: "sidebar.contracts", icon: "FileSignature", path: "extranet/contracts" },
       { key: "extranetInventory", labelKey: "sidebar.extranetInventory", icon: "Boxes", path: "extranet/inventory" },
       { key: "rates", labelKey: "sidebar.rates", icon: "BadgeDollarSign", path: "extranet/rates" },
+      { key: "extranetAvailability", labelKey: "sidebar.extranetAvailability", icon: "CalendarCheck", path: "extranet/availability" },
       { key: "promotions", labelKey: "sidebar.promotions", icon: "Megaphone", path: "extranet/promotions" },
       { key: "stopSales", labelKey: "sidebar.stopSales", icon: "Ban", path: "extranet/stop-sales" },
       { key: "blackoutDates", labelKey: "sidebar.blackoutDates", icon: "CalendarOff", path: "extranet/blackout-dates" },
+      { key: "extranetConnectivity", labelKey: "sidebar.extranetConnectivity", icon: "Workflow", path: "extranet/connectivity" },
+      { key: "extranetReviews", labelKey: "sidebar.extranetReviews", icon: "Star", path: "extranet/reviews" },
       { key: "extranetBookings", labelKey: "sidebar.extranetBookings", icon: "CalendarCheck", path: "extranet/bookings" },
+      { key: "extranetReports", labelKey: "sidebar.extranetReports", icon: "BarChart3", path: "extranet/reports" },
     ],
   },
   {
@@ -382,13 +655,139 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: "Warehouse",
     path: "inventory",
     children: [
-      { key: "inventoryDashboard", labelKey: "sidebar.inventoryDashboard", icon: "LayoutDashboard", path: "inventory/dashboard" },
-      { key: "warehouse", labelKey: "sidebar.warehouse", icon: "Warehouse", path: "inventory/warehouse" },
-      { key: "products", labelKey: "sidebar.products", icon: "Package", path: "inventory/products" },
-      { key: "purchaseOrders", labelKey: "sidebar.purchaseOrders", icon: "ShoppingCart", path: "inventory/purchase-orders" },
-      { key: "stockIn", labelKey: "sidebar.stockIn", icon: "ArrowDownToLine", path: "inventory/stock-in" },
-      { key: "stockOut", labelKey: "sidebar.stockOut", icon: "ArrowUpFromLine", path: "inventory/stock-out" },
-      { key: "stockTransfers", labelKey: "sidebar.stockTransfers", icon: "ArrowLeftRight", path: "inventory/transfers" },
+      {
+        key: "inventoryDashboard",
+        labelKey: "sidebar.inventoryDashboard",
+        icon: "LayoutDashboard",
+        path: "inventory/dashboard",
+      },
+      {
+        key: "inventoryMasters",
+        labelKey: "sidebar.inventoryMasters",
+        icon: "Layers",
+        path: "inventory/masters",
+        children: [
+          {
+            key: "warehouse",
+            labelKey: "sidebar.warehouse",
+            icon: "Warehouse",
+            path: "inventory/masters/warehouse",
+          },
+          {
+            key: "products",
+            labelKey: "sidebar.products",
+            icon: "Package",
+            path: "inventory/masters/items",
+          },
+          {
+            key: "inventoryCategory",
+            labelKey: "sidebar.inventoryCategory",
+            icon: "Tags",
+            path: "inventory/masters/category",
+          },
+          {
+            key: "inventoryUom",
+            labelKey: "sidebar.inventoryUom",
+            icon: "ListOrdered",
+            path: "inventory/masters/uom",
+          },
+        ],
+      },
+      {
+        key: "inventoryPurchasing",
+        labelKey: "sidebar.inventoryPurchasing",
+        icon: "ShoppingCart",
+        path: "inventory/purchasing",
+        children: [
+          {
+            key: "purchaseOrders",
+            labelKey: "sidebar.purchaseOrders",
+            icon: "ShoppingCart",
+            path: "inventory/purchasing/purchase-orders",
+          },
+        ],
+      },
+      {
+        key: "inventoryStockOps",
+        labelKey: "sidebar.inventoryStockOps",
+        icon: "Boxes",
+        path: "inventory/stock",
+        children: [
+          {
+            key: "stockIn",
+            labelKey: "sidebar.stockIn",
+            icon: "ArrowDownToLine",
+            path: "inventory/stock/stock-in",
+          },
+          {
+            key: "stockOut",
+            labelKey: "sidebar.stockOut",
+            icon: "ArrowUpFromLine",
+            path: "inventory/stock/stock-out",
+          },
+          {
+            key: "stockTransfers",
+            labelKey: "sidebar.stockTransfers",
+            icon: "ArrowLeftRight",
+            path: "inventory/stock/transfers",
+          },
+          {
+            key: "stockAdjustment",
+            labelKey: "sidebar.stockAdjustment",
+            icon: "RefreshCw",
+            path: "inventory/stock/adjustment",
+          },
+          {
+            key: "stockTake",
+            labelKey: "sidebar.stockTake",
+            icon: "ClipboardCheck",
+            path: "inventory/stock/stock-take",
+          },
+        ],
+      },
+      {
+        key: "inventoryReports",
+        labelKey: "sidebar.inventoryReports",
+        icon: "BarChart3",
+        path: "inventory/reports",
+        children: [
+          {
+            key: "stockOnHand",
+            labelKey: "sidebar.stockOnHand",
+            icon: "Package",
+            path: "inventory/reports/stock-on-hand",
+          },
+          {
+            key: "stockLedger",
+            labelKey: "sidebar.stockLedger",
+            icon: "BookMarked",
+            path: "inventory/reports/stock-ledger",
+          },
+          {
+            key: "lowStock",
+            labelKey: "sidebar.lowStock",
+            icon: "Hourglass",
+            path: "inventory/reports/low-stock",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "procurement",
+    labelKey: "sidebar.procurement",
+    icon: "ShoppingCart",
+    path: "procurement",
+    children: [
+      { key: "procurementDashboard", labelKey: "sidebar.procurementDashboard", icon: "LayoutDashboard", path: "procurement/dashboard" },
+      { key: "purchaseRequisitions", labelKey: "sidebar.purchaseRequisitions", icon: "ClipboardCheck", path: "procurement/requisitions" },
+      { key: "rfq", labelKey: "sidebar.rfq", icon: "FileSignature", path: "procurement/rfq" },
+      { key: "procurementOrders", labelKey: "sidebar.procurementOrders", icon: "ShoppingCart", path: "procurement/purchase-orders" },
+      { key: "vendors", labelKey: "sidebar.vendors", icon: "Store", path: "procurement/vendors" },
+      { key: "goodsReceipt", labelKey: "sidebar.goodsReceipt", icon: "ArrowDownToLine", path: "procurement/goods-receipt" },
+      { key: "vendorInvoices", labelKey: "sidebar.vendorInvoices", icon: "Receipt", path: "procurement/vendor-invoices" },
+      { key: "procurementContracts", labelKey: "sidebar.procurementContracts", icon: "FileText", path: "procurement/contracts" },
+      { key: "procurementReports", labelKey: "sidebar.procurementReports", icon: "BarChart3", path: "procurement/reports" },
     ],
   },
   {
@@ -398,13 +797,51 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "accounts",
     children: [
       { key: "accountsDashboard", labelKey: "sidebar.accountsDashboard", icon: "LayoutDashboard", path: "accounts/dashboard" },
+      { key: "accountGroup", labelKey: "sidebar.accountGroup", icon: "ListTree", path: "accounts/group" },
+      { key: "ledger", labelKey: "sidebar.ledger", icon: "BookMarked", path: "accounts/ledger" },
       { key: "chartOfAccounts", labelKey: "sidebar.chartOfAccounts", icon: "BookOpen", path: "accounts/chart-of-accounts" },
-      { key: "journal", labelKey: "sidebar.journal", icon: "BookMarked", path: "accounts/journal" },
-      { key: "payments", labelKey: "sidebar.payments", icon: "CreditCard", path: "accounts/payments" },
-      { key: "receipts", labelKey: "sidebar.receipts", icon: "Receipt", path: "accounts/receipts" },
-      { key: "invoices", labelKey: "sidebar.invoices", icon: "FileSpreadsheet", path: "accounts/invoices" },
-      { key: "bank", labelKey: "sidebar.bank", icon: "Building", path: "accounts/bank" },
-      { key: "accountsReports", labelKey: "sidebar.accountsReports", icon: "BarChart3", path: "accounts/reports" },
+      {
+        key: "vouchers",
+        labelKey: "sidebar.vouchers",
+        icon: "ScrollText",
+        path: "accounts/vouchers",
+        children: [
+          { key: "voucherJournal", labelKey: "sidebar.voucherJournal", icon: "FileSignature", path: "accounts/vouchers/journal" },
+          { key: "voucherSales", labelKey: "sidebar.voucherSales", icon: "ShoppingBag", path: "accounts/vouchers/sales" },
+          { key: "voucherPurchase", labelKey: "sidebar.voucherPurchase", icon: "ShoppingCart", path: "accounts/vouchers/purchase" },
+          { key: "voucherContra", labelKey: "sidebar.voucherContra", icon: "ArrowLeftRight", path: "accounts/vouchers/contra" },
+          { key: "voucherReceipt", labelKey: "sidebar.voucherReceipt", icon: "Receipt", path: "accounts/vouchers/receipt" },
+          { key: "voucherPayment", labelKey: "sidebar.voucherPayment", icon: "CreditCard", path: "accounts/vouchers/payment" },
+          { key: "voucherCreditNote", labelKey: "sidebar.voucherCreditNote", icon: "FilePlus", path: "accounts/vouchers/credit-note" },
+          { key: "voucherDebitNote", labelKey: "sidebar.voucherDebitNote", icon: "FileText", path: "accounts/vouchers/debit-note" },
+        ],
+      },
+      {
+        key: "accountsReports",
+        labelKey: "sidebar.accountsReports",
+        icon: "BarChart3",
+        path: "accounts/reports",
+        children: [
+          {
+            key: "reportBalanceSheet",
+            labelKey: "sidebar.reportBalanceSheet",
+            icon: "Scale",
+            path: "accounts/reports/balance-sheet",
+          },
+          {
+            key: "reportProfitAndLoss",
+            labelKey: "sidebar.reportProfitAndLoss",
+            icon: "TrendingUp",
+            path: "accounts/reports/profit-and-loss",
+          },
+          {
+            key: "reportTrialBalance",
+            labelKey: "sidebar.reportTrialBalance",
+            icon: "FileSpreadsheet",
+            path: "accounts/reports/trial-balance",
+          },
+        ],
+      },
     ],
   },
   {
@@ -483,6 +920,44 @@ export function findMenuItem(key: ModuleKey): MenuItem | undefined {
 export function findMenuItemByPath(path: string): MenuItem | undefined {
   const normalized = path.replace(/^\/+|\/+$/g, "");
   return flatMenuItems().find((item) => item.path === normalized);
+}
+
+export type MenuFormMode = "list" | "create" | "view" | "edit";
+
+/** Resolves list vs create/view/edit mock form routes under a menu leaf path. */
+export function resolveMenuFormRoute(path: string):
+  | { menuItem: MenuItem; formMode: MenuFormMode; recordId?: string }
+  | undefined {
+  const normalized = path.replace(/^\/+|\/+$/g, "");
+  const exact = findMenuItemByPath(normalized);
+  if (exact) return { menuItem: exact, formMode: "list" };
+
+  if (normalized.endsWith("/new")) {
+    const base = normalized.slice(0, -"/new".length);
+    const menuItem = findMenuItemByPath(base);
+    if (menuItem) return { menuItem, formMode: "create" };
+  }
+
+  if (normalized.endsWith("/edit")) {
+    const withoutEdit = normalized.slice(0, -"/edit".length);
+    const lastSlash = withoutEdit.lastIndexOf("/");
+    if (lastSlash > 0) {
+      const base = withoutEdit.slice(0, lastSlash);
+      const recordId = withoutEdit.slice(lastSlash + 1);
+      const menuItem = findMenuItemByPath(base);
+      if (menuItem && recordId) return { menuItem, formMode: "edit", recordId };
+    }
+  }
+
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash > 0) {
+    const base = normalized.slice(0, lastSlash);
+    const recordId = normalized.slice(lastSlash + 1);
+    const menuItem = findMenuItemByPath(base);
+    if (menuItem && recordId) return { menuItem, formMode: "view", recordId };
+  }
+
+  return undefined;
 }
 
 /** Flat list of every navigable leaf (nested group nodes excluded). */

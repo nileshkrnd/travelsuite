@@ -1,0 +1,122 @@
+"use client";
+
+import { useEffect, useMemo } from "react";
+import { Landmark } from "lucide-react";
+import { AccessGate } from "@/components/shared/AccessGate";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { FinanceReportChrome, formatMoney } from "@/components/finance/FinanceReportChrome";
+import { useAccountGroupsStore } from "@/lib/store/account-groups.store";
+import { useLedgersStore } from "@/lib/store/ledgers.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { buildBalanceSheet, type StatementLine } from "@/lib/finance-reports";
+import { cn } from "@/lib/utils";
+
+function StatementTable({ lines }: { lines: StatementLine[] }) {
+  return (
+    <Table>
+      <TableBody>
+        {lines.map((line) => {
+          const isTotal = line.kind === "total";
+          const isGroup = line.kind === "group" || line.kind === "subtotal";
+          return (
+            <TableRow
+              key={line.id}
+              className={cn(
+                isTotal && "bg-muted/40 font-semibold",
+                isGroup && !isTotal && "font-medium"
+              )}
+            >
+              <TableCell
+                className={cn("py-2", line.depth > 0 && "pl-8 text-muted-foreground")}
+              >
+                {line.code ? (
+                  <span className="mr-2 font-mono text-xs text-muted-foreground">{line.code}</span>
+                ) : null}
+                {line.name}
+              </TableCell>
+              <TableCell className="py-2 text-right tabular-nums">{formatMoney(line.amount)}</TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
+function BalanceSheetView() {
+  const tenant = useTenantStore((s) => s.tenant);
+  const tenantId = useTenantStore((s) => s.tenantId);
+  const allGroups = useAccountGroupsStore((s) => s.groups);
+  const allLedgers = useLedgersStore((s) => s.ledgers);
+
+  useEffect(() => {
+    document.title = "Balance Sheet · Klyra";
+  }, []);
+
+  const groups = useMemo(
+    () => allGroups.filter((g) => g.tenantId === tenantId),
+    [allGroups, tenantId]
+  );
+  const ledgers = useMemo(
+    () => allLedgers.filter((l) => l.tenantId === tenantId),
+    [allLedgers, tenantId]
+  );
+
+  const report = useMemo(() => buildBalanceSheet(groups, ledgers), [groups, ledgers]);
+  const hasData = report.assets.length > 1 || report.liabilitiesAndEquity.length > 1;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Balance Sheet"
+        description="Assets versus liabilities and equity, including current-year profit or loss."
+      />
+
+      <FinanceReportChrome
+        companyName={tenant.branding.name}
+        reportTitle="Balance Sheet"
+        balanced={report.isBalanced}
+      >
+        {!hasData ? (
+          <EmptyState
+            icon={Landmark}
+            tone="muted"
+            heading="No balance sheet figures"
+            description="Post ledger balances under Balance Sheet groups to populate this report."
+            size="compact"
+          />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Assets</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <StatementTable lines={report.assets} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Liabilities &amp; equity</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <StatementTable lines={report.liabilitiesAndEquity} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </FinanceReportChrome>
+    </div>
+  );
+}
+
+export default function BalanceSheetPage() {
+  return (
+    <AccessGate module="reportBalanceSheet">
+      {() => <BalanceSheetView />}
+    </AccessGate>
+  );
+}

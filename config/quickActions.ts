@@ -22,7 +22,10 @@ const QUICK_ACTIONS_BY_ROLE_ID: Record<string, QuickAction[]> = {
   role_sales: [{ label: "Book Offline Flight", icon: "Plane", module: "offlineFlight" }],
   role_back_office: [{ label: "New Quotation", icon: "FilePlus", module: "quotationBuilder" }],
   role_mid_office: [{ label: "Reservation Queue", icon: "ListOrdered", module: "reservationQueue" }],
-  role_accounts: [{ label: "New Invoice", icon: "Plus", module: "invoices" }],
+  role_accounts: [
+    { label: "Sales Voucher", icon: "ShoppingBag", module: "voucherSales" },
+    { label: "Chart of Accounts", icon: "BookOpen", module: "chartOfAccounts" },
+  ],
   role_crm: [{ label: "New Lead", icon: "Target", module: "crmLeads" }],
   role_agency_user: [{ label: "New Booking", icon: "Plus", module: "b2bBooking" }],
   role_corporate_employee: [{ label: "New Booking", icon: "Plus", module: "corporateBookings" }],

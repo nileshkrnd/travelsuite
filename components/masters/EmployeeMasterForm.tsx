@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImageUploadField } from "@/components/masters/ImageUploadField";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
@@ -46,9 +45,24 @@ import { employeeDisplayName } from "@/types/employee";
 
 const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Mx"] as const;
 const GENDERS = ["Male", "Female", "Other"] as const;
-const NONE_OPTION = "0";
 
 const phoneRegex = /^[0-9+\-\s()]{5,20}$/;
+
+const nativeSelectClass =
+  "flex h-10 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive";
+
+function parsePositiveId(raw: string): number {
+  const id = Number(raw);
+  return Number.isFinite(id) && id > 0 ? id : 0;
+}
+
+function isTitle(value: string): value is (typeof TITLES)[number] {
+  return (TITLES as readonly string[]).includes(value);
+}
+
+function isGender(value: string): value is (typeof GENDERS)[number] {
+  return (GENDERS as readonly string[]).includes(value);
+}
 
 function resolveDialCode(raw: string | undefined, countries: Country[], countryId?: number): string {
   if (countryId) {
@@ -71,10 +85,10 @@ function toDateInputValue(iso: string | undefined): string {
 
 function useSchema(isCreate: boolean) {
   return z.object({
-    title: z.enum(TITLES, { message: "Title is required" }),
+    title: z.string().refine(isTitle, { message: "Title is required" }),
     firstName: z.string().trim().min(1, "First name is required").max(50),
     lastName: z.string().trim().min(1, "Last name is required").max(50),
-    gender: z.enum(GENDERS, { message: "Gender is required" }),
+    gender: z.string().refine(isGender, { message: "Gender is required" }),
     countryId: z.number().int().positive("Country is required"),
     cityId: z.number().int().positive("City is required"),
     countryDialCode: z
@@ -118,6 +132,58 @@ function useSchema(isCreate: boolean) {
 
 type FormValues = z.infer<ReturnType<typeof useSchema>>;
 
+function emptyFormValues(): FormValues {
+  return {
+    title: "",
+    firstName: "",
+    lastName: "",
+    gender: "",
+    countryId: 0,
+    cityId: 0,
+    countryDialCode: "",
+    phoneNumber: "",
+    faxNumber: "",
+    email: "",
+    address: "",
+    employeeNumber: "",
+    companyId: 0,
+    branchId: 0,
+    designationId: 0,
+    departmentId: 0,
+    accessRoleId: 0,
+    reportingEmployeeId: 0,
+    joiningDate: "",
+    password: "",
+    employeeImage: "",
+  };
+}
+
+function formValuesFromEmployee(employee: Employee): FormValues {
+  return {
+    title: isTitle(employee.title) ? employee.title : "",
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    gender: isGender(employee.gender) ? employee.gender : "",
+    countryId: employee.countryId,
+    cityId: employee.cityId,
+    countryDialCode: employee.countryDialCode,
+    phoneNumber: employee.phoneNumber,
+    faxNumber: employee.faxNumber ?? "",
+    email: employee.email,
+    address: employee.address,
+    employeeNumber: employee.employeeNumber,
+    companyId: employee.companyId,
+    branchId: employee.branchId,
+    designationId: employee.designationId,
+    departmentId: employee.departmentId ?? 0,
+    accessRoleId: employee.accessRoleId,
+    reportingEmployeeId: employee.reportingEmployeeId ?? 0,
+    joiningDate: toDateInputValue(employee.joiningDate),
+    password: "",
+    employeeImage: employee.employeeImage ?? "",
+  };
+}
+
 export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
@@ -144,34 +210,22 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
     handleSubmit,
     control,
     setValue,
+    getValues,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: "onBlur",
-    values: {
-      title: (employee?.title as (typeof TITLES)[number]) ?? "Mr",
-      firstName: employee?.firstName ?? "",
-      lastName: employee?.lastName ?? "",
-      gender: (employee?.gender as (typeof GENDERS)[number]) ?? "Male",
-      countryId: employee?.countryId ?? 0,
-      cityId: employee?.cityId ?? 0,
-      countryDialCode: employee?.countryDialCode ?? "",
-      phoneNumber: employee?.phoneNumber ?? "",
-      faxNumber: employee?.faxNumber ?? "",
-      email: employee?.email ?? "",
-      address: employee?.address ?? "",
-      employeeNumber: employee?.employeeNumber ?? "",
-      companyId: employee?.companyId ?? 0,
-      branchId: employee?.branchId ?? 0,
-      designationId: employee?.designationId ?? 0,
-      departmentId: employee?.departmentId ?? 0,
-      accessRoleId: employee?.accessRoleId ?? 0,
-      reportingEmployeeId: employee?.reportingEmployeeId ?? 0,
-      joiningDate: toDateInputValue(employee?.joiningDate),
-      password: "",
-      employeeImage: employee?.employeeImage ?? "",
-    },
+    // Avoid controlled `values` — it resets dropdowns on every re-render and blocks selection.
+    defaultValues: employee ? formValuesFromEmployee(employee) : emptyFormValues(),
   });
+
+  const editEmployeeId = employee?.employeeId ?? 0;
+  useEffect(() => {
+    if (editEmployeeId > 0 && employee) {
+      reset(formValuesFromEmployee(employee));
+    }
+  }, [editEmployeeId, employee, reset]);
 
   const firstName = useWatch({ control, name: "firstName" });
   const lastName = useWatch({ control, name: "lastName" });
@@ -182,7 +236,7 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
   const previewName =
     employeeDisplayName({
-      title: titleValue ?? "Mr",
+      title: titleValue && isTitle(titleValue) ? titleValue : "Mr",
       firstName: firstName ?? "",
       lastName: lastName ?? "",
     }) || "Employee name";
@@ -218,10 +272,10 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
   }, [tenantKey]);
 
   useEffect(() => {
-    if (!countries.length) return;
-    const resolved = resolveDialCode(employee?.countryDialCode, countries, employee?.countryId);
+    if (!countries.length || !employee) return;
+    const resolved = resolveDialCode(employee.countryDialCode, countries, employee.countryId);
     if (resolved) setValue("countryDialCode", resolved, { shouldValidate: false });
-  }, [countries, employee?.countryDialCode, employee?.countryId, setValue]);
+  }, [countries, employee, setValue]);
 
   useEffect(() => {
     if (!countryId) {
@@ -231,7 +285,12 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
     let cancelled = false;
     listCities({ countryId, activeOnly: true })
       .then((rows) => {
-        if (!cancelled) setCities(rows);
+        if (cancelled) return;
+        setCities(rows);
+        const currentCityId = getValues("cityId");
+        if (currentCityId && !rows.some((c) => c.cityKey === currentCityId)) {
+          setValue("cityId", 0, { shouldValidate: false });
+        }
       })
       .catch(() => {
         if (!cancelled) setCities([]);
@@ -239,6 +298,7 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when country changes
   }, [countryId]);
 
   useEffect(() => {
@@ -379,23 +439,27 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
           <form onSubmit={handleSubmit(onSubmit)} className="min-w-0 space-y-5" noValidate>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label required>Title</Label>
+                <Label htmlFor="emp-title" required>
+                  Title
+                </Label>
                 <Controller
                   control={control}
                   name="title"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Mr")}>
-                      <SelectTrigger className="h-10 w-full" aria-invalid={!!errors.title}>
-                        <SelectValue>{(value: string | null) => value ?? "Select title"}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TITLES.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select
+                      id="emp-title"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.title}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      <option value="">Select title</option>
+                      {TITLES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
@@ -418,23 +482,27 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Gender</Label>
+                <Label htmlFor="emp-gender" required>
+                  Gender
+                </Label>
                 <Controller
                   control={control}
                   name="gender"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "Male")}>
-                      <SelectTrigger className="h-10 w-full" aria-invalid={!!errors.gender}>
-                        <SelectValue>{(value: string | null) => value ?? "Select gender"}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GENDERS.map((g) => (
-                          <SelectItem key={g} value={g}>
-                            {g}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select
+                      id="emp-gender"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.gender}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      <option value="">Select gender</option>
+                      {GENDERS.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.gender && <p className="text-sm text-destructive">{errors.gender.message}</p>}
@@ -460,73 +528,68 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Country</Label>
+                <Label htmlFor="emp-country" required>
+                  Country
+                </Label>
                 <Controller
                   control={control}
                   name="countryId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => {
-                        const id = Number(v);
+                    <select
+                      id="emp-country"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.countryId}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => {
+                        const id = parsePositiveId(e.target.value);
                         field.onChange(id);
-                        setValue("cityId", 0, { shouldValidate: true });
+                        setValue("cityId", 0, { shouldValidate: false });
                         const selected = countries.find((c) => c.countryKey === id);
                         if (selected?.dialCode) {
                           setValue("countryDialCode", selected.dialCode.slice(0, 5), { shouldValidate: true });
                         }
                       }}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.countryId}>
-                        <SelectValue>
-                          {(value: string | null) =>
-                            value
-                              ? (countries.find((c) => String(c.countryKey) === value)?.name ?? value)
-                              : "Select country"
-                          }
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c) => (
-                          <SelectItem key={c.id} value={String(c.countryKey)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">Select country</option>
+                      {countries.map((c) => (
+                        <option key={c.id} value={String(c.countryKey)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label required>City</Label>
+                <Label htmlFor="emp-city" required>
+                  City
+                </Label>
                 <Controller
                   control={control}
                   name="cityId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                    <select
+                      id="emp-city"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.cityId}
                       disabled={!countryId || cities.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.cityId}>
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value) {
-                              return !countryId ? "Select a country first" : "Select city";
-                            }
-                            return cities.find((c) => String(c.cityKey) === value)?.name ?? value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((c) => (
-                          <SelectItem key={c.id} value={String(c.cityKey)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">
+                        {!countryId
+                          ? "Select a country first"
+                          : cities.length === 0
+                            ? "No cities for this country"
+                            : "Select city"}
+                      </option>
+                      {cities.map((c) => (
+                        <option key={c.id} value={String(c.cityKey)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.cityId && <p className="text-sm text-destructive">{errors.cityId.message}</p>}
@@ -536,23 +599,27 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
             <div className="space-y-2">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:gap-2">
                 <div className="w-full shrink-0 space-y-2 sm:w-[8.5rem]">
-                  <Label required>Dial code</Label>
+                  <Label htmlFor="emp-dial" required>
+                    Dial code
+                  </Label>
                   <Controller
                     control={control}
                     name="countryDialCode"
                     render={({ field }) => (
-                      <Select value={field.value || ""} onValueChange={(v) => field.onChange(v ?? "")}>
-                        <SelectTrigger className="h-10 w-full" aria-invalid={!!errors.countryDialCode}>
-                          <SelectValue>{(value: string | null) => value || "Code"}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dialOptions.map((c) => (
-                            <SelectItem key={c.dialCode} value={c.dialCode}>
-                              {c.dialCode} · {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        id="emp-dial"
+                        className={nativeSelectClass}
+                        aria-invalid={!!errors.countryDialCode}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      >
+                        <option value="">Code</option>
+                        {dialOptions.map((c) => (
+                          <option key={c.dialCode} value={c.dialCode}>
+                            {c.dialCode} · {c.name}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   />
                 </div>
@@ -612,72 +679,67 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Company</Label>
+                <Label htmlFor="emp-company" required>
+                  Company
+                </Label>
                 <Controller
                   control={control}
                   name="companyId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => {
-                        const id = Number(v);
+                    <select
+                      id="emp-company"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.companyId}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => {
+                        const id = parsePositiveId(e.target.value);
                         field.onChange(id);
-                        setValue("branchId", 0, { shouldValidate: true });
-                        setValue("designationId", 0, { shouldValidate: true });
+                        setValue("branchId", 0, { shouldValidate: false });
+                        setValue("designationId", 0, { shouldValidate: false });
                         setValue("departmentId", 0, { shouldValidate: false });
                         setValue("reportingEmployeeId", 0, { shouldValidate: false });
                       }}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
-                        <SelectValue>
-                          {(value: string | null) =>
-                            value
-                              ? (companies.find((c) => String(c.companyKey) === value)?.name ?? value)
-                              : "Select company"
-                          }
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies.map((c) => (
-                          <SelectItem key={c.id} value={String(c.companyKey)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">Select company</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={String(c.companyKey)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label required>Branch</Label>
+                <Label htmlFor="emp-branch" required>
+                  Branch
+                </Label>
                 <Controller
                   control={control}
                   name="branchId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                    <select
+                      id="emp-branch"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.branchId}
                       disabled={!companyId || branches.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.branchId}>
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value) {
-                              return !companyId ? "Select a company first" : "Select branch";
-                            }
-                            return branches.find((b) => String(b.branchKey) === value)?.name ?? value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((b) => (
-                          <SelectItem key={b.id} value={String(b.branchKey)}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">
+                        {!companyId
+                          ? "Select a company first"
+                          : branches.length === 0
+                            ? "No branches for this company"
+                            : "Select branch"}
+                      </option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={String(b.branchKey)}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.branchId && <p className="text-sm text-destructive">{errors.branchId.message}</p>}
@@ -686,35 +748,34 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Designation</Label>
+                <Label htmlFor="emp-designation" required>
+                  Designation
+                </Label>
                 <Controller
                   control={control}
                   name="designationId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                    <select
+                      id="emp-designation"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.designationId}
                       disabled={!companyId || designations.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.designationId}>
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value) {
-                              return !companyId ? "Select a company first" : "Select designation";
-                            }
-                            const d = designations.find((x) => String(x.designationId) === value);
-                            return d ? `${d.designationName} (${d.designationCode})` : value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {designations.map((d) => (
-                          <SelectItem key={d.designationId} value={String(d.designationId)}>
-                            {d.designationName} ({d.designationCode})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">
+                        {!companyId
+                          ? "Select a company first"
+                          : designations.length === 0
+                            ? "No designations for this company"
+                            : "Select designation"}
+                      </option>
+                      {designations.map((d) => (
+                        <option key={d.designationId} value={String(d.designationId)}>
+                          {d.designationName} ({d.designationCode})
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.designationId && (
@@ -722,34 +783,25 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Department</Label>
+                <Label htmlFor="emp-department">Department</Label>
                 <Controller
                   control={control}
                   name="departmentId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value > 0 ? String(field.value) : NONE_OPTION}
-                      onValueChange={(v) => field.onChange(v && v !== NONE_OPTION ? Number(v) : 0)}
+                    <select
+                      id="emp-department"
+                      className={nativeSelectClass}
                       disabled={!companyId}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value || value === NONE_OPTION) return "None (optional)";
-                            const d = departments.find((x) => String(x.departmentId) === value);
-                            return d ? `${d.departmentName} (${d.departmentCode})` : value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE_OPTION}>None (optional)</SelectItem>
-                        {departments.map((d) => (
-                          <SelectItem key={d.departmentId} value={String(d.departmentId)}>
-                            {d.departmentName} ({d.departmentCode})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">None (optional)</option>
+                      {departments.map((d) => (
+                        <option key={d.departmentId} value={String(d.departmentId)}>
+                          {d.departmentName} ({d.departmentCode})
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
               </div>
@@ -757,33 +809,31 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label required>Access role</Label>
+                <Label htmlFor="emp-access-role" required>
+                  Access role
+                </Label>
                 <Controller
                   control={control}
                   name="accessRoleId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                    <select
+                      id="emp-access-role"
+                      className={nativeSelectClass}
+                      aria-invalid={!!errors.accessRoleId}
                       disabled={accessRoles.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.accessRoleId}>
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value) return "Select access role";
-                            return accessRoles.find((r) => String(r.accessRoleId) === value)?.accessRoleName ?? value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accessRoles.map((r) => (
-                          <SelectItem key={r.accessRoleId} value={String(r.accessRoleId)}>
-                            {r.accessRoleName}
-                            {r.companyId === 0 ? " (tenant)" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">
+                        {accessRoles.length === 0 ? "No access roles available" : "Select access role"}
+                      </option>
+                      {accessRoles.map((r) => (
+                        <option key={r.accessRoleId} value={String(r.accessRoleId)}>
+                          {r.accessRoleName}
+                          {r.companyId === 0 ? " (tenant)" : ""}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
                 {errors.accessRoleId && (
@@ -791,34 +841,25 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Reporting to</Label>
+                <Label htmlFor="emp-reporting">Reporting to</Label>
                 <Controller
                   control={control}
                   name="reportingEmployeeId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value > 0 ? String(field.value) : NONE_OPTION}
-                      onValueChange={(v) => field.onChange(v && v !== NONE_OPTION ? Number(v) : 0)}
+                    <select
+                      id="emp-reporting"
+                      className={nativeSelectClass}
                       disabled={!companyId || reportingEmployees.length === 0}
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onChange={(e) => field.onChange(parsePositiveId(e.target.value))}
                     >
-                      <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                        <SelectValue>
-                          {(value: string | null) => {
-                            if (!value || value === NONE_OPTION) return "None (optional)";
-                            const e = reportingEmployees.find((x) => String(x.employeeId) === value);
-                            return e ? employeeDisplayName(e) : value;
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE_OPTION}>None (optional)</SelectItem>
-                        {reportingEmployees.map((e) => (
-                          <SelectItem key={e.employeeId} value={String(e.employeeId)}>
-                            {employeeDisplayName(e)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">None (optional)</option>
+                      {reportingEmployees.map((e) => (
+                        <option key={e.employeeId} value={String(e.employeeId)}>
+                          {employeeDisplayName(e)}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 />
               </div>

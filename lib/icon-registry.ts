@@ -87,6 +87,8 @@ import {
   Home,
   Truck,
   Code2,
+  Star,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 
@@ -183,4 +185,6 @@ export const ICONS: Record<string, LucideIcon> = {
   Home,
   Truck,
   Code2,
+  Star,
+  LogOut,
 };

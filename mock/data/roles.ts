@@ -39,14 +39,35 @@ function seedRole(
 const HRMS_KEYS: ModuleKey[] = [
   "hrmsDashboard",
   "hrmsEmployees",
-  "attendance",
-  "leave",
-  "payroll",
-  "recruitment",
-  "performance",
+  "attendanceDaily",
+  "attendanceRoster",
+  "attendanceRegularization",
+  "leaveRequests",
+  "leaveBalance",
+  "leavePolicy",
+  "payrollStructure",
+  "payrollRun",
+  "payrollLoans",
+  "recruitmentJobs",
+  "recruitmentCandidates",
+  "recruitmentInterviews",
+  "performanceGoals",
+  "performanceAppraisals",
   "letters",
+  "employeeDocuments",
+  "resignation",
   "gratuity",
   "settlement",
+];
+
+/** HR configuration masters owned by Administration (not HRMS ops). */
+const ADMIN_HR_MASTER_KEYS: ModuleKey[] = [
+  "hrmsGrade",
+  "hrmsShift",
+  "hrmsLeaveType",
+  "hrmsHolidayCalendar",
+  "hrmsSalaryComponent",
+  "hrmsDocumentType",
 ];
 const SALES_KEYS: ModuleKey[] = ["salesDashboard"];
 const BOOK_OFFLINE_KEYS: ModuleKey[] = [
@@ -92,13 +113,21 @@ const EXTRANET_KEYS: ModuleKey[] = [
 ];
 const ACCOUNTS_KEYS: ModuleKey[] = [
   "accountsDashboard",
+  "accountGroup",
+  "ledger",
   "chartOfAccounts",
-  "journal",
-  "payments",
-  "receipts",
+  "voucherJournal",
+  "voucherSales",
+  "voucherPurchase",
+  "voucherContra",
+  "voucherReceipt",
+  "voucherPayment",
+  "voucherCreditNote",
+  "voucherDebitNote",
   "invoices",
-  "bank",
-  "accountsReports",
+  "reportBalanceSheet",
+  "reportProfitAndLoss",
+  "reportTrialBalance",
 ];
 const CRM_KEYS: ModuleKey[] = [
   "crmDashboard",
@@ -143,8 +172,9 @@ export const roles: RoleDef[] = [
     permissions: mergePermissions(
       grant(["dashboard"], ["view"]),
       grant(HRMS_KEYS),
-      grant(["employee"]),
+      grant(["employee", "designation"]),
       grant(["company", "branch", "branchType", "department"], ["view"]),
+      grant(ADMIN_HR_MASTER_KEYS, ["view"]),
       grant(["settings"], ["view", "edit"])
     ),
   }),
@@ -188,7 +218,7 @@ export const roles: RoleDef[] = [
   seedRole({
     id: "role_accounts",
     name: "Finance",
-    description: "Full finance module — chart of accounts, journals, payments, receipts, and reporting.",
+    description: "Full finance module — groups, ledgers, chart of accounts, vouchers, and reporting.",
     category: "internal",
     permissions: mergePermissions(
       grant(["dashboard"], ["view"]),
