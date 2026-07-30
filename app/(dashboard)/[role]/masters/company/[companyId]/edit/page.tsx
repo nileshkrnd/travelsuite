@@ -11,16 +11,18 @@ import { Button } from "@/components/ui/button";
 import { CompanyForm } from "@/components/masters/CompanyForm";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useSessionStore } from "@/lib/store/session.store";
 import { listCompanies } from "@/lib/services/db-companies.service";
 
 function EditCompany() {
   const { role, companyId } = useParams<{ role: string; companyId: string }>();
   const companies = useCompaniesStore((s) => s.companies);
   const setCompanies = useCompaniesStore((s) => s.setCompanies);
+  const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
-  const company = companies.find((c) => c.id === companyId);
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+  const company = companies.find((c) => c.id === companyId && (tenantKey <= 0 || c.tenantKey === tenantKey));
   const [loading, setLoading] = useState(!company);
-  const tenantKey = activeTenant.tenantKey ?? 0;
 
   useEffect(() => {
     if (company || tenantKey <= 0) {

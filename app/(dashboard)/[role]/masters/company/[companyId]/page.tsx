@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import type { Branch } from "@/types";
 import { useCompaniesStore } from "@/lib/store/companies.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useSessionStore } from "@/lib/store/session.store";
 import { listCompanies } from "@/lib/services/db-companies.service";
 import { listBranches } from "@/lib/services/db-branches.service";
 import { can } from "@/config/permissions";
@@ -29,15 +30,15 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function CompanyView({ roleDef }: { roleDef: RoleDef }) {
   const { role, companyId } = useParams<{ role: string; companyId: string }>();
-  const tenantId = useTenantStore((s) => s.tenantId);
+  const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
   const companies = useCompaniesStore((s) => s.companies);
   const setCompanies = useCompaniesStore((s) => s.setCompanies);
-  const company = companies.find((c) => c.id === companyId && c.tenantId === tenantId);
   const canEdit = can(roleDef, "company", "edit");
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+  const company = companies.find((c) => c.id === companyId && c.tenantKey === tenantKey);
   const [loading, setLoading] = useState(!company);
   const [companyBranches, setCompanyBranches] = useState<Branch[]>([]);
-  const tenantKey = activeTenant.tenantKey ?? 0;
 
   useEffect(() => {
     if (company || tenantKey <= 0) {

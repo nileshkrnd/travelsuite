@@ -7,12 +7,13 @@ import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Mail, Phone, Hash, Calendar, Lock, UserPlus, Save, X } from "lucide-react";
+import { Mail, Phone, Hash, Lock, UserPlus, Save, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { ImageUploadField } from "@/components/masters/ImageUploadField";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
@@ -870,16 +871,19 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
                 <Label htmlFor="joiningDate" required>
                   Joining date
                 </Label>
-                <div className="relative">
-                  <Calendar className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="joiningDate"
-                    type="date"
-                    className="h-10 ps-9"
-                    aria-invalid={!!errors.joiningDate}
-                    {...register("joiningDate")}
-                  />
-                </div>
+                <Controller
+                  name="joiningDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePickerField
+                      id="joiningDate"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select joining date"
+                      invalid={!!errors.joiningDate}
+                    />
+                  )}
+                />
                 {errors.joiningDate && <p className="text-sm text-destructive">{errors.joiningDate.message}</p>}
               </div>
               <div className="space-y-2">

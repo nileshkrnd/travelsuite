@@ -70,15 +70,10 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
   const sessionUser = useSessionStore((s) => s.user);
-  const tenantId = useTenantStore((s) => s.tenantId);
   const activeTenant = useTenantStore((s) => s.tenant);
   const allCompanies = useCompaniesStore((s) => s.companies);
   const setCompanies = useCompaniesStore((s) => s.setCompanies);
   const upsertCompany = useCompaniesStore((s) => s.upsertCompany);
-  const companies = useMemo(
-    () => allCompanies.filter((c) => c.tenantId === tenantId),
-    [allCompanies, tenantId]
-  );
   const accentColor = useTenantStore((s) => s.tenant.branding.primaryColor);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -88,6 +83,10 @@ function CompanyList({ roleDef }: { roleDef: RoleDef }) {
   const canEdit = can(roleDef, "company", "edit");
   const actorKey = sessionUser?.userKey ?? 0;
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+  const companies = useMemo(
+    () => allCompanies.filter((c) => c.tenantKey === tenantKey),
+    [allCompanies, tenantKey]
+  );
 
   useEffect(() => {
     if (tenantKey <= 0) {
