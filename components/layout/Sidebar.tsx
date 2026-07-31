@@ -15,6 +15,11 @@ import { useChromeBranding } from "@/lib/hooks/useChromeBranding";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
+import {
+  collectMenuLeafPaths,
+  menuItemHref,
+  resolveActiveMenuPath,
+} from "@/lib/menu-active-path";
 import type { RoleDef, SubscriptionModuleMenu } from "@/types";
 
 function menuLabel(item: MenuItem, t: (key: string) => string): string {
@@ -86,6 +91,11 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
     return buildTenantWorkspaceMenus(roleMenus, menusLoaded ? dbMenus : []);
   }, [platformMode, roleDef, dbMenus, menusLoaded]);
 
+  const activePath = useMemo(
+    () => resolveActiveMenuPath(pathname, roleDef.slug, collectMenuLeafPaths(items)),
+    [pathname, roleDef.slug, items]
+  );
+
   return (
     <aside
       className={cn(
@@ -106,6 +116,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
               item={item}
               slug={roleDef.slug}
               pathname={pathname}
+              activePath={activePath}
               collapsed={collapsed}
               onNavigate={onNavigate}
               t={t}
@@ -116,7 +127,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
               key={item.key}
               item={item}
               slug={roleDef.slug}
-              pathname={pathname}
+              activePath={activePath}
               collapsed={collapsed}
               onNavigate={onNavigate}
               label={menuLabel(item, t)}
@@ -144,30 +155,24 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
   );
 }
 
-function itemHref(slug: string, item: MenuItem) {
-  return `/${slug}/${item.path}`;
-}
-
-function isItemActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function groupHasActivePath(pathname: string, slug: string, items: MenuItem[]): boolean {
-  return items.some((child) =>
-    child.children
-      ? groupHasActivePath(pathname, slug, child.children)
-      : isItemActive(pathname, itemHref(slug, child))
-  );
-}
-
 function flattenLeaves(items: MenuItem[]): MenuItem[] {
   return items.flatMap((item) => (item.children ? flattenLeaves(item.children) : [item]));
+}
+
+function groupContainsActivePath(items: MenuItem[], activePath: string | null): boolean {
+  if (!activePath) return false;
+  return items.some((child) =>
+    child.children
+      ? groupContainsActivePath(child.children, activePath)
+      : child.path === activePath
+  );
 }
 
 function SidebarGroup({
   item,
   slug,
   pathname,
+  activePath,
   collapsed,
   onNavigate,
   t,
@@ -176,15 +181,20 @@ function SidebarGroup({
   item: MenuItem;
   slug: string;
   pathname: string;
+  activePath: string | null;
   collapsed: boolean;
   onNavigate?: () => void;
   t: (key: string) => string;
   depth: number;
 }) {
   const children = item.children!;
-  const isActiveGroup = groupHasActivePath(pathname, slug, children);
+  const isActiveGroup = groupContainsActivePath(children, activePath);
   const [open, setOpen] = useState(isActiveGroup);
   const GroupIcon = menuIcon(item.icon);
+
+  useEffect(() => {
+    if (isActiveGroup) setOpen(true);
+  }, [isActiveGroup, pathname]);
 
   if (collapsed) {
     // Collapsed rail has no room for group headers — flatten nested leaves into tooltip icons.
@@ -195,7 +205,7 @@ function SidebarGroup({
             key={child.key}
             item={child}
             slug={slug}
-            pathname={pathname}
+            activePath={activePath}
             collapsed
             onNavigate={onNavigate}
             label={menuLabel(child, t)}
@@ -234,6 +244,7 @@ function SidebarGroup({
                 item={child}
                 slug={slug}
                 pathname={pathname}
+                activePath={activePath}
                 collapsed={false}
                 onNavigate={onNavigate}
                 t={t}
@@ -244,7 +255,7 @@ function SidebarGroup({
                 key={child.key}
                 item={child}
                 slug={slug}
-                pathname={pathname}
+                activePath={activePath}
                 collapsed={false}
                 onNavigate={onNavigate}
                 label={menuLabel(child, t)}
@@ -260,20 +271,20 @@ function SidebarGroup({
 function SidebarLeaf({
   item,
   slug,
-  pathname,
+  activePath,
   collapsed,
   onNavigate,
   label,
 }: {
   item: MenuItem;
   slug: string;
-  pathname: string;
+  activePath: string | null;
   collapsed: boolean;
   onNavigate?: () => void;
   label: string;
 }) {
-  const href = itemHref(slug, item);
-  const active = isItemActive(pathname, href);
+  const href = menuItemHref(slug, item.path);
+  const active = activePath != null && item.path === activePath;
   const Icon = menuIcon(item.icon);
   const linkClassName = cn(
     "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors",

@@ -15,6 +15,7 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { useUiPrefsStore } from "@/lib/store/ui-prefs.store";
 import { findTopMenuGroup, flatMenuItems } from "@/config/permissions";
+import { resolveActiveMenuPath } from "@/lib/menu-active-path";
 import { ICONS } from "@/lib/icon-registry";
 
 export function Topbar() {
@@ -25,11 +26,16 @@ export function Topbar() {
   const t = useTranslations("sidebar");
 
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
-  const activeItem = roleDef
-    ? flatMenuItems().find((item) => {
-        const href = `/${roleDef.slug}/${item.path}`;
-        return pathname === href || pathname.startsWith(`${href}/`);
-      })
+  const leaves = flatMenuItems();
+  const activePath = roleDef
+    ? resolveActiveMenuPath(
+        pathname,
+        roleDef.slug,
+        leaves.map((item) => item.path)
+      )
+    : null;
+  const activeItem = activePath
+    ? leaves.find((item) => item.path === activePath)
     : undefined;
   const ActiveIcon = activeItem ? ICONS[activeItem.icon] : undefined;
 
