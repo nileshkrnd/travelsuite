@@ -9,8 +9,8 @@
   },
   "auth": {
     "login": {
-      "title": "Sign in to your account",
-      "subtitle": "Enter your credentials to access the {tenant} admin panel",
+      "title": "Sign in",
+      "subtitle": "Access {tenant} with your work email and password",
       "tenantCodeLabel": "Tenant code (optional)",
       "tenantCodePlaceholder": "e.g. regencyTravel — leave blank to sign in by email",
       "emailLabel": "Email address",
@@ -18,7 +18,7 @@
       "passwordLabel": "Password",
       "passwordPlaceholder": "Enter your password",
       "forgotPassword": "Forgot password?",
-      "submit": "Sign in",
+      "submit": "Sign in to Nexus",
       "submitting": "Signing in…",
       "invalidCredentials": "We couldn't find an account with those credentials.",
       "devRoleSwitcherLabel": "Dev: sign in as",

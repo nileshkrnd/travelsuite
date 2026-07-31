@@ -17,6 +17,7 @@ import { useTenantStore, findTenantBySlug } from "@/lib/store/tenant.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { PasswordInput } from "./PasswordInput";
 import { DevRoleSwitcher } from "./DevRoleSwitcher";
 import { DemoCredentials } from "./DemoCredentials";
@@ -43,6 +44,9 @@ interface LoginFormProps {
   /** When provided (tenant-scoped route), the tenant is already known from the URL — the Tenant Code field is hidden. */
   lockedTenant?: Tenant;
 }
+
+const fieldClass =
+  "h-11 rounded-none border-[#001C35]/15 bg-white text-[#001C35] placeholder:text-[#001C35]/35 focus-visible:border-[#001C35] focus-visible:ring-[#001C35]/20";
 
 export function LoginForm({ lockedTenant }: LoginFormProps) {
   const t = useTranslations("auth.login");
@@ -101,12 +105,14 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
     }
   }
 
+  const workspaceName = lockedTenant?.branding.name ?? tenant.branding.name ?? SAAS_BRAND.name;
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-7 duration-500">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("subtitle", { tenant: tenant.branding.name })}
+    <div className="animate-in fade-in slide-in-from-bottom-2 space-y-7 duration-500">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#001C35]">{t("title")}</h1>
+        <p className="text-sm leading-relaxed text-[#001C35]/55">
+          {t("subtitle", { tenant: workspaceName })}
         </p>
       </div>
 
@@ -114,7 +120,7 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
         {serverError && (
           <div
             role="alert"
-            className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+            className="flex items-start gap-2.5 border border-destructive/25 bg-destructive/5 px-3.5 py-3 text-sm text-destructive"
           >
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
             <p>{serverError}</p>
@@ -123,16 +129,18 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
 
         {!lockedTenant && (
           <div className="space-y-2">
-            <Label htmlFor="tenantCode">{t("tenantCodeLabel")}</Label>
+            <Label htmlFor="tenantCode" className="text-[#001C35]/80">
+              {t("tenantCodeLabel")}
+            </Label>
             <div className="relative">
-              <Building2 className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+              <Building2 className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-[#001C35]/40" />
               <Input
                 id="tenantCode"
                 autoComplete="organization"
                 autoFocus
                 placeholder={t("tenantCodePlaceholder")}
                 aria-invalid={!!errors.tenantCode}
-                className="h-10 ps-9"
+                className={`${fieldClass} ps-9`}
                 {...register("tenantCode")}
               />
             </div>
@@ -143,9 +151,11 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">{t("emailLabel")}</Label>
+          <Label htmlFor="email" className="text-[#001C35]/80">
+            {t("emailLabel")}
+          </Label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-[#001C35]/40" />
             <Input
               id="email"
               type="email"
@@ -153,7 +163,7 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
               autoFocus={!!lockedTenant}
               placeholder={t("emailPlaceholder")}
               aria-invalid={!!errors.email}
-              className="h-10 ps-9"
+              className={`${fieldClass} ps-9`}
               {...register("email")}
             />
           </div>
@@ -161,11 +171,13 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">{t("passwordLabel")}</Label>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="password" className="text-[#001C35]/80">
+              {t("passwordLabel")}
+            </Label>
             <Link
               href="/forgot-password"
-              className="text-sm font-medium text-primary hover:underline"
+              className="text-sm font-medium text-[#0A4A6E] hover:underline"
             >
               {t("forgotPassword")}
             </Link>
@@ -176,7 +188,7 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
             autoComplete="current-password"
             placeholder={t("passwordPlaceholder")}
             aria-invalid={!!errors.password}
-            className="h-10"
+            className={fieldClass}
             {...register("password")}
           />
           {errors.password && (
@@ -184,15 +196,19 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
           )}
         </div>
 
-        <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          className="h-11 w-full rounded-none bg-[#001C35] text-white hover:bg-[#0A4A6E]"
+          disabled={isSubmitting}
+        >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>
       </form>
 
-      <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5" />
-        Your connection to {tenant.branding.name} is secure
+      <p className="flex items-center justify-center gap-1.5 text-xs text-[#001C35]/45">
+        <ShieldCheck className="h-3.5 w-3.5 text-[#0A4A6E]" />
+        Encrypted connection to {workspaceName}
       </p>
 
       {!lockedTenant && <DemoCredentials />}

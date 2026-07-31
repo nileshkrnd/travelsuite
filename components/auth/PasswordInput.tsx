@@ -15,7 +15,9 @@ export function PasswordInput({ className, icon: Icon, ...props }: PasswordInput
 
   return (
     <div className="relative">
-      {Icon && <Icon className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />}
+      {Icon && (
+        <Icon className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-[#001C35]/40" />
+      )}
       <Input
         type={visible ? "text" : "password"}
         className={cn("pe-9", Icon && "ps-9", className)}

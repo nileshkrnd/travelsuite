@@ -17,11 +17,11 @@ export function DemoCredentials() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3">
+    <div className="border border-dashed border-[#001C35]/15 bg-[#F8F9FB] p-3">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground"
+        className="flex w-full items-center justify-between text-xs font-medium text-[#001C35]/55"
       >
         <span className="flex items-center gap-1.5">
           <KeyRound className="h-3.5 w-3.5" />
