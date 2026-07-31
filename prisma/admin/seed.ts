@@ -408,12 +408,14 @@ async function seedSubscriptionCatalog() {
     productByName.set(p.name, row.subscriptionProductId);
   }
 
-  // Keep legacy catalog rows inactive so the new product list is the source of truth.
+  // Remove legacy catalog products entirely (avoid inactive clutter).
   for (const legacy of ["Klyra Core", "Finance Pack"]) {
-    await prisma.subscriptionProduct.updateMany({
+    const legacyProduct = await prisma.subscriptionProduct.findFirst({
       where: { subscriptionProductName: legacy },
-      data: { isActive: false, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
     });
+    if (legacyProduct) {
+      await deleteSubscriptionProductCascade(legacyProduct.subscriptionProductId);
+    }
   }
 
   // Remount Administration module onto the shared Administration product (was under Travel).
@@ -546,7 +548,7 @@ async function seedSubscriptionCatalog() {
     }
   }
 
-  // Fold legacy Reports menus into Finance Core, then deactivate Reports.
+  // Fold legacy Reports menus into Finance Core, then delete Reports.
   const financeCore = await prisma.subscriptionModule.findFirst({
     where: {
       subscriptionProductId: productByName.get("Finance"),
@@ -558,46 +560,47 @@ async function seedSubscriptionCatalog() {
     where: { subscriptionModuleName: "Reports" },
   });
   if (financeCore && reports && reports.subscriptionModuleId !== financeCore.subscriptionModuleId) {
-    await prisma.subscriptionModuleMenu.updateMany({
+    const financeUrls = new Set(
+      (
+        await prisma.subscriptionModuleMenu.findMany({
+          where: { subscriptionModuleId: financeCore.subscriptionModuleId },
+          select: { menuUrl: true },
+        })
+      ).map((m) => m.menuUrl)
+    );
+    const reportMenus = await prisma.subscriptionModuleMenu.findMany({
       where: { subscriptionModuleId: reports.subscriptionModuleId },
-      data: {
-        subscriptionModuleId: financeCore.subscriptionModuleId,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
     });
-    await prisma.subscriptionModuleAccess.deleteMany({
-      where: { subscriptionModuleId: reports.subscriptionModuleId },
-    });
-    await prisma.subscriptionModule.update({
-      where: { subscriptionModuleId: reports.subscriptionModuleId },
-      data: {
-        isActive: false,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
-    });
+    for (const menu of reportMenus) {
+      if (financeUrls.has(menu.menuUrl)) continue;
+      await prisma.subscriptionModuleMenu.update({
+        where: { subscriptionModuleMenuId: menu.subscriptionModuleMenuId },
+        data: {
+          subscriptionModuleId: financeCore.subscriptionModuleId,
+          modifiedBy: CREATED_BY,
+          modifiedDtTm: new Date(),
+        },
+      });
+    }
+    await deleteSubscriptionModuleCascade(reports.subscriptionModuleId);
   }
 
-  // Deactivate modules not in the catalog (legacy / renamed leftovers).
+  // Delete modules not in the catalog (legacy / renamed leftovers).
   const catalogProductIds = [...productByName.values()];
   const staleModules = await prisma.subscriptionModule.findMany({
     where: {
-      subscriptionProductId: { in: catalogProductIds },
-      isActive: true,
-      subscriptionModuleId: { notIn: [...desiredModuleIds] },
+      OR: [
+        { subscriptionProductId: { in: catalogProductIds }, subscriptionModuleId: { notIn: [...desiredModuleIds] } },
+        { subscriptionProductId: { notIn: catalogProductIds } },
+      ],
     },
   });
   for (const stale of staleModules) {
-    await prisma.subscriptionModule.update({
-      where: { subscriptionModuleId: stale.subscriptionModuleId },
-      data: {
-        isActive: false,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
-    });
+    await deleteSubscriptionModuleCascade(stale.subscriptionModuleId);
   }
+
+  // Hard-delete any remaining inactive products/modules so UI stays clean.
+  await purgeInactiveSubscriptionCatalog();
 
   for (const subscriptionModuleId of moduleIds) {
     await prisma.subscriptionModuleAccess.upsert({
@@ -727,25 +730,29 @@ async function renameSubscriptionModule(fromName: string, toName: string) {
     },
   });
   if (clash) {
-    await prisma.subscriptionModuleMenu.updateMany({
+    const clashUrls = new Set(
+      (
+        await prisma.subscriptionModuleMenu.findMany({
+          where: { subscriptionModuleId: clash.subscriptionModuleId },
+          select: { menuUrl: true },
+        })
+      ).map((m) => m.menuUrl)
+    );
+    const menus = await prisma.subscriptionModuleMenu.findMany({
       where: { subscriptionModuleId: existing.subscriptionModuleId },
-      data: {
-        subscriptionModuleId: clash.subscriptionModuleId,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
     });
-    await prisma.subscriptionModuleAccess.deleteMany({
-      where: { subscriptionModuleId: existing.subscriptionModuleId },
-    });
-    await prisma.subscriptionModule.update({
-      where: { subscriptionModuleId: existing.subscriptionModuleId },
-      data: {
-        isActive: false,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
-    });
+    for (const menu of menus) {
+      if (clashUrls.has(menu.menuUrl)) continue;
+      await prisma.subscriptionModuleMenu.update({
+        where: { subscriptionModuleMenuId: menu.subscriptionModuleMenuId },
+        data: {
+          subscriptionModuleId: clash.subscriptionModuleId,
+          modifiedBy: CREATED_BY,
+          modifiedDtTm: new Date(),
+        },
+      });
+    }
+    await deleteSubscriptionModuleCascade(existing.subscriptionModuleId);
     return;
   }
 
@@ -793,15 +800,6 @@ async function consolidateModulesOntoProduct(options: {
   for (const other of modules) {
     if (other.subscriptionModuleId === primary.subscriptionModuleId) continue;
 
-    // Drop duplicate trees on secondary modules (primary keeps the canonical menus).
-    await prisma.subscriptionModuleMenu.updateMany({
-      where: { subscriptionModuleId: other.subscriptionModuleId },
-      data: { parentMenuId: null },
-    });
-    await prisma.subscriptionModuleMenu.deleteMany({
-      where: { subscriptionModuleId: other.subscriptionModuleId },
-    });
-
     const otherAccess = await prisma.subscriptionModuleAccess.findMany({
       where: { subscriptionModuleId: other.subscriptionModuleId },
     });
@@ -822,17 +820,59 @@ async function consolidateModulesOntoProduct(options: {
         update: { isActive: true },
       });
     }
-    await prisma.subscriptionModuleAccess.deleteMany({
-      where: { subscriptionModuleId: other.subscriptionModuleId },
-    });
-    await prisma.subscriptionModule.update({
-      where: { subscriptionModuleId: other.subscriptionModuleId },
-      data: {
-        isActive: false,
-        modifiedBy: CREATED_BY,
-        modifiedDtTm: new Date(),
-      },
-    });
+    await deleteSubscriptionModuleCascade(other.subscriptionModuleId);
+  }
+}
+
+async function deleteSubscriptionModuleCascade(subscriptionModuleId: number) {
+  await prisma.subscriptionModuleAccess.deleteMany({
+    where: { subscriptionModuleId },
+  });
+  await prisma.subscriptionModuleMenu.updateMany({
+    where: { subscriptionModuleId },
+    data: { parentMenuId: null },
+  });
+  // Menu→product links cascade when menus are deleted.
+  await prisma.subscriptionModuleMenu.deleteMany({
+    where: { subscriptionModuleId },
+  });
+  await prisma.subscriptionModule.delete({
+    where: { subscriptionModuleId },
+  });
+}
+
+async function deleteSubscriptionProductCascade(subscriptionProductId: number) {
+  await prisma.subscriptionModuleMenuProduct.deleteMany({
+    where: { subscriptionProductId },
+  });
+  const modules = await prisma.subscriptionModule.findMany({
+    where: { subscriptionProductId },
+    select: { subscriptionModuleId: true },
+  });
+  for (const mod of modules) {
+    await deleteSubscriptionModuleCascade(mod.subscriptionModuleId);
+  }
+  await prisma.subscriptionProduct.delete({
+    where: { subscriptionProductId },
+  });
+}
+
+/** Remove soft-deleted catalog rows so inactive products/modules never linger in the UI. */
+async function purgeInactiveSubscriptionCatalog() {
+  const inactiveModules = await prisma.subscriptionModule.findMany({
+    where: { isActive: false },
+    select: { subscriptionModuleId: true },
+  });
+  for (const mod of inactiveModules) {
+    await deleteSubscriptionModuleCascade(mod.subscriptionModuleId);
+  }
+
+  const inactiveProducts = await prisma.subscriptionProduct.findMany({
+    where: { isActive: false },
+    select: { subscriptionProductId: true },
+  });
+  for (const product of inactiveProducts) {
+    await deleteSubscriptionProductCascade(product.subscriptionProductId);
   }
 }
 

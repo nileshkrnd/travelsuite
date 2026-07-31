@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Check, ChevronsUpDown, Layers, Search, XCircle } from "lucide-react";
+import { Check, ChevronsUpDown, Layers, Search, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useSessionStore } from "@/lib/store/session.store";
 import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useRolesStore } from "@/lib/store/roles.store";
-import { filterTenants, groupTenants } from "@/lib/tenants";
+import { filterTenants } from "@/lib/tenants";
 import { roleHomePath } from "@/config/permissions";
 import {
   DropdownMenu,
@@ -44,9 +44,11 @@ export function OrgScopeSelectors() {
     if (!open) setQuery("");
   }, [open]);
 
-  const groups = useMemo(() => {
+  const tenantList = useMemo(() => {
     const active = tenants.filter((t) => t.status === "active");
-    return groupTenants(filterTenants(active, query));
+    return filterTenants(active, query).sort((a, b) =>
+      a.branding.name.localeCompare(b.branding.name)
+    );
   }, [tenants, query]);
 
   if (!user || !isSuperAdmin || !roleDef) return null;
@@ -92,7 +94,7 @@ export function OrgScopeSelectors() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search tenant or group…"
+                placeholder="Search tenant…"
                 className="h-8 ps-8 text-xs"
                 autoFocus
               />
@@ -123,39 +125,31 @@ export function OrgScopeSelectors() {
               </button>
             )}
 
-            {groups.length === 0 ? (
+            {tenantList.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">No tenants found</p>
             ) : (
-              groups.map((group) => (
-                <div key={group.groupName} className="mb-1">
-                  <div className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                    <Building2 className="h-3 w-3" />
-                    <span className="truncate">{group.groupName}</span>
-                  </div>
-                  {group.tenants.map((item) => {
-                    const selected = !platformMode && item.id === tenant.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => enterTenant(item.id, item.branding.name)}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted",
-                          selected && "bg-primary/10 text-primary"
-                        )}
-                      >
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: item.branding.primaryColor }}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 flex-1 truncate font-medium">{item.branding.name}</span>
-                        {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))
+              tenantList.map((item) => {
+                const selected = !platformMode && item.id === tenant.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => enterTenant(item.id, item.branding.name)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted",
+                      selected && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.branding.primaryColor }}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium">{item.branding.name}</span>
+                    {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                  </button>
+                );
+              })
             )}
           </div>
           <div className="border-t p-1.5">
