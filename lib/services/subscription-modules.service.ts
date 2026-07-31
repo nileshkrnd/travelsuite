@@ -49,6 +49,7 @@ export async function createSubscriptionModule(input: {
   subscriptionProductId: number;
   subscriptionModuleName: string;
   description?: string;
+  showInMenu?: boolean;
   isActive?: boolean;
   createdBy: number;
 }): Promise<SubscriptionModule> {
@@ -68,6 +69,7 @@ export async function updateSubscriptionModule(
     subscriptionModuleName: string;
     description?: string;
     sortOrder?: number;
+    showInMenu?: boolean;
     isActive?: boolean;
     modifiedBy: number;
   }

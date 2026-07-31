@@ -453,6 +453,8 @@ model SubscriptionModule {
   subscriptionModuleName String    @map("SubscriptionModuleName") @db.VarChar(50)
   description            String    @default("") @map("Description") @db.VarChar(200)
   sortOrder              Int       @default(0) @map("SortOrder")
+  /// When false, module is a separate portal (e.g. B2B, CBT) — not shown in Admin/Super Admin sidebar.
+  showInMenu             Boolean   @default(true) @map("ShowInMenu")
   isActive               Boolean   @default(true) @map("IsActive")
   createdBy              Int       @map("CreatedBy")
   createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)

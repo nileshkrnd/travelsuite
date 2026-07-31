@@ -8,6 +8,7 @@ const menuInclude = {
     select: {
       subscriptionModuleName: true,
       sortOrder: true,
+      showInMenu: true,
       product: { select: { subscriptionProductName: true } },
     },
   },
@@ -21,9 +22,10 @@ const menuInclude = {
 } as const;
 
 /**
- * Active menus for modules actively granted to a tenant (Module Access).
- * Shared Administration menus are always included when the tenant has any grant,
- * then filtered by menu→product links vs granted products.
+ * Active menus for modules granted to a tenant (Module Access).
+ * Portal modules (showInMenu=false, e.g. B2B/CBT) are excluded from Admin sidebars.
+ * Shared Administration menus are included when the tenant has any grant, then
+ * filtered by menu→product links vs granted products.
  */
 export async function GET(request: Request) {
   try {
@@ -41,7 +43,12 @@ export async function GET(request: Request) {
       },
       select: {
         subscriptionModuleId: true,
-        module: { select: { subscriptionProductId: true } },
+        module: {
+          select: {
+            subscriptionProductId: true,
+            showInMenu: true,
+          },
+        },
       },
     });
 
@@ -49,29 +56,35 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const grantedModuleIds = grants.map((g) => g.subscriptionModuleId);
-    const grantedProductIds = new Set(
-      grants.map((g) => g.module.subscriptionProductId)
+    // Product access still counts portal modules (licensing); sidebar menus do not.
+    const grantedProductIds = new Set(grants.map((g) => g.module.subscriptionProductId));
+    const menuModuleIds = new Set(
+      grants.filter((g) => g.module.showInMenu).map((g) => g.subscriptionModuleId)
     );
 
     const administrationModule = await prisma.subscriptionModule.findFirst({
       where: {
         isActive: true,
+        showInMenu: true,
         subscriptionModuleName: "Administration",
         product: { subscriptionProductName: "Administration", isActive: true },
       },
       select: { subscriptionModuleId: true },
     });
 
-    const moduleIds = new Set(grantedModuleIds);
     if (administrationModule) {
-      moduleIds.add(administrationModule.subscriptionModuleId);
+      menuModuleIds.add(administrationModule.subscriptionModuleId);
+    }
+
+    if (menuModuleIds.size === 0) {
+      return NextResponse.json([]);
     }
 
     const rows = await prisma.subscriptionModuleMenu.findMany({
       where: {
         isActive: true,
-        subscriptionModuleId: { in: [...moduleIds] },
+        subscriptionModuleId: { in: [...menuModuleIds] },
+        module: { showInMenu: true, isActive: true },
       },
       include: menuInclude,
       orderBy: [{ sortOrder: "asc" }, { menuName: "asc" }],

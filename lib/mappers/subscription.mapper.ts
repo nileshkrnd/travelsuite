@@ -22,6 +22,7 @@ export interface SubscriptionModuleRow {
   subscriptionModuleName: string;
   description: string;
   sortOrder?: number;
+  showInMenu?: boolean;
   isActive: boolean;
   createdBy: number;
   createdDtTm: Date | string;
@@ -55,6 +56,7 @@ export function toAppSubscriptionModule(row: SubscriptionModuleRow): Subscriptio
     subscriptionModuleName: row.subscriptionModuleName,
     description: row.description ?? "",
     sortOrder: row.sortOrder ?? 0,
+    showInMenu: row.showInMenu ?? true,
     isActive: row.isActive,
     createdBy: row.createdBy,
     createdDtTm: toIso(row.createdDtTm) ?? new Date().toISOString(),

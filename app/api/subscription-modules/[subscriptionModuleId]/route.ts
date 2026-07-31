@@ -9,12 +9,16 @@ const updateSchema = z.object({
   subscriptionProductId: z.number().int().positive(),
   subscriptionModuleName: z.string().trim().min(1).max(50),
   description: z.string().trim().max(200).optional(),
+  showInMenu: z.boolean().optional(),
   isActive: z.boolean().optional(),
   modifiedBy: z.number().int().positive(),
 });
 const patchSchema = z.object({
-  isActive: z.boolean(),
+  isActive: z.boolean().optional(),
+  showInMenu: z.boolean().optional(),
   modifiedBy: z.number().int().positive(),
+}).refine((d) => d.isActive !== undefined || d.showInMenu !== undefined, {
+  message: "isActive or showInMenu is required",
 });
 
 const productInclude = {
@@ -67,6 +71,7 @@ export async function PUT(request: Request, context: RouteContext) {
         subscriptionProductId: parsed.data.subscriptionProductId,
         subscriptionModuleName: parsed.data.subscriptionModuleName.trim(),
         description: (parsed.data.description ?? "").trim(),
+        ...(parsed.data.showInMenu !== undefined ? { showInMenu: parsed.data.showInMenu } : {}),
         isActive: parsed.data.isActive,
         modifiedBy: parsed.data.modifiedBy,
         modifiedDtTm: new Date(),
@@ -106,7 +111,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     const updated = await prisma.subscriptionModule.update({
       where: { subscriptionModuleId: id.data },
       data: {
-        isActive: parsed.data.isActive,
+        ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
+        ...(parsed.data.showInMenu !== undefined ? { showInMenu: parsed.data.showInMenu } : {}),
         modifiedBy: parsed.data.modifiedBy,
         modifiedDtTm: new Date(),
       },

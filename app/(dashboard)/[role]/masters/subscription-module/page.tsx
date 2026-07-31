@@ -291,6 +291,7 @@ function ModuleList({ roleDef }: { roleDef: RoleDef }) {
                   Subscription Product
                 </SortableTableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Show as menu</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
@@ -318,6 +319,11 @@ function ModuleList({ roleDef }: { roleDef: RoleDef }) {
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-muted-foreground">
                     {row.description || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={row.showInMenu ? "outline" : "secondary"} className="text-[10px]">
+                      {row.showInMenu ? "Menu" : "Portal"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={row.isActive ? "default" : "secondary"} className="gap-1">

@@ -5,6 +5,8 @@ export interface SubscriptionModule {
   subscriptionModuleName: string;
   description: string;
   sortOrder: number;
+  /** False = separate portal (B2B/CBT/…) — excluded from Admin/Super Admin sidebar. */
+  showInMenu: boolean;
   isActive: boolean;
   createdBy: number;
   createdDtTm: string;

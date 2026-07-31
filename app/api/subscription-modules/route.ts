@@ -8,6 +8,7 @@ const createSchema = z.object({
   subscriptionProductId: z.number().int().positive(),
   subscriptionModuleName: z.string().trim().min(1).max(50),
   description: z.string().trim().max(200).optional(),
+  showInMenu: z.boolean().optional(),
   isActive: z.boolean().optional(),
   createdBy: z.number().int().positive(),
 });
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
         subscriptionModuleName: parsed.data.subscriptionModuleName.trim(),
         description: (parsed.data.description ?? "").trim(),
         sortOrder: count,
+        showInMenu: parsed.data.showInMenu ?? true,
         isActive: parsed.data.isActive ?? true,
         createdBy: parsed.data.createdBy,
       },

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -32,6 +33,7 @@ const schema = z.object({
     .min(1, "Subscription Module Name is required")
     .max(50, "Max 50 characters"),
   description: z.string().trim().max(200, "Max 200 characters").optional().or(z.literal("")),
+  showInMenu: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -67,6 +69,7 @@ export function SubscriptionModuleForm({ module }: { module?: SubscriptionModule
       subscriptionProductId: module?.subscriptionProductId ?? 0,
       subscriptionModuleName: module?.subscriptionModuleName ?? "",
       description: module?.description ?? "",
+      showInMenu: module?.showInMenu ?? true,
     },
   });
 
@@ -81,6 +84,7 @@ export function SubscriptionModuleForm({ module }: { module?: SubscriptionModule
           subscriptionProductId: values.subscriptionProductId,
           subscriptionModuleName: values.subscriptionModuleName.trim(),
           description: values.description?.trim() ?? "",
+          showInMenu: values.showInMenu,
           isActive: module.isActive,
           modifiedBy: userKey,
         });
@@ -91,6 +95,7 @@ export function SubscriptionModuleForm({ module }: { module?: SubscriptionModule
           subscriptionProductId: values.subscriptionProductId,
           subscriptionModuleName: values.subscriptionModuleName.trim(),
           description: values.description?.trim() ?? "",
+          showInMenu: values.showInMenu,
           createdBy: userKey,
         });
         toast.success("Subscription module created");
@@ -175,6 +180,29 @@ export function SubscriptionModuleForm({ module }: { module?: SubscriptionModule
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description.message}</p>
             )}
+          </div>
+          <div className="space-y-2 sm:col-span-2 rounded-lg border border-border p-4">
+            <Controller
+              name="showInMenu"
+              control={control}
+              render={({ field }) => (
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">Show as menu</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      When off, this module is a separate portal (e.g. B2B, B2C, CBT) and will not
+                      appear in Tenant Admin or Super Admin sidebars. Module Access can still be
+                      granted for licensing.
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
             <Button type="submit" disabled={isSubmitting || activeProducts.length === 0}>

@@ -506,6 +506,9 @@ async function seedSubscriptionCatalog() {
     ],
   };
 
+  /** Separate portals — licensed via Module Access but not Admin/Super Admin sidebar menus. */
+  const PORTAL_MODULE_NAMES = new Set(["B2B", "B2C", "CBT", "API"]);
+
   const moduleIds: number[] = [];
   const desiredModuleIds = new Set<number>();
 
@@ -516,6 +519,7 @@ async function seedSubscriptionCatalog() {
     for (let i = 0; i < modules.length; i++) {
       const m = modules[i]!;
       const sortOrder = productName === "Administration" ? -1 : i;
+      const showInMenu = !PORTAL_MODULE_NAMES.has(m.name);
       const existing = await prisma.subscriptionModule.findFirst({
         where: {
           subscriptionProductId: productId,
@@ -528,6 +532,7 @@ async function seedSubscriptionCatalog() {
             data: {
               description: m.description,
               sortOrder,
+              showInMenu,
               isActive: true,
               modifiedBy: CREATED_BY,
               modifiedDtTm: new Date(),
@@ -539,6 +544,7 @@ async function seedSubscriptionCatalog() {
               subscriptionModuleName: m.name,
               description: m.description,
               sortOrder,
+              showInMenu,
               isActive: true,
               createdBy: CREATED_BY,
             },

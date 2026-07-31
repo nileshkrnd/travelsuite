@@ -126,6 +126,13 @@ function ModuleView({ roleDef }: { roleDef: RoleDef }) {
             <DetailRow label="Subscription Module Name">{module.subscriptionModuleName}</DetailRow>
             <DetailRow label="Subscription Product">{module.subscriptionProductName ?? "—"}</DetailRow>
             <DetailRow label="Description">{module.description || "—"}</DetailRow>
+            <DetailRow label="Show as menu">
+              {module.showInMenu ? (
+                <Badge variant="default">Yes — Admin sidebar</Badge>
+              ) : (
+                <Badge variant="secondary">No — separate portal</Badge>
+              )}
+            </DetailRow>
             <DetailRow label="Status">
               <Badge variant={module.isActive ? "default" : "secondary"} className="gap-1">
                 {module.isActive ? (
