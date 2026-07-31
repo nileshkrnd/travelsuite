@@ -4,6 +4,7 @@ export interface SubscriptionModule {
   subscriptionProductId: number;
   subscriptionModuleName: string;
   description: string;
+  sortOrder: number;
   isActive: boolean;
   createdBy: number;
   createdDtTm: string;

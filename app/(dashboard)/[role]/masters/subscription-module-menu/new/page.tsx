@@ -15,7 +15,7 @@ function NewMenu() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Add module menu"
-        description="Link an application menu to a subscription module."
+        description="Create a menu/submenu with icon and URL stored in the database."
         actions={
           <Button
             variant="outline"

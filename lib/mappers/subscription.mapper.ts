@@ -21,6 +21,7 @@ export interface SubscriptionModuleRow {
   subscriptionProductId: number;
   subscriptionModuleName: string;
   description: string;
+  sortOrder?: number;
   isActive: boolean;
   createdBy: number;
   createdDtTm: Date | string;
@@ -53,6 +54,7 @@ export function toAppSubscriptionModule(row: SubscriptionModuleRow): Subscriptio
     subscriptionProductId: row.subscriptionProductId,
     subscriptionModuleName: row.subscriptionModuleName,
     description: row.description ?? "",
+    sortOrder: row.sortOrder ?? 0,
     isActive: row.isActive,
     createdBy: row.createdBy,
     createdDtTm: toIso(row.createdDtTm) ?? new Date().toISOString(),
@@ -100,8 +102,11 @@ export function toAppSubscriptionModuleAccess(
 export interface SubscriptionModuleMenuRow {
   subscriptionModuleMenuId: number;
   subscriptionModuleId: number;
+  parentMenuId: number | null;
   menuName: string;
   menuUrl: string;
+  menuIcon: string;
+  sortOrder: number;
   isActive: boolean;
   createdBy: number;
   createdDtTm: Date | string;
@@ -109,8 +114,10 @@ export interface SubscriptionModuleMenuRow {
   modifiedDtTm: Date | string | null;
   module?: {
     subscriptionModuleName: string;
+    sortOrder?: number;
     product?: { subscriptionProductName: string } | null;
   } | null;
+  parent?: { menuName: string } | null;
 }
 
 export function toAppSubscriptionModuleMenu(
@@ -119,8 +126,11 @@ export function toAppSubscriptionModuleMenu(
   return {
     subscriptionModuleMenuId: row.subscriptionModuleMenuId,
     subscriptionModuleId: row.subscriptionModuleId,
+    parentMenuId: row.parentMenuId ?? null,
     menuName: row.menuName,
     menuUrl: row.menuUrl,
+    menuIcon: row.menuIcon || "Layers",
+    sortOrder: row.sortOrder ?? 0,
     isActive: row.isActive,
     createdBy: row.createdBy,
     createdDtTm: toIso(row.createdDtTm) ?? new Date().toISOString(),
@@ -128,5 +138,7 @@ export function toAppSubscriptionModuleMenu(
     modifiedDtTm: toIso(row.modifiedDtTm),
     subscriptionModuleName: row.module?.subscriptionModuleName,
     subscriptionProductName: row.module?.product?.subscriptionProductName,
+    parentMenuName: row.parent?.menuName,
+    moduleSortOrder: row.module?.sortOrder ?? 0,
   };
 }

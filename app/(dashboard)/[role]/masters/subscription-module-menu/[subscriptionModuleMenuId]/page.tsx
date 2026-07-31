@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ListTree, Pencil, CheckCircle2, CircleDashed } from "lucide-react";
+import { ArrowLeft, ListTree, Pencil, CheckCircle2, CircleDashed, Layers } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -15,6 +15,7 @@ import {
   SubscriptionModuleMenusApiError,
 } from "@/lib/services/subscription-module-menus.service";
 import { can } from "@/config/permissions";
+import { ICONS } from "@/lib/icon-registry";
 import type { RoleDef, SubscriptionModuleMenu } from "@/types";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -127,6 +128,17 @@ function MenuView({ roleDef }: { roleDef: RoleDef }) {
             <DetailRow label="Menu URL">
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{menu.menuUrl}</code>
             </DetailRow>
+            <DetailRow label="Icon">
+              <span className="inline-flex items-center gap-2">
+                {(() => {
+                  const Ic = ICONS[menu.menuIcon] ?? Layers;
+                  return <Ic className="h-4 w-4" />;
+                })()}
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{menu.menuIcon}</code>
+              </span>
+            </DetailRow>
+            <DetailRow label="Parent menu">{menu.parentMenuName ?? "— (top-level)"}</DetailRow>
+            <DetailRow label="Sort order">{menu.sortOrder}</DetailRow>
             <DetailRow label="Subscription Module">{menu.subscriptionModuleName ?? "—"}</DetailRow>
             <DetailRow label="Subscription Product">{menu.subscriptionProductName ?? "—"}</DetailRow>
             <DetailRow label="Status">

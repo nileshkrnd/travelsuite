@@ -27,6 +27,16 @@ function mapRows(body: unknown): SubscriptionModuleMenu[] {
   );
 }
 
+export type SubscriptionModuleMenuInput = {
+  subscriptionModuleId: number;
+  parentMenuId?: number | null;
+  menuName: string;
+  menuUrl: string;
+  menuIcon?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
 export async function listSubscriptionModuleMenus(options?: {
   activeOnly?: boolean;
   moduleId?: number;
@@ -64,13 +74,9 @@ export async function getSubscriptionModuleMenu(
   return toAppSubscriptionModuleMenu(await res.json());
 }
 
-export async function createSubscriptionModuleMenu(input: {
-  subscriptionModuleId: number;
-  menuName: string;
-  menuUrl: string;
-  isActive?: boolean;
-  createdBy: number;
-}): Promise<SubscriptionModuleMenu> {
+export async function createSubscriptionModuleMenu(
+  input: SubscriptionModuleMenuInput & { createdBy: number }
+): Promise<SubscriptionModuleMenu> {
   const res = await fetch("/api/subscription-module-menus", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -82,13 +88,7 @@ export async function createSubscriptionModuleMenu(input: {
 
 export async function updateSubscriptionModuleMenu(
   subscriptionModuleMenuId: number,
-  input: {
-    subscriptionModuleId: number;
-    menuName: string;
-    menuUrl: string;
-    isActive?: boolean;
-    modifiedBy: number;
-  }
+  input: SubscriptionModuleMenuInput & { modifiedBy: number }
 ): Promise<SubscriptionModuleMenu> {
   const res = await fetch(`/api/subscription-module-menus/${subscriptionModuleMenuId}`, {
     method: "PUT",
@@ -118,6 +118,21 @@ export async function deleteSubscriptionModuleMenu(
 ): Promise<void> {
   const res = await fetch(`/api/subscription-module-menus/${subscriptionModuleMenuId}`, {
     method: "DELETE",
+  });
+  if (!res.ok) throw new SubscriptionModuleMenusApiError(await parseError(res), res.status);
+}
+
+/** Persist sibling order (priority) under the same parent. */
+export async function reorderSubscriptionModuleMenus(input: {
+  subscriptionModuleId: number;
+  parentMenuId: number | null;
+  orderedIds: number[];
+  modifiedBy: number;
+}): Promise<void> {
+  const res = await fetch("/api/subscription-module-menus/reorder", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
   });
   if (!res.ok) throw new SubscriptionModuleMenusApiError(await parseError(res), res.status);
 }

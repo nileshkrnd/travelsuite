@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { COUNTRY_CITY_SEEDS, CURRENCY_SEEDS } from "./seed-reference";
 import { hashPassword } from "../../lib/password";
+import { MODULE_MENU_SEEDS, type SeedMenuNode } from "./seed-module-menus";
 
 /** Seeds KlyraAdmin (ADMINCNX_URL) only. */
 const prisma = new PrismaClient({
@@ -392,12 +393,44 @@ async function seedSubscriptionCatalog() {
     productId: number;
     name: string;
     description: string;
+    sortOrder: number;
   }[] = [
-    { productId: core.subscriptionProductId, name: "POS", description: "Point of sale booking desk" },
-    { productId: core.subscriptionProductId, name: "Inventory", description: "Stock and warehouse operations" },
-    { productId: core.subscriptionProductId, name: "HRMS", description: "HR operations modules" },
-    { productId: finance.subscriptionProductId, name: "Accounts", description: "Ledgers, groups and vouchers" },
-    { productId: finance.subscriptionProductId, name: "Reports", description: "P&L, balance sheet, trial balance" },
+    {
+      productId: core.subscriptionProductId,
+      name: "Administration",
+      description: "Company, branch, employee and tenant setup menus",
+      sortOrder: 0,
+    },
+    {
+      productId: core.subscriptionProductId,
+      name: "POS",
+      description: "Point of sale booking desk",
+      sortOrder: 1,
+    },
+    {
+      productId: core.subscriptionProductId,
+      name: "Inventory",
+      description: "Stock and warehouse operations",
+      sortOrder: 2,
+    },
+    {
+      productId: core.subscriptionProductId,
+      name: "HRMS",
+      description: "HR operations modules",
+      sortOrder: 3,
+    },
+    {
+      productId: finance.subscriptionProductId,
+      name: "Accounts",
+      description: "Ledgers, groups and vouchers",
+      sortOrder: 4,
+    },
+    {
+      productId: finance.subscriptionProductId,
+      name: "Reports",
+      description: "P&L, balance sheet, trial balance",
+      sortOrder: 5,
+    },
   ];
 
   const moduleIds: number[] = [];
@@ -414,10 +447,11 @@ async function seedSubscriptionCatalog() {
         subscriptionProductId: m.productId,
         subscriptionModuleName: m.name,
         description: m.description,
+        sortOrder: m.sortOrder,
         isActive: true,
         createdBy: CREATED_BY,
       },
-      update: { description: m.description, isActive: true },
+      update: { description: m.description, sortOrder: m.sortOrder, isActive: true },
     });
     moduleIds.push(row.subscriptionModuleId);
     moduleByName.set(m.name, row.subscriptionModuleId);
@@ -441,36 +475,50 @@ async function seedSubscriptionCatalog() {
     });
   }
 
-  const menuSeeds: { moduleName: string; menuName: string; menuUrl: string }[] = [
-    { moduleName: "POS", menuName: "Sales", menuUrl: "sales" },
-    { moduleName: "Inventory", menuName: "Inventory", menuUrl: "inventory" },
-    { moduleName: "HRMS", menuName: "HRMS", menuUrl: "hrms" },
-    { moduleName: "Accounts", menuName: "Accounts", menuUrl: "accounts" },
-    { moduleName: "Reports", menuName: "Accounts Reports", menuUrl: "accounts/reports" },
-  ];
-
-  for (const seed of menuSeeds) {
-    const subscriptionModuleId = moduleByName.get(seed.moduleName);
-    if (!subscriptionModuleId) continue;
-    await prisma.subscriptionModuleMenu.upsert({
-      where: {
-        subscriptionModuleId_menuUrl: {
-          subscriptionModuleId,
-          menuUrl: seed.menuUrl,
+  // Full menu/submenu trees (name, URL, icon, parent) live in DB after seed.
+  async function upsertMenuTree(
+    subscriptionModuleId: number,
+    nodes: SeedMenuNode[],
+    parentMenuId: number | null
+  ) {
+    let sortOrder = 0;
+    for (const node of nodes) {
+      const row = await prisma.subscriptionModuleMenu.upsert({
+        where: {
+          subscriptionModuleId_menuUrl: {
+            subscriptionModuleId,
+            menuUrl: node.url,
+          },
         },
-      },
-      create: {
-        subscriptionModuleId,
-        menuName: seed.menuName,
-        menuUrl: seed.menuUrl,
-        isActive: true,
-        createdBy: CREATED_BY,
-      },
-      update: {
-        menuName: seed.menuName,
-        isActive: true,
-      },
-    });
+        create: {
+          subscriptionModuleId,
+          parentMenuId,
+          menuName: node.name,
+          menuUrl: node.url,
+          menuIcon: node.icon,
+          sortOrder,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: {
+          parentMenuId,
+          menuName: node.name,
+          menuIcon: node.icon,
+          sortOrder,
+          isActive: true,
+        },
+      });
+      if (node.children?.length) {
+        await upsertMenuTree(subscriptionModuleId, node.children, row.subscriptionModuleMenuId);
+      }
+      sortOrder += 1;
+    }
+  }
+
+  for (const [moduleName, tree] of Object.entries(MODULE_MENU_SEEDS)) {
+    const subscriptionModuleId = moduleByName.get(moduleName);
+    if (!subscriptionModuleId) continue;
+    await upsertMenuTree(subscriptionModuleId, tree, null);
   }
 }
 

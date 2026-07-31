@@ -250,8 +250,10 @@ export type ModuleKey =
   | "billing";
 
 export interface MenuItem {
-  key: ModuleKey;
+  key: ModuleKey | string;
   labelKey: string;
+  /** When set (e.g. DB-driven menus), shown instead of translating `key`. */
+  label?: string;
   icon: string;
   /** Path segment appended after /(dashboard)/[role]/ */
   path: string;
@@ -1035,24 +1037,24 @@ export function getMenuForRole(
   function filterItems(items: MenuItem[]): MenuItem[] {
     return items.reduce<MenuItem[]>((acc, item) => {
       // Platform masters (incl. Users) only when Super Admin has no tenant selected.
-      if (!platformMode && (item.key === "globalTenantSettings" || GLOBAL_TENANT_SETTING_KEYS.includes(item.key))) {
+      if (!platformMode && (item.key === "globalTenantSettings" || GLOBAL_TENANT_SETTING_KEYS.includes(item.key as ModuleKey))) {
         return acc;
       }
 
-      if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key) && !item.children) {
+      if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key as ModuleKey) && !item.children) {
         return acc;
       }
 
       if (item.children) {
-        if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key)) return acc;
+        if (platformMode && !PLATFORM_MODE_MENU_KEYS.has(item.key as ModuleKey)) return acc;
         const visibleChildren = filterItems(item.children);
         if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
         return acc;
       }
 
       // Tenant registry + global tenant settings are Super Admin only.
-      if (GLOBAL_TENANT_SETTING_KEYS.includes(item.key) && role.id !== SUPER_ADMIN_ROLE_ID) return acc;
-      if (can(role, item.key, "view")) acc.push(item);
+      if (GLOBAL_TENANT_SETTING_KEYS.includes(item.key as ModuleKey) && role.id !== SUPER_ADMIN_ROLE_ID) return acc;
+      if (can(role, item.key as ModuleKey, "view")) acc.push(item);
       return acc;
     }, []);
   }
@@ -1069,7 +1071,7 @@ export function getMenuForRole(
               .map((u) => u.trim().replace(/^\/+|\/+$/g, "").toLowerCase())
               .filter(Boolean)
           );
-    const alwaysKeys = new Set<ModuleKey>(["dashboard", "administration"]);
+    const alwaysKeys = new Set<ModuleKey>([]);
 
     function pathAllowed(itemPath: string): boolean {
       const path = itemPath.trim().replace(/^\/+|\/+$/g, "").toLowerCase();

@@ -1,21 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICONS } from "@/lib/icon-registry";
 import { getMenuForRole, type MenuItem } from "@/config/permissions";
+import { buildTenantWorkspaceMenus } from "@/lib/subscription-menu-access";
 import { useUiPrefsStore } from "@/lib/store/ui-prefs.store";
 import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { useChromeBranding } from "@/lib/hooks/useChromeBranding";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
-import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
-import type { RoleDef } from "@/types";
+import type { RoleDef, SubscriptionModuleMenu } from "@/types";
+
+function menuLabel(item: MenuItem, t: (key: string) => string): string {
+  if (item.label) return item.label;
+  try {
+    return t(item.key);
+  } catch {
+    return item.key;
+  }
+}
+
+function menuIcon(name: string) {
+  return ICONS[name] ?? Layers;
+}
 
 interface SidebarProps {
   roleDef: RoleDef;
@@ -34,32 +47,44 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
   const collapsed = useUiPrefsStore((s) => s.sidebarCollapsed) && !mobile;
   const toggleCollapsed = useUiPrefsStore((s) => s.toggleSidebarCollapsed);
   const platformMode = isPlatformMode(tenantId);
-  const [allowedMenuUrls, setAllowedMenuUrls] = useState<string[] | undefined>(undefined);
+  const [dbMenus, setDbMenus] = useState<SubscriptionModuleMenu[]>([]);
+  const [menusLoaded, setMenusLoaded] = useState(platformMode);
 
   useEffect(() => {
     if (platformMode || !tenantKey || tenantKey <= 0) {
-      setAllowedMenuUrls(undefined);
+      setDbMenus([]);
+      setMenusLoaded(true);
       return;
     }
     let cancelled = false;
+    setMenusLoaded(false);
+    // Only menus for modules granted via Subscription Module Access.
     listTenantSubscriptionModuleMenus(tenantKey)
       .then((rows) => {
-        if (cancelled) return;
-        setAllowedMenuUrls(rows.map((r) => normalizeMenuUrl(r.menuUrl)).filter(Boolean));
+        if (!cancelled) {
+          setDbMenus(rows);
+          setMenusLoaded(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAllowedMenuUrls([]);
+        if (!cancelled) {
+          setDbMenus([]);
+          setMenusLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [platformMode, tenantKey]);
+  }, [platformMode, tenantKey, tenantId]);
 
-  const items = getMenuForRole(roleDef, {
-    platformMode,
-    // While loading, pass empty list so non-core menus stay hidden until grants resolve.
-    allowedMenuUrls: platformMode ? undefined : (allowedMenuUrls ?? []),
-  });
+  const items = useMemo(() => {
+    if (platformMode) {
+      return getMenuForRole(roleDef, { platformMode: true });
+    }
+    const roleMenus = getMenuForRole(roleDef, { platformMode: false });
+    // Only DB menus for modules granted via Module Access (Administration, POS, HRMS, …).
+    return buildTenantWorkspaceMenus(roleMenus, menusLoaded ? dbMenus : []);
+  }, [platformMode, roleDef, dbMenus, menusLoaded]);
 
   return (
     <aside
@@ -94,7 +119,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
               pathname={pathname}
               collapsed={collapsed}
               onNavigate={onNavigate}
-              label={t(item.key)}
+              label={menuLabel(item, t)}
             />
           )
         )}
@@ -159,7 +184,7 @@ function SidebarGroup({
   const children = item.children!;
   const isActiveGroup = groupHasActivePath(pathname, slug, children);
   const [open, setOpen] = useState(isActiveGroup);
-  const GroupIcon = ICONS[item.icon];
+  const GroupIcon = menuIcon(item.icon);
 
   if (collapsed) {
     // Collapsed rail has no room for group headers — flatten nested leaves into tooltip icons.
@@ -173,7 +198,7 @@ function SidebarGroup({
             pathname={pathname}
             collapsed
             onNavigate={onNavigate}
-            label={t(child.key)}
+            label={menuLabel(child, t)}
           />
         ))}
       </>
@@ -192,7 +217,7 @@ function SidebarGroup({
         )}
       >
         <GroupIcon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 truncate text-left">{t(item.key)}</span>
+        <span className="flex-1 truncate text-left">{menuLabel(item, t)}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
@@ -222,7 +247,7 @@ function SidebarGroup({
                 pathname={pathname}
                 collapsed={false}
                 onNavigate={onNavigate}
-                label={t(child.key)}
+                label={menuLabel(child, t)}
               />
             )
           )}
@@ -249,7 +274,7 @@ function SidebarLeaf({
 }) {
   const href = itemHref(slug, item);
   const active = isItemActive(pathname, href);
-  const Icon = ICONS[item.icon];
+  const Icon = menuIcon(item.icon);
   const linkClassName = cn(
     "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors",
     collapsed && "justify-center px-0",

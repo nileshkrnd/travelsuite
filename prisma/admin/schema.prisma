@@ -451,6 +451,7 @@ model SubscriptionModule {
   subscriptionProductId  Int       @map("SubscriptionProductID")
   subscriptionModuleName String    @map("SubscriptionModuleName") @db.VarChar(50)
   description            String    @default("") @map("Description") @db.VarChar(200)
+  sortOrder              Int       @default(0) @map("SortOrder")
   isActive               Boolean   @default(true) @map("IsActive")
   createdBy              Int       @map("CreatedBy")
   createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
@@ -487,20 +488,27 @@ model SubscriptionModuleAccess {
 }
 
 /// Menus belonging to a Subscription Module — Tenant Admins only see menus for modules granted to their tenant.
+/// Hierarchy, icons, and sort order are stored here (not hard-coded in the app).
 model SubscriptionModuleMenu {
   subscriptionModuleMenuId Int       @id @default(autoincrement()) @map("SubscriptionModuleMenuID")
   subscriptionModuleId     Int       @map("SubscriptionModuleID")
+  parentMenuId             Int?      @map("ParentMenuID")
   menuName                 String    @map("MenuName") @db.VarChar(100)
   menuUrl                  String    @map("MenuURL") @db.VarChar(200)
+  menuIcon                 String    @default("Layers") @map("MenuIcon") @db.VarChar(50)
+  sortOrder                Int       @default(0) @map("SortOrder")
   isActive                 Boolean   @default(true) @map("IsActive")
   createdBy                Int       @map("CreatedBy")
   createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy               Int?      @map("ModifiedBy")
   modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  module SubscriptionModule @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
+  module   SubscriptionModule       @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
+  parent   SubscriptionModuleMenu?  @relation("MenuHierarchy", fields: [parentMenuId], references: [subscriptionModuleMenuId], onDelete: Cascade)
+  children SubscriptionModuleMenu[] @relation("MenuHierarchy")
 
   @@unique([subscriptionModuleId, menuUrl], map: "SubscriptionModuleMenu_Module_URL_key")
   @@index([subscriptionModuleId], map: "SubscriptionModuleMenu_ModuleID_idx")
+  @@index([parentMenuId], map: "SubscriptionModuleMenu_ParentMenuID_idx")
   @@map("SubscriptionModuleMenu")
 }

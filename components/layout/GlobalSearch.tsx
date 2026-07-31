@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Layers, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,11 +11,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { flatMenuItems, getMenuForRole } from "@/config/permissions";
+import { getMenuForRole, type MenuItem } from "@/config/permissions";
+import { buildTenantWorkspaceMenus } from "@/lib/subscription-menu-access";
 import { ICONS } from "@/lib/icon-registry";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
+import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
+import type { SubscriptionModuleMenu } from "@/types";
+
+function flattenLeaves(items: MenuItem[]): MenuItem[] {
+  return items.flatMap((item) => (item.children ? flattenLeaves(item.children) : [item]));
+}
+
+function itemLabel(item: MenuItem, t: (key: string) => string): string {
+  if (item.label) return item.label;
+  try {
+    return t(item.key);
+  } catch {
+    return item.key;
+  }
+}
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -26,7 +42,10 @@ export function GlobalSearch() {
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
   const tenantId = useTenantStore((s) => s.tenantId);
+  const tenantKey = useTenantStore((s) => s.tenant.tenantKey);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const platformMode = isPlatformMode(tenantId);
+  const [dbMenus, setDbMenus] = useState<SubscriptionModuleMenu[]>([]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -39,22 +58,43 @@ export function GlobalSearch() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (platformMode || !tenantKey || tenantKey <= 0) {
+      setDbMenus([]);
+      return;
+    }
+    let cancelled = false;
+    listTenantSubscriptionModuleMenus(tenantKey)
+      .then((rows) => {
+        if (!cancelled) setDbMenus(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setDbMenus([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [platformMode, tenantKey, tenantId]);
+
+  const searchableMenus = useMemo(() => {
+    if (!roleDef) return [];
+    if (platformMode) {
+      return flattenLeaves(getMenuForRole(roleDef, { platformMode: true }));
+    }
+    const roleMenus = getMenuForRole(roleDef, { platformMode: false });
+    return flattenLeaves(buildTenantWorkspaceMenus(roleMenus, dbMenus));
+  }, [roleDef, platformMode, dbMenus]);
+
   const results = useMemo(() => {
-    if (!roleDef || !query.trim()) return [];
-    const allowed = new Set(
-      getMenuForRole(roleDef, { platformMode: isPlatformMode(tenantId) })
-        .flatMap((item) => (item.children ? item.children : [item]))
-        .map((i) => i.key)
-    );
+    if (!query.trim()) return [];
     const q = query.trim().toLowerCase();
-    return flatMenuItems()
-      .filter((item) => allowed.has(item.key))
+    return searchableMenus
       .filter((item) => {
-        const label = sidebar(item.key).toLowerCase();
+        const label = itemLabel(item, sidebar).toLowerCase();
         return label.includes(q) || item.path.includes(q) || item.key.toLowerCase().includes(q);
       })
       .slice(0, 8);
-  }, [query, roleDef, sidebar, tenantId]);
+  }, [query, searchableMenus, sidebar]);
 
   function go(path: string) {
     if (!roleDef) return;
@@ -100,7 +140,7 @@ export function GlobalSearch() {
               </p>
             ) : (
               results.map((item) => {
-                const Icon = ICONS[item.icon];
+                const Icon = ICONS[item.icon] ?? Layers;
                 return (
                   <button
                     key={item.key}
@@ -108,8 +148,8 @@ export function GlobalSearch() {
                     onClick={() => go(item.path)}
                     className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                   >
-                    {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                    <span className="flex-1 truncate font-medium">{sidebar(item.key)}</span>
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate font-medium">{itemLabel(item, sidebar)}</span>
                     <span className="truncate text-xs text-muted-foreground">{item.path}</span>
                   </button>
                 );

@@ -92,7 +92,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/** Maps icon name strings stored in config (MENU_ITEMS, dashboard widgets, quick actions) to their component. */
+/** Maps icon name strings (DB MenuIcon, MENU_ITEMS, widgets) to Lucide components. */
 export const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Users,
@@ -188,3 +188,7 @@ export const ICONS: Record<string, LucideIcon> = {
   Star,
   LogOut,
 };
+
+/** Sorted icon names available for MenuIcon and similar DB/config fields. */
+export const ICON_NAMES = Object.keys(ICONS).sort((a, b) => a.localeCompare(b));
+

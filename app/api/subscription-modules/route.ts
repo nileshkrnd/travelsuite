@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const rows = await prisma.subscriptionModule.findMany({
       where,
       include: productInclude,
-      orderBy: [{ subscriptionProductId: "asc" }, { subscriptionModuleName: "asc" }],
+      orderBy: [{ sortOrder: "asc" }, { subscriptionModuleName: "asc" }],
     });
     return NextResponse.json(rows);
   } catch (error) {
@@ -55,11 +55,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Subscription product not found" }, { status: 400 });
     }
 
+    const count = await prisma.subscriptionModule.count({
+      where: { subscriptionProductId: parsed.data.subscriptionProductId },
+    });
+
     const created = await prisma.subscriptionModule.create({
       data: {
         subscriptionProductId: parsed.data.subscriptionProductId,
         subscriptionModuleName: parsed.data.subscriptionModuleName.trim(),
         description: (parsed.data.description ?? "").trim(),
+        sortOrder: count,
         isActive: parsed.data.isActive ?? true,
         createdBy: parsed.data.createdBy,
       },

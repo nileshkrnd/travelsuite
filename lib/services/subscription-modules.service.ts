@@ -67,6 +67,7 @@ export async function updateSubscriptionModule(
     subscriptionProductId: number;
     subscriptionModuleName: string;
     description?: string;
+    sortOrder?: number;
     isActive?: boolean;
     modifiedBy: number;
   }
@@ -78,6 +79,19 @@ export async function updateSubscriptionModule(
   });
   if (!res.ok) throw new SubscriptionModulesApiError(await parseError(res), res.status);
   return toAppSubscriptionModule(await res.json());
+}
+
+/** Persist global module display order (Administration before HRMS, etc.). */
+export async function reorderSubscriptionModules(input: {
+  orderedIds: number[];
+  modifiedBy: number;
+}): Promise<void> {
+  const res = await fetch("/api/subscription-modules/reorder", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new SubscriptionModulesApiError(await parseError(res), res.status);
 }
 
 export async function setSubscriptionModuleActive(

@@ -2,8 +2,11 @@
 export interface SubscriptionModuleMenu {
   subscriptionModuleMenuId: number;
   subscriptionModuleId: number;
+  parentMenuId: number | null;
   menuName: string;
   menuUrl: string;
+  menuIcon: string;
+  sortOrder: number;
   isActive: boolean;
   createdBy: number;
   createdDtTm: string;
@@ -12,4 +15,7 @@ export interface SubscriptionModuleMenu {
   /** Joined display fields */
   subscriptionModuleName?: string;
   subscriptionProductName?: string;
+  parentMenuName?: string;
+  /** Module display priority (from SubscriptionModule.SortOrder). */
+  moduleSortOrder?: number;
 }
