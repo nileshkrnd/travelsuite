@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run db:generate && next build",
+    "postinstall": "npm run db:generate",
     "start": "next start",
     "lint": "eslint",
     "db:create": "node scripts/create-dbs.mjs",
@@ -14,6 +15,8 @@
     "db:migrate:base": "prisma migrate deploy --schema prisma/base/schema.prisma",
     "db:migrate:accounts": "prisma migrate deploy --schema prisma/accounts/schema.prisma",
     "db:migrate:all": "npm run db:migrate:admin && npm run db:migrate:base && npm run db:migrate:accounts",
+    "db:migrate:prod": "node scripts/prod-db.mjs migrate",
+    "db:seed:prod": "node scripts/prod-db.mjs seed",
     "db:push": "prisma db push --schema prisma/admin/schema.prisma",
     "db:studio": "prisma studio --schema prisma/admin/schema.prisma",
     "db:studio:base": "prisma studio --schema prisma/base/schema.prisma",
