@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { filterAdministrationMenusForTenant } from "@/lib/administration-menu-visibility";
+import {
+  allowedMenuIdsForAccessRole,
+  resolveUserAccessRoleScope,
+} from "@/lib/access-role-menu-visibility";
+import { UserType } from "@/types";
 
 const menuInclude = {
   module: {
@@ -26,11 +31,15 @@ const menuInclude = {
  * Portal modules (showInMenu=false, e.g. B2B/CBT) are excluded from Admin sidebars.
  * Shared Administration menus are included when the tenant has any grant, then
  * filtered by menu→product links vs granted products.
+ * When userId is provided, further filter by Access Role CanView permissions.
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantId = Number(searchParams.get("tenantId"));
+    const userIdParam = searchParams.get("userId");
+    const userId =
+      userIdParam != null && userIdParam !== "" ? Number(userIdParam) : NaN;
     if (!Number.isFinite(tenantId) || tenantId <= 0) {
       return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
     }
@@ -101,12 +110,46 @@ export async function GET(request: Request) {
       }
     }
 
-    const filtered = filterAdministrationMenusForTenant({
+    let filtered = filterAdministrationMenusForTenant({
       menus: rows,
       administrationModuleId: adminModuleId,
       grantedProductIds,
       productLinksByMenuId,
     });
+
+    // Super Admin browsing a tenant: keep full Module Access menus.
+    // Everyone else: filter by Access Role menu permissions when configured.
+    if (Number.isFinite(userId) && userId > 0) {
+      const user = await prisma.user.findUnique({
+        where: { userId },
+        select: { userTypeId: true },
+      });
+      const isSuperAdmin = user?.userTypeId === UserType.SuperAdmin;
+
+      if (!isSuperAdmin) {
+        const scope = await resolveUserAccessRoleScope(prisma, userId, tenantId);
+        if (scope) {
+          const allowed = await allowedMenuIdsForAccessRole(
+            prisma,
+            tenantId,
+            scope.companyId,
+            scope.accessRoleId,
+            filtered.map((m) => ({
+              subscriptionModuleMenuId: m.subscriptionModuleMenuId,
+              parentMenuId: m.parentMenuId,
+            }))
+          );
+          // null = permissions not configured yet → keep Module Access menus.
+          if (allowed) {
+            filtered = filtered.filter((m) => allowed.has(m.subscriptionModuleMenuId));
+          }
+        } else if (user?.userTypeId !== UserType.TenantAdmin) {
+          // Non–Tenant Admin with no Employee / Access Role → no menus.
+          filtered = [];
+        }
+        // Tenant Admin without a resolvable Access Role keeps Module Access menus.
+      }
+    }
 
     filtered.sort((a, b) => {
       const ma = a.module.sortOrder - b.module.sortOrder;

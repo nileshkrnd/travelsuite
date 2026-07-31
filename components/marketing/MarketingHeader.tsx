@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BrandHomeLink } from "@/components/layout/BrandHomeLink";
 import { SAAS_BRAND } from "@/config/saasBrand";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ export function MarketingHeader() {
   return (
     <header className="absolute inset-x-0 top-0 z-40">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="flex items-center gap-2">
+        <BrandHomeLink className="flex items-center gap-2" ariaLabel={SAAS_BRAND.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={SAAS_BRAND.faviconUrl}
@@ -27,7 +28,7 @@ export function MarketingHeader() {
             className="h-8 w-8 rounded-md bg-white/95 object-contain p-0.5"
           />
           <span className="text-base font-semibold tracking-tight text-white">{SAAS_BRAND.name}</span>
-        </Link>
+        </BrandHomeLink>
 
         <div className="hidden items-center gap-8 md:flex">
           {NAV.map((item) => (

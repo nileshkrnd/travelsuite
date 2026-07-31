@@ -50,7 +50,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
   const branding = useChromeBranding();
   const collapsed = useUiPrefsStore((s) => s.sidebarCollapsed) && !mobile;
   const toggleCollapsed = useUiPrefsStore((s) => s.toggleSidebarCollapsed);
-  const { items } = useWorkspaceMenus(roleDef);
+  const { items, menusLoaded, hasModuleAccess } = useWorkspaceMenus(roleDef);
 
   const activePath = useMemo(
     () => resolveActiveMenuPath(pathname, roleSlug, collectMenuLeafPaths(items)),
@@ -66,10 +66,21 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
       )}
     >
       <div className={cn("flex h-16 shrink-0 items-center border-b border-sidebar-border", collapsed ? "justify-center px-0" : "px-4")}>
-        <TenantLogo branding={branding} size="sm" showName={!collapsed} markOnly={collapsed} />
+        <TenantLogo
+          branding={branding}
+          size="sm"
+          showName={!collapsed}
+          markOnly={collapsed}
+          linkHome
+        />
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto p-2">
+        {menusLoaded && !hasModuleAccess && !collapsed ? (
+          <p className="px-3 py-4 text-xs leading-relaxed text-muted-foreground">
+            No modules subscribed yet. Request to subscribe for your preferred module.
+          </p>
+        ) : null}
         {items.map((item) =>
           item.children ? (
             <SidebarGroup

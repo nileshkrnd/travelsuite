@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+import { BrandHomeLink } from "@/components/layout/BrandHomeLink";
 import { SAAS_BRAND } from "@/config/saasBrand";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -10,14 +10,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="relative flex flex-col justify-center px-5 py-10 sm:px-8 lg:px-12">
         {/* Mobile brand mark — desktop uses the left panel */}
         <div className="mb-8 flex flex-col items-start gap-3 lg:hidden">
-          <Link href="/" className="inline-flex items-center gap-3" aria-label={SAAS_BRAND.name}>
+          <BrandHomeLink className="inline-flex items-center gap-3" ariaLabel={SAAS_BRAND.name}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={SAAS_BRAND.logoUrl}
               alt={SAAS_BRAND.groupName}
               className="h-10 w-auto object-contain object-left"
             />
-          </Link>
+          </BrandHomeLink>
           <div className="h-px w-12 bg-[#001C35]/20" aria-hidden />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0A4A6E]">
@@ -32,9 +32,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
           <p className="mt-6 text-center text-xs text-[#001C35]/45">
-            <Link href="/" className="font-medium text-[#0A4A6E] hover:underline">
+            <BrandHomeLink className="font-medium text-[#0A4A6E] hover:underline">
               {SAAS_BRAND.name}
-            </Link>
+            </BrandHomeLink>
             {" · "}
             Secure workspace access
           </p>

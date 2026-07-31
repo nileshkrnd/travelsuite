@@ -24,6 +24,7 @@ export * from "./subscription-product";
 export * from "./subscription-module";
 export * from "./subscription-module-access";
 export * from "./subscription-module-menu";
+export * from "./tenant-access-role-menu-permission";
 export * from "./agency";
 export * from "./subAgency";
 export * from "./corporate";

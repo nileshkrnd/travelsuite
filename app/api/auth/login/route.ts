@@ -30,7 +30,10 @@ export async function POST(request: Request) {
     }
 
     const username = parsed.data.username.trim().toLowerCase();
-    const row = await adminDb.user.findUnique({ where: { username } });
+    const row = await adminDb.user.findUnique({
+      where: { username },
+      include: { employee: { select: { employeeImage: true, isActive: true } } },
+    });
     if (!row || !row.isActive || !verifyPassword(parsed.data.password, row.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
@@ -61,7 +64,11 @@ export async function POST(request: Request) {
     const tenantUidByKey = new Map<number, string>();
     if (row.tenantId > 0 && tenantUid) tenantUidByKey.set(row.tenantId, tenantUid);
 
-    const user = toAppUser(row, { tenantUidByKey });
+    const avatarUrl =
+      row.employee?.isActive && row.employee.employeeImage?.trim()
+        ? row.employee.employeeImage.trim()
+        : null;
+    const user = toAppUser(row, { tenantUidByKey, avatarUrl });
     return NextResponse.json(user);
   } catch (error) {
     return dbUnavailable(error);

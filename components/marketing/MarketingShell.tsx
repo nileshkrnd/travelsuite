@@ -8,6 +8,7 @@ import { SAAS_BRAND } from "@/config/saasBrand";
 import { API_PRODUCTS } from "@/config/marketingContent";
 import { Button } from "@/components/ui/button";
 import { GoToTopButton } from "@/components/marketing/GoToTopButton";
+import { BrandHomeLink } from "@/components/layout/BrandHomeLink";
 import { cn } from "@/lib/utils";
 
 const PRIMARY_NAV = [
@@ -56,7 +57,10 @@ function MarketingNav() {
       )}
     >
       <nav className="mx-auto flex h-[4.25rem] max-w-6xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex min-w-0 shrink-0 items-center gap-3" aria-label={SAAS_BRAND.name}>
+        <BrandHomeLink
+          className="flex min-w-0 shrink-0 items-center gap-3"
+          ariaLabel={SAAS_BRAND.name}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={SAAS_BRAND.logoUrl}
@@ -76,7 +80,7 @@ function MarketingNav() {
             </span>
             <span className="text-[10px] text-[#001C35]/50">Platform</span>
           </span>
-        </Link>
+        </BrandHomeLink>
 
         <div className="ms-auto hidden items-center gap-0.5 xl:flex">
           {PRIMARY_NAV.map((item) =>
@@ -210,12 +214,14 @@ function MarketingSiteFooter() {
     <footer className="border-t border-[#001C35]/10 bg-white text-[#001C35]">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div className="md:col-span-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={SAAS_BRAND.logoUrl}
-            alt={SAAS_BRAND.groupName}
-            className="h-11 w-auto object-contain object-left"
-          />
+          <BrandHomeLink className="inline-flex" ariaLabel={SAAS_BRAND.name}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SAAS_BRAND.logoUrl}
+              alt={SAAS_BRAND.groupName}
+              className="h-11 w-auto object-contain object-left"
+            />
+          </BrandHomeLink>
           <p className="mt-4 text-sm font-semibold tracking-tight">{SAAS_BRAND.name}</p>
           <p className="mt-2 text-sm leading-relaxed text-[#001C35]/60">{SAAS_BRAND.tagline}</p>
         </div>

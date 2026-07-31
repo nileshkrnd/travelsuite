@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { cn, initials } from "@/lib/utils";
 import { contrastForeground } from "@/lib/color";
 import { SAAS_BRAND } from "@/config/saasBrand";
+import { roleHomePath } from "@/config/permissions";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useRolesStore } from "@/lib/store/roles.store";
 import type { TenantBranding } from "@/types";
 
 interface TenantLogoProps {
@@ -13,6 +17,11 @@ interface TenantLogoProps {
   /** Prefer compact mark (favicon) instead of full lockup when available. */
   markOnly?: boolean;
   className?: string;
+  /**
+   * When true, logo navigates home (`/`) if logged out, or the role dashboard if logged in.
+   * Leave false for decorative uses (tables, form previews).
+   */
+  linkHome?: boolean;
 }
 
 const SIZE_CLASSES: Record<NonNullable<TenantLogoProps["size"]>, string> = {
@@ -47,14 +56,20 @@ export function TenantLogo({
   showName = false,
   markOnly = false,
   className,
+  linkHome = false,
 }: TenantLogoProps) {
   const [failed, setFailed] = useState(false);
+  const user = useSessionStore((s) => s.user);
+  const roles = useRolesStore((s) => s.roles);
   const src = resolveLogoSrc(branding, markOnly);
   const showImage = !!src && !failed;
   const isPlatformLockup = src === SAAS_BRAND.logoUrl;
 
-  return (
-    <div className={cn("flex items-center gap-2", className)}>
+  const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
+  const href = linkHome ? (roleDef ? roleHomePath(roleDef) : "/") : null;
+
+  const content = (
+    <>
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- dynamic tenant/platform URLs
         <img
@@ -82,6 +97,20 @@ export function TenantLogo({
       {showName && !isPlatformLockup && (
         <span className="font-semibold text-foreground">{branding.name}</span>
       )}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn("flex items-center gap-2 rounded-sm outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring", className)}
+        aria-label={roleDef ? "Go to dashboard" : "Go to home"}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={cn("flex items-center gap-2", className)}>{content}</div>;
 }

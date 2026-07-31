@@ -87,7 +87,7 @@ export function TenantSelection() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6 py-10">
         <div className="flex items-center justify-between">
-          <TenantLogo branding={DEFAULT_BRANDING} size="md" />
+          <TenantLogo branding={DEFAULT_BRANDING} size="md" linkHome />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
             <LogOut className="h-4 w-4" />
             {t("logout")}

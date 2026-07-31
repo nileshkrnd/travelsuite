@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Globe2, Layers, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,13 +34,15 @@ export function UserMenu() {
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
   const isSuperAdmin = user?.roleId === SUPER_ADMIN_ROLE_ID;
   const platformMode = isPlatformMode(tenantId);
+  const photoUrl = user?.avatarUrl?.trim() || "";
 
   if (!user || !roleDef) return null;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-2 px-1.5" />}>
-        <Avatar size="sm">
+        <Avatar size="sm" className="ring-1 ring-border">
+          {photoUrl ? <AvatarImage src={photoUrl} alt={user.name} /> : null}
           <AvatarFallback>{initials(user.name)}</AvatarFallback>
         </Avatar>
         <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">{user.name}</span>
@@ -48,9 +50,17 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="min-w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>
-            <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-            <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
-            <p className="truncate text-xs font-normal text-muted-foreground">{roleDef.name}</p>
+            <div className="flex items-center gap-3 py-0.5">
+              <Avatar size="lg" className="ring-1 ring-border">
+                {photoUrl ? <AvatarImage src={photoUrl} alt={user.name} /> : null}
+                <AvatarFallback>{initials(user.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
+                <p className="truncate text-xs font-normal text-muted-foreground">{roleDef.name}</p>
+              </div>
+            </div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

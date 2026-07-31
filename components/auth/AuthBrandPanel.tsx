@@ -2,6 +2,7 @@
 
 import { Building2, Layers, Link2, ShieldCheck } from "lucide-react";
 import { SAAS_BRAND } from "@/config/saasBrand";
+import { BrandHomeLink } from "@/components/layout/BrandHomeLink";
 import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { cn } from "@/lib/utils";
 
@@ -49,15 +50,17 @@ export function AuthBrandPanel() {
       <div className="relative flex flex-1 flex-col justify-between p-10 xl:p-14">
         <div className="space-y-8">
           <div className="space-y-5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoSrc}
-              alt={branding.name || SAAS_BRAND.groupName}
-              className={cn(
-                "w-auto object-contain object-left",
-                isPlatformLogo ? "h-14 max-w-[280px]" : "h-12 max-w-[220px]"
-              )}
-            />
+            <BrandHomeLink className="inline-flex transition-opacity hover:opacity-90">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={logoSrc}
+                alt={branding.name || SAAS_BRAND.groupName}
+                className={cn(
+                  "w-auto object-contain object-left",
+                  isPlatformLogo ? "h-14 max-w-[280px]" : "h-12 max-w-[220px]"
+                )}
+              />
+            </BrandHomeLink>
             <div className="h-px w-16 bg-[#001C35]/25" aria-hidden />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#0A4A6E]">

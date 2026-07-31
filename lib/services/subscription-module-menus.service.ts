@@ -54,14 +54,22 @@ export async function listSubscriptionModuleMenus(options?: {
   return mapRows(await res.json());
 }
 
-/** Active menus for modules granted to a tenant (Tenant Admin sidebar). */
+/**
+ * Active menus for modules granted to a tenant.
+ * Pass userId to filter by that user's Access Role CanView permissions (sidebar).
+ * Omit userId for the full Module Access menu set (e.g. Permissions matrix editor).
+ */
 export async function listTenantSubscriptionModuleMenus(
-  tenantId: number
+  tenantId: number,
+  options?: { userId?: number }
 ): Promise<SubscriptionModuleMenu[]> {
-  const res = await fetch(
-    `/api/subscription-module-menus/for-tenant?tenantId=${encodeURIComponent(String(tenantId))}`,
-    { cache: "no-store" }
-  );
+  const params = new URLSearchParams({ tenantId: String(tenantId) });
+  if (options?.userId != null && options.userId > 0) {
+    params.set("userId", String(options.userId));
+  }
+  const res = await fetch(`/api/subscription-module-menus/for-tenant?${params}`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new SubscriptionModuleMenusApiError(await parseError(res), res.status);
   return mapRows(await res.json());
 }

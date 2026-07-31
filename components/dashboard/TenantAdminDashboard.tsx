@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, GitBranch, Target, TrendingUp } from "lucide-react";
+import { Building2, GitBranch, PackageOpen, Target, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { KpiCard } from "@/components/shared/KpiCard";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TargetVsActualChart } from "@/components/dashboard/TargetVsActualChart";
 import { YoYComparisonChart } from "@/components/dashboard/YoYComparisonChart";
@@ -14,6 +15,8 @@ import {
   type TenantPerformanceSummary,
 } from "@/lib/services/performance.service";
 import { getRecentActivity } from "@/lib/services/activity.service";
+import { useWorkspaceMenus } from "@/lib/hooks/useWorkspaceMenus";
+import { TENANT_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { ActivityItem, RoleDef, User } from "@/types";
 
 function moneyValue(n: number) {
@@ -35,8 +38,16 @@ export function TenantAdminDashboard({
   const [loading, setLoading] = useState(true);
   const [perf, setPerf] = useState<TenantPerformanceSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const { menusLoaded, hasModuleAccess } = useWorkspaceMenus(roleDef);
+  const isTenantAdmin = roleDef.id === TENANT_ADMIN_ROLE_ID;
+  const showSubscribePrompt = isTenantAdmin && menusLoaded && !hasModuleAccess;
 
   useEffect(() => {
+    if (showSubscribePrompt) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
 
@@ -52,7 +63,24 @@ export function TenantAdminDashboard({
     return () => {
       cancelled = true;
     };
-  }, [tenantId]);
+  }, [tenantId, showSubscribePrompt]);
+
+  if (showSubscribePrompt) {
+    return (
+      <div className="p-6">
+        <PageHeader
+          title={`Welcome back, ${user.name.split(" ")[0]}`}
+          description="Tenant Admin · workspace access"
+        />
+        <EmptyState
+          icon={PackageOpen}
+          tone="primary"
+          heading="No modules available"
+          description="Request to subscribe for your preferred module. Contact your Super Admin or account manager to enable the modules your organization needs."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
