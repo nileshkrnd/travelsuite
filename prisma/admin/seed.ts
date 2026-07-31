@@ -366,6 +366,114 @@ async function seedAccessRoles() {
   });
 }
 
+async function seedSubscriptionCatalog() {
+  const core = await prisma.subscriptionProduct.upsert({
+    where: { subscriptionProductName: "Klyra Core" },
+    create: {
+      subscriptionProductName: "Klyra Core",
+      description: "Core platform suite for travel holdings",
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true, description: "Core platform suite for travel holdings" },
+  });
+  const finance = await prisma.subscriptionProduct.upsert({
+    where: { subscriptionProductName: "Finance Pack" },
+    create: {
+      subscriptionProductName: "Finance Pack",
+      description: "Accounts, vouchers and financial reports",
+      isActive: true,
+      createdBy: CREATED_BY,
+    },
+    update: { isActive: true },
+  });
+
+  const moduleSeeds: {
+    productId: number;
+    name: string;
+    description: string;
+  }[] = [
+    { productId: core.subscriptionProductId, name: "POS", description: "Point of sale booking desk" },
+    { productId: core.subscriptionProductId, name: "Inventory", description: "Stock and warehouse operations" },
+    { productId: core.subscriptionProductId, name: "HRMS", description: "HR operations modules" },
+    { productId: finance.subscriptionProductId, name: "Accounts", description: "Ledgers, groups and vouchers" },
+    { productId: finance.subscriptionProductId, name: "Reports", description: "P&L, balance sheet, trial balance" },
+  ];
+
+  const moduleIds: number[] = [];
+  const moduleByName = new Map<string, number>();
+  for (const m of moduleSeeds) {
+    const row = await prisma.subscriptionModule.upsert({
+      where: {
+        subscriptionProductId_subscriptionModuleName: {
+          subscriptionProductId: m.productId,
+          subscriptionModuleName: m.name,
+        },
+      },
+      create: {
+        subscriptionProductId: m.productId,
+        subscriptionModuleName: m.name,
+        description: m.description,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { description: m.description, isActive: true },
+    });
+    moduleIds.push(row.subscriptionModuleId);
+    moduleByName.set(m.name, row.subscriptionModuleId);
+  }
+
+  for (const subscriptionModuleId of moduleIds) {
+    await prisma.subscriptionModuleAccess.upsert({
+      where: {
+        subscriptionModuleId_tenantId: {
+          subscriptionModuleId,
+          tenantId: 1,
+        },
+      },
+      create: {
+        subscriptionModuleId,
+        tenantId: 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { isActive: true },
+    });
+  }
+
+  const menuSeeds: { moduleName: string; menuName: string; menuUrl: string }[] = [
+    { moduleName: "POS", menuName: "Sales", menuUrl: "sales" },
+    { moduleName: "Inventory", menuName: "Inventory", menuUrl: "inventory" },
+    { moduleName: "HRMS", menuName: "HRMS", menuUrl: "hrms" },
+    { moduleName: "Accounts", menuName: "Accounts", menuUrl: "accounts" },
+    { moduleName: "Reports", menuName: "Accounts Reports", menuUrl: "accounts/reports" },
+  ];
+
+  for (const seed of menuSeeds) {
+    const subscriptionModuleId = moduleByName.get(seed.moduleName);
+    if (!subscriptionModuleId) continue;
+    await prisma.subscriptionModuleMenu.upsert({
+      where: {
+        subscriptionModuleId_menuUrl: {
+          subscriptionModuleId,
+          menuUrl: seed.menuUrl,
+        },
+      },
+      create: {
+        subscriptionModuleId,
+        menuName: seed.menuName,
+        menuUrl: seed.menuUrl,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        menuName: seed.menuName,
+        isActive: true,
+      },
+    });
+  }
+}
+
 async function seedAviation() {
   const fullService = await prisma.airlineType.upsert({
     where: { airlineTypeName: "Full Service" },
@@ -880,6 +988,7 @@ async function main() {
   await seedUsers();
   await seedAccessRoles();
   await seedAviation();
+  await seedSubscriptionCatalog();
   await seedCompanies();
   await seedDepartments();
   await seedDesignations();

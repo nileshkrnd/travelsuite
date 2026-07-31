@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -13,6 +13,8 @@ import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { useChromeBranding } from "@/lib/hooks/useChromeBranding";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
+import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
 import type { RoleDef } from "@/types";
 
 interface SidebarProps {
@@ -28,9 +30,36 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
   const pathname = usePathname();
   const branding = useChromeBranding();
   const tenantId = useTenantStore((s) => s.tenantId);
+  const tenantKey = useTenantStore((s) => s.tenant.tenantKey);
   const collapsed = useUiPrefsStore((s) => s.sidebarCollapsed) && !mobile;
   const toggleCollapsed = useUiPrefsStore((s) => s.toggleSidebarCollapsed);
-  const items = getMenuForRole(roleDef, { platformMode: isPlatformMode(tenantId) });
+  const platformMode = isPlatformMode(tenantId);
+  const [allowedMenuUrls, setAllowedMenuUrls] = useState<string[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (platformMode || !tenantKey || tenantKey <= 0) {
+      setAllowedMenuUrls(undefined);
+      return;
+    }
+    let cancelled = false;
+    listTenantSubscriptionModuleMenus(tenantKey)
+      .then((rows) => {
+        if (cancelled) return;
+        setAllowedMenuUrls(rows.map((r) => normalizeMenuUrl(r.menuUrl)).filter(Boolean));
+      })
+      .catch(() => {
+        if (!cancelled) setAllowedMenuUrls([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [platformMode, tenantKey]);
+
+  const items = getMenuForRole(roleDef, {
+    platformMode,
+    // While loading, pass empty list so non-core menus stay hidden until grants resolve.
+    allowedMenuUrls: platformMode ? undefined : (allowedMenuUrls ?? []),
+  });
 
   return (
     <aside

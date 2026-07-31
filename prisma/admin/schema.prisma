@@ -37,6 +37,8 @@ model Tenant {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
+  moduleAccess SubscriptionModuleAccess[]
+
   @@map("Tenant")
 }
 
@@ -425,4 +427,80 @@ model Employee {
   @@index([countryId], map: "Employee_CountryID_idx")
   @@index([cityId], map: "Employee_CityID_idx")
   @@map("Employee")
+}
+
+/// Global Subscription Product master — Super Admin / Tenant Configuration only.
+model SubscriptionProduct {
+  subscriptionProductId   Int       @id @default(autoincrement()) @map("SubscriptionProductID")
+  subscriptionProductName String    @unique @map("SubscriptionProductName") @db.VarChar(50)
+  description             String    @default("") @map("Description") @db.VarChar(200)
+  isActive                Boolean   @default(true) @map("IsActive")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  modules SubscriptionModule[]
+
+  @@map("SubscriptionProduct")
+}
+
+/// Global Subscription Module master — belongs to a Subscription Product.
+model SubscriptionModule {
+  subscriptionModuleId   Int       @id @default(autoincrement()) @map("SubscriptionModuleID")
+  subscriptionProductId  Int       @map("SubscriptionProductID")
+  subscriptionModuleName String    @map("SubscriptionModuleName") @db.VarChar(50)
+  description            String    @default("") @map("Description") @db.VarChar(200)
+  isActive               Boolean   @default(true) @map("IsActive")
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("ModifiedBy")
+  modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  product SubscriptionProduct @relation(fields: [subscriptionProductId], references: [subscriptionProductId], onDelete: Restrict)
+  access  SubscriptionModuleAccess[]
+  menus   SubscriptionModuleMenu[]
+
+  @@unique([subscriptionProductId, subscriptionModuleName], map: "SubscriptionModule_Product_Name_key")
+  @@index([subscriptionProductId], map: "SubscriptionModule_ProductID_idx")
+  @@map("SubscriptionModule")
+}
+
+/// Grants a Subscription Module to a Tenant — Super Admin / Tenant Configuration only.
+model SubscriptionModuleAccess {
+  subscriptionModuleAccessId Int       @id @default(autoincrement()) @map("SubscriptionModuleAccessID")
+  subscriptionModuleId       Int       @map("SubscriptionModuleID")
+  tenantId                   Int       @map("TenantID")
+  isActive                   Boolean   @default(true) @map("IsActive")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  module SubscriptionModule @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
+  tenant Tenant             @relation(fields: [tenantId], references: [tenantId], onDelete: Restrict)
+
+  @@unique([subscriptionModuleId, tenantId], map: "SubscriptionModuleAccess_Module_Tenant_key")
+  @@index([subscriptionModuleId], map: "SubscriptionModuleAccess_ModuleID_idx")
+  @@index([tenantId], map: "SubscriptionModuleAccess_TenantID_idx")
+  @@map("SubscriptionModuleAccess")
+}
+
+/// Menus belonging to a Subscription Module — Tenant Admins only see menus for modules granted to their tenant.
+model SubscriptionModuleMenu {
+  subscriptionModuleMenuId Int       @id @default(autoincrement()) @map("SubscriptionModuleMenuID")
+  subscriptionModuleId     Int       @map("SubscriptionModuleID")
+  menuName                 String    @map("MenuName") @db.VarChar(100)
+  menuUrl                  String    @map("MenuURL") @db.VarChar(200)
+  isActive                 Boolean   @default(true) @map("IsActive")
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  module SubscriptionModule @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
+
+  @@unique([subscriptionModuleId, menuUrl], map: "SubscriptionModuleMenu_Module_URL_key")
+  @@index([subscriptionModuleId], map: "SubscriptionModuleMenu_ModuleID_idx")
+  @@map("SubscriptionModuleMenu")
 }

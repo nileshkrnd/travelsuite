@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateTenantAdminDialog } from "@/components/masters/CreateTenantAdminDialog";
+import { TenantModuleAccessPanel } from "@/components/masters/TenantModuleAccessPanel";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useSessionStore } from "@/lib/store/session.store";
@@ -47,6 +48,9 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
   const tenant = tenants.find((t) => t.id === tenantId);
   const canEdit = can(roleDef, "tenantProfile", "edit");
   const canCreateAdmin = can(roleDef, "users", "create");
+  const canViewModuleAccess = can(roleDef, "subscriptionModuleAccess", "view");
+  const canCreateModuleAccess = can(roleDef, "subscriptionModuleAccess", "create");
+  const canEditModuleAccess = can(roleDef, "subscriptionModuleAccess", "edit");
 
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [tenantAdmins, setTenantAdmins] = useState<User[]>([]);
@@ -268,6 +272,16 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
           </CardContent>
         </Card>
       </div>
+
+      <TenantModuleAccessPanel
+        tenantKey={tenant.tenantKey}
+        tenantName={tenant.branding.name}
+        roleSlug={role}
+        actorKey={actorKey}
+        canView={canViewModuleAccess}
+        canCreate={canCreateModuleAccess}
+        canEdit={canEditModuleAccess}
+      />
 
       {canCreateAdmin && (
         <CreateTenantAdminDialog

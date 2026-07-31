@@ -34,6 +34,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CreateTenantAdminDialog } from "@/components/masters/CreateTenantAdminDialog";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
@@ -86,6 +96,8 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
   const canCreateAdmin = can(roleDef, "users", "create");
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminTenant, setAdminTenant] = useState<Tenant | null>(null);
+  const [statusTarget, setStatusTarget] = useState<Tenant | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const actorKey = user
     ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
     : 0;
@@ -142,21 +154,26 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
 
   const activeCount = tenants.filter((t) => t.status === "active").length;
 
-  async function toggleStatus(tenant: Tenant) {
+  async function confirmToggleStatus() {
+    if (!statusTarget) return;
     if (!actorKey) {
       toast.error("Missing user key — sign in again.");
       return;
     }
+    setStatusSaving(true);
     try {
       const saved = await setTenantStatus(
-        tenant.tenantKey,
-        tenant.status === "active" ? "inactive" : "active",
+        statusTarget.tenantKey,
+        statusTarget.status === "active" ? "inactive" : "active",
         actorKey
       );
       upsertTenant(saved);
       toast.success(saved.status === "active" ? "Tenant activated" : "Tenant deactivated");
+      setStatusTarget(null);
     } catch (err) {
       toast.error(err instanceof TenantsApiError ? err.message : "Could not update status");
+    } finally {
+      setStatusSaving(false);
     }
   }
 
@@ -333,7 +350,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
                               <Pencil className="h-4 w-4" />
                               Modify
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleStatus(tenant)}>
+                            <DropdownMenuItem onClick={() => setStatusTarget(tenant)}>
                               {tenant.status === "active" ? (
                                 <PowerOff className="h-4 w-4" />
                               ) : (
@@ -364,6 +381,40 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
           createdBy={actorKey}
         />
       )}
+
+      <AlertDialog
+        open={!!statusTarget}
+        onOpenChange={(open) => {
+          if (!open && !statusSaving) setStatusTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusTarget?.status === "active" ? "Deactivate" : "Activate"}{" "}
+              {statusTarget?.branding.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusTarget?.status === "active"
+                ? "This tenant will be set to inactive. Users under this tenant may lose access until it is activated again."
+                : "This tenant will be set to active and become available for use again."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={statusSaving}
+              onClick={() => void confirmToggleStatus()}
+            >
+              {statusSaving
+                ? "Updating…"
+                : statusTarget?.status === "active"
+                  ? "Deactivate"
+                  : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

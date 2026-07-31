@@ -29,6 +29,11 @@ export type ModuleKey =
   | "airlineType"
   | "airline"
   | "airport"
+  | "subscription"
+  | "subscriptionProduct"
+  | "subscriptionModule"
+  | "subscriptionModuleAccess"
+  | "subscriptionModuleMenu"
   | "product"
   | "partners"
   | "agency"
@@ -268,6 +273,11 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "airlineType",
   "airline",
   "airport",
+  "subscription",
+  "subscriptionProduct",
+  "subscriptionModule",
+  "subscriptionModuleAccess",
+  "subscriptionModuleMenu",
   "users",
 ];
 
@@ -295,6 +305,38 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
       { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
       { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },
+      {
+        key: "subscription",
+        labelKey: "sidebar.subscription",
+        icon: "Package",
+        path: "masters/subscription",
+        children: [
+          {
+            key: "subscriptionProduct",
+            labelKey: "sidebar.subscriptionProduct",
+            icon: "Package",
+            path: "masters/subscription-product",
+          },
+          {
+            key: "subscriptionModule",
+            labelKey: "sidebar.subscriptionModule",
+            icon: "Layers",
+            path: "masters/subscription-module",
+          },
+          {
+            key: "subscriptionModuleAccess",
+            labelKey: "sidebar.subscriptionModuleAccess",
+            icon: "KeyRound",
+            path: "masters/subscription-module-access",
+          },
+          {
+            key: "subscriptionModuleMenu",
+            labelKey: "sidebar.subscriptionModuleMenu",
+            icon: "ListTree",
+            path: "masters/subscription-module-menu",
+          },
+        ],
+      },
       { key: "users", labelKey: "sidebar.users", icon: "Users", path: "masters/users" },
       { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
     ],
@@ -984,7 +1026,7 @@ export function can(roleDef: RoleDef | undefined, module: ModuleKey, action: Per
 
 export function getMenuForRole(
   roleDef: RoleDef | undefined,
-  options?: { platformMode?: boolean }
+  options?: { platformMode?: boolean; allowedMenuUrls?: string[] | Set<string> }
 ): MenuItem[] {
   if (!roleDef) return [];
   const role = roleDef;
@@ -1015,7 +1057,53 @@ export function getMenuForRole(
     }, []);
   }
 
-  return filterItems(MENU_ITEMS);
+  const roleMenus = filterItems(MENU_ITEMS);
+
+  // Tenant workspace: only show menus linked to modules granted to this tenant.
+  if (!platformMode && options?.allowedMenuUrls) {
+    const allowed =
+      options.allowedMenuUrls instanceof Set
+        ? options.allowedMenuUrls
+        : new Set(
+            options.allowedMenuUrls
+              .map((u) => u.trim().replace(/^\/+|\/+$/g, "").toLowerCase())
+              .filter(Boolean)
+          );
+    const alwaysKeys = new Set<ModuleKey>(["dashboard", "administration"]);
+
+    function pathAllowed(itemPath: string): boolean {
+      const path = itemPath.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+      if (!path) return false;
+      for (const a of allowed) {
+        if (path === a || path.startsWith(`${a}/`) || a.startsWith(`${path}/`)) return true;
+      }
+      return false;
+    }
+
+    function filterByUrls(items: MenuItem[]): MenuItem[] {
+      return items.reduce<MenuItem[]>((acc, item) => {
+        if (alwaysKeys.has(item.key)) {
+          acc.push(item);
+          return acc;
+        }
+        if (item.children?.length) {
+          if (pathAllowed(item.path)) {
+            acc.push(item);
+            return acc;
+          }
+          const children = filterByUrls(item.children);
+          if (children.length > 0) acc.push({ ...item, children });
+          return acc;
+        }
+        if (pathAllowed(item.path)) acc.push(item);
+        return acc;
+      }, []);
+    }
+
+    return filterByUrls(roleMenus);
+  }
+
+  return roleMenus;
 }
 
 export function roleHomePath(roleDef: RoleDef): string {

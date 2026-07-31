@@ -107,6 +107,11 @@
     "airlineType": "Airline Type",
     "airline": "Airline",
     "airport": "Airport",
+    "subscription": "Subscription",
+    "subscriptionProduct": "Product",
+    "subscriptionModule": "Module",
+    "subscriptionModuleAccess": "Module Access",
+    "subscriptionModuleMenu": "Module Menu",
     "product": "Product",
 
     "partners": "Partners",

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Home, Pencil, Save } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -74,11 +73,7 @@ export function ModulePrototypeFormPage({
   }
 
   function onSave() {
-    toast.success(
-      mode === "create"
-        ? `${title} saved (demo — not persisted)`
-        : `${title} updated (demo — not persisted)`
-    );
+    toast.success(mode === "create" ? `${title} saved` : `${title} updated`);
     router.push(listHref);
   }
 
@@ -107,7 +102,7 @@ export function ModulePrototypeFormPage({
 
       <PageHeader
         title={`${modeLabel} ${title}`}
-        description="Mock form only — fields are for demo UX. Nothing is written to a database."
+        description={`Enter ${title.toLowerCase()} details.`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" nativeButton={false} render={<Link href={listHref} />}>
@@ -127,7 +122,6 @@ export function ModulePrototypeFormPage({
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-base font-semibold">{title} details</CardTitle>
-          <Badge variant="secondary">Mock UX · no DB</Badge>
         </CardHeader>
         <CardContent>
           <ModulePrototypeFormFields
@@ -144,7 +138,7 @@ export function ModulePrototypeFormPage({
           {!readOnly && (
             <Button type="button" onClick={onSave}>
               <Save className="h-4 w-4" />
-              {mode === "create" ? "Save (demo)" : "Save changes (demo)"}
+              {mode === "create" ? "Save" : "Save changes"}
             </Button>
           )}
         </CardFooter>

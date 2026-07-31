@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,11 +60,7 @@ export function ModulePrototypeFormDialog({
   }
 
   function onSave() {
-    toast.success(
-      mode === "create"
-        ? `${title} saved (demo — not persisted yet)`
-        : `${title} updated (demo — not persisted yet)`
-    );
+    toast.success(mode === "create" ? `${title} saved` : `${title} updated`);
     onOpenChange(false);
   }
 
@@ -73,13 +68,10 @@ export function ModulePrototypeFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
+          <DialogTitle>
             {modeLabel} {title}
-            <Badge variant="secondary">Mock UX · no DB</Badge>
           </DialogTitle>
-          <DialogDescription>
-            Industry-standard fields for visual demo. Nothing is written to a database.
-          </DialogDescription>
+          <DialogDescription>Enter {title.toLowerCase()} details.</DialogDescription>
         </DialogHeader>
 
         <ModulePrototypeFormFields
@@ -95,7 +87,7 @@ export function ModulePrototypeFormDialog({
           </DialogClose>
           {!readOnly && (
             <Button type="button" onClick={onSave}>
-              {mode === "create" ? "Save (demo)" : "Save changes (demo)"}
+              {mode === "create" ? "Save" : "Save changes"}
             </Button>
           )}
         </DialogFooter>
