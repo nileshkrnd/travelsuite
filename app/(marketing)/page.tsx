@@ -2,233 +2,249 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { SAAS_BRAND } from "@/config/saasBrand";
-import { API_PRODUCTS, BLOG_POSTS } from "@/config/marketingContent";
-import { SAAS_MODULES, SAAS_PLANS } from "@/config/saasCatalog";
+import { NEXUS_PLATFORM_STEPS, NEXUS_PRODUCTS } from "@/config/nexusCatalog";
 import { Button } from "@/components/ui/button";
 import { ICONS } from "@/lib/icon-registry";
+import { NexusLiveCanvas } from "@/components/marketing/NexusLiveCanvas";
 
 export const metadata: Metadata = {
-  title: `${SAAS_BRAND.name} — Travel, property & partner SaaS`,
+  title: `${SAAS_BRAND.name} — ${SAAS_BRAND.tagline}`,
   description: SAAS_BRAND.description,
 };
 
 export default function HomePage() {
-  const featuredModules = SAAS_MODULES.filter((m) =>
-    ["sales", "operations", "b2cOta", "crm", "propertyBuy", "api", "paymentGateway", "fleetManagement"].includes(
-      m.id
-    )
-  );
+  const travel = NEXUS_PRODUCTS.find((p) => p.id === "travel")!;
 
   return (
     <>
-      {/* Hero — brand-first, full-bleed dark plane */}
-      <section className="relative -mt-[4.25rem] min-h-[100svh] overflow-hidden bg-[#1a1814] text-[#f6f3ee]">
+      {/* Hero — light, logo-led */}
+      <section className="relative overflow-hidden border-b border-[#001C35]/10 bg-white text-[#001C35]">
         <div
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0 opacity-[0.35]"
           style={{
-            backgroundImage:
-              "radial-gradient(ellipse 80% 50% at 10% 20%, rgba(196,92,38,0.35), transparent), radial-gradient(ellipse 60% 40% at 90% 80%, rgba(232,168,124,0.12), transparent)",
-          }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#f6f3ee 1px, transparent 1px), linear-gradient(90deg, #f6f3ee 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
+            background:
+              "radial-gradient(ellipse 70% 55% at 100% 0%, rgba(10,74,110,0.08), transparent 55%)",
           }}
           aria-hidden
         />
 
-        <div className="relative mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-end px-4 pb-16 pt-32 sm:px-6 sm:pb-24">
-          <p className="animate-in fade-in slide-in-from-bottom-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#e8a87c] duration-700">
-            Modular SaaS for holdings
-          </p>
-          <h1 className="mt-5 max-w-[14ch] animate-in fade-in slide-in-from-bottom-3 text-[clamp(2.75rem,8vw,5.5rem)] font-semibold leading-[0.95] tracking-tight duration-700">
-            {SAAS_BRAND.name}
-          </h1>
-          <p className="mt-6 max-w-xl animate-in fade-in slide-in-from-bottom-4 text-lg leading-relaxed text-[#f6f3ee]/72 duration-700 sm:text-xl">
-            {SAAS_BRAND.tagline} POS, mid office, OTA, property, payments, and APIs — subscribe by
-            module.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-3 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            <Button
-              nativeButton={false}
-              render={<Link href="/register" />}
-              size="lg"
-              className="rounded-full bg-[#c45c26] px-6 text-white hover:bg-[#a94c1d]"
-            >
-              Start 14-day trial
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              nativeButton={false}
-              render={<Link href="/products" />}
-              size="lg"
-              variant="outline"
-              className="rounded-full border-[#f6f3ee]/25 bg-transparent text-[#f6f3ee] hover:bg-[#f6f3ee]/10 hover:text-white"
-            >
-              View products
-            </Button>
+        <div className="relative mx-auto grid min-h-[calc(100svh-4.25rem)] max-w-6xl lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="flex flex-col justify-center px-4 py-14 sm:px-6 lg:py-20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SAAS_BRAND.logoUrl}
+              alt={SAAS_BRAND.groupName}
+              className="h-12 w-auto object-contain object-left sm:h-14"
+            />
+            <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#0A4A6E]">
+              {SAAS_BRAND.groupName} · Platform
+            </p>
+            <h1 className="mt-4 max-w-[14ch] text-[clamp(2.4rem,6vw,4.25rem)] font-semibold leading-[0.98] tracking-tight text-[#001C35]">
+              {SAAS_BRAND.name}
+            </h1>
+            <p className="mt-5 max-w-lg text-xl font-medium leading-snug text-[#001C35]/90 sm:text-2xl">
+              {SAAS_BRAND.tagline}
+            </p>
+            <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-[#001C35]/60">
+              A multi-company operating system for travel, property, hospitality, finance, people,
+              fleet and service — licensed by product, governed from one administration layer.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Button
+                nativeButton={false}
+                render={<Link href="/contact" />}
+                size="lg"
+                className="rounded-none bg-[#001C35] px-6 text-white hover:bg-[#0A4A6E]"
+              >
+                Request a demonstration
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button
+                nativeButton={false}
+                render={<Link href="/login" />}
+                size="lg"
+                variant="outline"
+                className="rounded-none border-[#001C35]/25 bg-transparent text-[#001C35] hover:bg-[#F8F9FB]"
+              >
+                Sign in to platform
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative min-h-[340px] border-t border-[#001C35]/10 bg-[#F8F9FB] lg:min-h-0 lg:border-s lg:border-t-0">
+            <NexusLiveCanvas />
           </div>
         </div>
       </section>
 
-      {/* One job: what we cover */}
-      <section className="border-b border-[#1a1814]/10">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 md:grid-cols-[1fr_1.2fr] md:py-24">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c45c26]">Coverage</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Built for groups that run more than one desk.
+      {/* Platform */}
+      <section className="border-b border-[#001C35]/10 bg-[#F8F9FB]">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0A4A6E]">
+              Platform
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#001C35] sm:text-[2.5rem] sm:leading-tight">
+              {SAAS_BRAND.tagline}
             </h2>
+            <p className="mt-5 text-[15px] leading-relaxed text-[#001C35]/65">
+              Al Asmakh Nexus is the holding platform where each operating company licenses the
+              products it needs. Administration remains common. Module Access determines what appears
+              in the application. Channel products such as B2B, B2C, CBT and API are available under
+              Travel without cluttering day-to-day administration menus.
+            </p>
           </div>
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {[
-              ["Travel ERP", "POS, mid office, back office, HRMS, accounts"],
-              ["Digital", "B2C OTA, B2C / B2B / CBT mobile apps"],
-              ["Property", "Buy and rent property under the same tenant"],
-              ["Platform", "GDS, NDC, LCC, hotel mapping, payments, API"],
-            ].map(([title, body]) => (
-              <li key={title} className="border-t border-[#1a1814]/15 pt-4">
-                <p className="font-semibold">{title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-[#1a1814]/65">{body}</p>
+
+          <ol className="mt-14 grid gap-10 border-t border-[#001C35]/10 pt-10 md:grid-cols-3 md:gap-8">
+            {NEXUS_PLATFORM_STEPS.map((step, index) => (
+              <li key={step.title}>
+                <p className="font-mono text-xs tabular-nums text-[#0A4A6E]">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <h3 className="mt-3 text-lg font-semibold text-[#001C35]">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#001C35]/65">{step.body}</p>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </section>
 
-      {/* Products strip */}
-      <section className="border-b border-[#1a1814]/10 bg-[#efeae2]">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      {/* Product catalogue */}
+      <section className="border-b border-[#001C35]/10 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c45c26]">Products</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">Modules you can subscribe to</h2>
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0A4A6E]">
+                Product catalogue
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#001C35] sm:text-4xl">
+                Products aligned to how the businesses operate
+              </h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-[#001C35]/65">
+                Each product maps to a standard industry function. Modules inside a product can be
+                licensed independently where the catalogue separates channels or sub-domains.
+              </p>
             </div>
-            <Link href="/products" className="inline-flex items-center gap-1 text-sm font-medium text-[#c45c26]">
-              All products <ArrowUpRight className="h-4 w-4" />
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[#001C35] hover:text-[#0A4A6E]"
+            >
+              Full product list <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-[#1a1814]/10 bg-[#1a1814]/10 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredModules.map((mod) => {
-              const Icon = ICONS[mod.icon];
+
+          <div className="mt-12 divide-y divide-[#001C35]/10 border-y border-[#001C35]/10">
+            {NEXUS_PRODUCTS.map((product) => {
+              const Icon = ICONS[product.icon];
               return (
-                <Link
-                  key={mod.id}
-                  href="/products"
-                  className="group bg-[#f6f3ee] p-5 transition-colors hover:bg-white"
+                <article
+                  key={product.id}
+                  className="grid gap-8 py-10 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr_1fr]"
                 >
-                  {Icon && <Icon className="h-5 w-5 text-[#c45c26]" />}
-                  <p className="mt-4 text-sm font-semibold">{mod.name}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-[#1a1814]/60">{mod.tagline}</p>
-                </Link>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      {Icon && <Icon className="h-5 w-5 shrink-0 text-[#001C35]" />}
+                      <h3 className="text-lg font-semibold text-[#001C35]">{product.name}</h3>
+                    </div>
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.12em] text-[#001C35]/45">
+                      {product.industry}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm leading-relaxed text-[#001C35]/70">{product.summary}</p>
+                    <ul className="mt-4 space-y-2">
+                      {product.outcomes.map((outcome) => (
+                        <li key={outcome} className="flex gap-2 text-sm leading-snug text-[#001C35]/80">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-[#001C35]" />
+                          {outcome}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="space-y-5">
+                    {product.modules.map((mod) => (
+                      <div key={mod.name}>
+                        <p className="text-sm font-semibold text-[#001C35]">{mod.name}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-[#001C35]/60">{mod.summary}</p>
+                        <p className="mt-2 text-xs leading-relaxed text-[#001C35]/45">
+                          {mod.capabilities.join(" · ")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* API */}
-      <section className="border-b border-[#1a1814]/10">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c45c26]">API</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                GDS, NDC, LCC, and hotel identity — one integration desk.
-              </h2>
-            </div>
-            <Link href="/api" className="inline-flex items-center gap-1 text-sm font-medium text-[#c45c26]">
-              API overview <ArrowUpRight className="h-4 w-4" />
-            </Link>
+      {/* Travel deep-dive */}
+      <section className="border-b border-[#001C35]/10 bg-[#F8F9FB]">
+        <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-[0.85fr_1.15fr] md:py-24">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0A4A6E]">
+              Travel product
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#001C35] sm:text-4xl">
+              Retail desk, trade, corporate and digital — one Travel product
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-[#001C35]/65">{travel.summary}</p>
           </div>
-          <div className="mt-10 flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {API_PRODUCTS.map((api) => (
-              <Link
-                key={api.id}
-                href={api.href}
-                className="min-w-[220px] shrink-0 rounded-2xl border border-[#1a1814]/12 bg-white/60 p-5 transition-transform hover:-translate-y-0.5"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#c45c26]">
-                  {api.shortName}
-                </p>
-                <p className="mt-3 font-semibold">{api.name}</p>
-                <p className="mt-2 text-sm text-[#1a1814]/65">{api.tagline}</p>
-              </Link>
+          <ol className="divide-y divide-[#001C35]/10 border-y border-[#001C35]/10 bg-white px-5">
+            {travel.modules.map((mod, i) => (
+              <li key={mod.name} className="grid gap-2 py-5 sm:grid-cols-[3rem_1fr] sm:gap-4">
+                <span className="font-mono text-sm tabular-nums text-[#0A4A6E]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <p className="font-semibold text-[#001C35]">{mod.name}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[#001C35]/65">{mod.summary}</p>
+                  <p className="mt-2 text-xs text-[#001C35]/45">{mod.capabilities.join(" · ")}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
-      {/* Pricing peek */}
-      <section className="border-b border-[#1a1814]/10 bg-[#1a1814] text-[#f6f3ee]">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e8a87c]">Subscription</p>
-          <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight">
-            Standard plans. Add modules when you need them.
-          </h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {SAAS_PLANS.map((plan) => (
-              <div
-                key={plan.id}
-                className={`rounded-2xl border p-6 ${
-                  plan.popular ? "border-[#c45c26] bg-[#241f1a]" : "border-white/10 bg-transparent"
-                }`}
-              >
-                <p className="font-semibold">{plan.name}</p>
-                <p className="mt-4 text-3xl font-semibold tabular-nums">
-                  ${plan.monthlyPrice}
-                  <span className="text-sm font-normal text-[#f6f3ee]/50">/mo</span>
-                </p>
-                <p className="mt-3 text-sm text-[#f6f3ee]/60">{plan.description}</p>
-                <Link
-                  href={`/register?plan=${plan.id}`}
-                  className="mt-6 inline-flex text-sm font-medium text-[#e8a87c] hover:text-white"
-                >
-                  Choose {plan.name} →
-                </Link>
-              </div>
-            ))}
+      {/* CTA */}
+      <section className="bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 sm:py-20 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0A4A6E]">
+              Engagement
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#001C35] sm:text-4xl">
+              Review the platform with your operating companies in scope
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-[#001C35]/65">
+              A structured demonstration covers tenant setup, Module Access, Travel channels, Finance
+              postings and the shared Administration layer — using the same application the business
+              will run.
+            </p>
           </div>
-        </div>
-      </section>
-
-      {/* Blog */}
-      <section>
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c45c26]">Blogs</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">Notes from the product floor</h2>
-            </div>
-            <Link href="/blogs" className="inline-flex items-center gap-1 text-sm font-medium text-[#c45c26]">
-              All posts <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="mt-10 divide-y divide-[#1a1814]/10 border-y border-[#1a1814]/10">
-            {BLOG_POSTS.slice(0, 3).map((post) => (
-              <Link
-                key={post.slug}
-                href={`/blogs/${post.slug}`}
-                className="grid gap-2 py-6 transition-colors hover:bg-[#1a1814]/[0.03] sm:grid-cols-[140px_1fr_auto] sm:items-baseline sm:gap-8"
-              >
-                <span className="text-xs text-[#1a1814]/45">
-                  {new Date(post.date).toLocaleDateString("en", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-                <span>
-                  <span className="font-semibold">{post.title}</span>
-                  <span className="mt-1 block text-sm text-[#1a1814]/60">{post.excerpt}</span>
-                </span>
-                <span className="text-xs font-medium text-[#c45c26]">{post.category}</span>
-              </Link>
-            ))}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              nativeButton={false}
+              render={<Link href="/contact" />}
+              size="lg"
+              className="rounded-none bg-[#001C35] px-6 text-white hover:bg-[#0A4A6E]"
+            >
+              Schedule demonstration
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/register" />}
+              size="lg"
+              variant="outline"
+              className="rounded-none border-[#001C35]/25 text-[#001C35] hover:bg-[#F8F9FB]"
+            >
+              Create trial tenant
+            </Button>
           </div>
         </div>
       </section>

@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SortableTableHead, type SortDirection } from "@/components/shared/SortableTableHead";
 import { Card, CardContent } from "@/components/ui/card";
@@ -185,7 +186,7 @@ function TenantList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Tenant"
-        description="Primary PostgreSQL entry point — holdings registered on Klyra. Companies and regions hang off TenantID."
+        description={`Primary PostgreSQL entry point — holdings registered on ${SAAS_BRAND.name}. Companies and regions hang off TenantID.`}
         actions={
           canCreate ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/tenant/new`} />}>

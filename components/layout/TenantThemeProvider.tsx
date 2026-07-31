@@ -10,7 +10,7 @@ import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 
 /**
  * Applies brand color tokens and keeps favicon in sync with chrome brand
- * (Klyra for Super Admin, tenant branding for Tenant Admin).
+ * (Al Asmakh Nexus for Super Admin, tenant branding for Tenant Admin).
  */
 export function TenantThemeProvider({ children }: { children: React.ReactNode }) {
   const user = useSessionStore((s) => s.user);

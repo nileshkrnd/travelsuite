@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Layers, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getMenuForRole, type MenuItem } from "@/config/permissions";
-import { buildTenantWorkspaceMenus } from "@/lib/subscription-menu-access";
+import { type MenuItem } from "@/config/permissions";
 import { ICONS } from "@/lib/icon-registry";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
-import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
-import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
-import type { SubscriptionModuleMenu } from "@/types";
+import { useWorkspaceMenus } from "@/lib/hooks/useWorkspaceMenus";
+import { menuItemHref } from "@/lib/menu-active-path";
+import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
+import { Button } from "@/components/ui/button";
 
 function flattenLeaves(items: MenuItem[]): MenuItem[] {
   return items.flatMap((item) => (item.children ? flattenLeaves(item.children) : [item]));
@@ -33,19 +33,34 @@ function itemLabel(item: MenuItem, t: (key: string) => string): string {
   }
 }
 
+function ButtonIconSearch({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="md:hidden"
+      aria-label={label}
+      onClick={onClick}
+    >
+      <Search className="h-4 w-4" />
+    </Button>
+  );
+}
+
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const params = useParams<{ role?: string }>();
   const topbar = useTranslations("topbar");
   const sidebar = useTranslations("sidebar");
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
-  const tenantId = useTenantStore((s) => s.tenantId);
-  const tenantKey = useTenantStore((s) => s.tenant.tenantKey);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
-  const platformMode = isPlatformMode(tenantId);
-  const [dbMenus, setDbMenus] = useState<SubscriptionModuleMenu[]>([]);
+  const roleSlug =
+    typeof params.role === "string" && params.role ? params.role : roleDef?.slug ?? "";
+  const { items } = useWorkspaceMenus(roleDef);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -58,32 +73,7 @@ export function GlobalSearch() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (platformMode || !tenantKey || tenantKey <= 0) {
-      setDbMenus([]);
-      return;
-    }
-    let cancelled = false;
-    listTenantSubscriptionModuleMenus(tenantKey)
-      .then((rows) => {
-        if (!cancelled) setDbMenus(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setDbMenus([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [platformMode, tenantKey, tenantId]);
-
-  const searchableMenus = useMemo(() => {
-    if (!roleDef) return [];
-    if (platformMode) {
-      return flattenLeaves(getMenuForRole(roleDef, { platformMode: true }));
-    }
-    const roleMenus = getMenuForRole(roleDef, { platformMode: false });
-    return flattenLeaves(buildTenantWorkspaceMenus(roleMenus, dbMenus));
-  }, [roleDef, platformMode, dbMenus]);
+  const searchableMenus = useMemo(() => flattenLeaves(items), [items]);
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
@@ -91,16 +81,17 @@ export function GlobalSearch() {
     return searchableMenus
       .filter((item) => {
         const label = itemLabel(item, sidebar).toLowerCase();
-        return label.includes(q) || item.path.includes(q) || item.key.toLowerCase().includes(q);
+        const path = normalizeMenuUrl(item.path);
+        return label.includes(q) || path.includes(q) || item.key.toLowerCase().includes(q);
       })
       .slice(0, 8);
   }, [query, searchableMenus, sidebar]);
 
   function go(path: string) {
-    if (!roleDef) return;
+    if (!roleSlug) return;
     setOpen(false);
     setQuery("");
-    router.push(`/${roleDef.slug}/${path}`);
+    router.push(menuItemHref(roleSlug, path));
   }
 
   return (
@@ -141,16 +132,21 @@ export function GlobalSearch() {
             ) : (
               results.map((item) => {
                 const Icon = ICONS[item.icon] ?? Layers;
+                const path = normalizeMenuUrl(item.path);
                 return (
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => go(item.path)}
+                    onClick={() => go(path)}
                     className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                   >
                     <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 truncate font-medium">{itemLabel(item, sidebar)}</span>
-                    <span className="truncate text-xs text-muted-foreground">{item.path}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{itemLabel(item, sidebar)}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {menuItemHref(roleSlug, path)}
+                      </span>
+                    </span>
                   </button>
                 );
               })
@@ -159,18 +155,5 @@ export function GlobalSearch() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-function ButtonIconSearch({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted md:hidden"
-    >
-      <Search className="h-4 w-4" />
-    </button>
   );
 }

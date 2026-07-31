@@ -15,7 +15,7 @@ function dbUnavailable(error: unknown) {
   const message = error instanceof Error ? error.message : "Database error";
   return NextResponse.json(
     {
-      error: `Database unavailable: ${message}. Ensure PostgreSQL is running and ADMINCNX_URL points to KlyraAdmin.`,
+      error: `Database unavailable: ${message}. Ensure PostgreSQL is running and ADMINCNX_URL points to the admin database.`,
     },
     { status: 503 }
   );

@@ -7,7 +7,19 @@ import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { GitBranch, Building2, Mail, Phone, UserPlus, Save, X } from "lucide-react";
+import {
+  GitBranch,
+  Building2,
+  Mail,
+  Phone,
+  UserPlus,
+  Save,
+  X,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  Check,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +35,7 @@ import { listCompanies } from "@/lib/services/db-companies.service";
 import { listBranchTypes } from "@/lib/services/branch-types.service";
 import { createBranch, listBranches, updateBranch, BranchesApiError } from "@/lib/services/db-branches.service";
 import { contrastForeground } from "@/lib/color";
-import { initials } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 import type { Branch, BranchType, City, Company, Country } from "@/types";
 
 const phoneRegex = /^[0-9+\-\s()]{5,20}$/;
@@ -124,6 +136,9 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   const [branchTypes, setBranchTypes] = useState<BranchType[]>([]);
   const [tenantCompanies, setTenantCompanies] = useState<Company[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  /** Create flow: pick company first, then enter branch details. */
+  const [createStep, setCreateStep] = useState<"company" | "details">(isEdit ? "details" : "company");
 
   const {
     register,
@@ -188,15 +203,20 @@ export function BranchForm({ branch }: { branch?: Branch }) {
   useEffect(() => {
     if (tenantKey <= 0) {
       setTenantCompanies([]);
+      setCompaniesLoading(false);
       return;
     }
     let cancelled = false;
+    setCompaniesLoading(true);
     listCompanies({ tenantId: tenantKey, activeOnly: true })
       .then((rows) => {
         if (!cancelled) setTenantCompanies(rows);
       })
       .catch(() => {
         if (!cancelled) setTenantCompanies([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
       });
     return () => {
       cancelled = true;
@@ -319,13 +339,128 @@ export function BranchForm({ branch }: { branch?: Branch }) {
     }
   }
 
+  const selectedCompany = tenantCompanies.find((c) => c.companyKey === companyId) ?? null;
+
+  function proceedWithCompany() {
+    if (!companyId || companyId <= 0) {
+      toast.error("Select a company to continue");
+      return;
+    }
+    setValue("branchTypeId", 0, { shouldValidate: false });
+    setCreateStep("details");
+  }
+
+  function changeCompany() {
+    setValue("branchTypeId", 0, { shouldValidate: false });
+    setCreateStep("company");
+  }
+
+  if (companiesLoading) {
+    return (
+      <Card className="max-w-xl">
+        <CardContent className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading companies…
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (tenantCompanies.length === 0) {
     return (
       <Card className="max-w-xl">
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Add a company first — branches belong to a company. Go to Masters → Company to create one.
-          </p>
+        <CardContent className="space-y-4 py-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-medium">Add a company first</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Branches belong to a company. Create a company, then come back to add a branch.
+              </p>
+            </div>
+          </div>
+          <Button
+            nativeButton={false}
+            render={<Link href={`/${role}/masters/company/new`} />}
+          >
+            <Building2 className="h-4 w-4" />
+            Create company
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!isEdit && createStep === "company") {
+    return (
+      <Card className="max-w-2xl">
+        <CardContent className="space-y-5 pt-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-base font-semibold">Select company</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose the company this branch belongs to, then continue to enter branch details.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {tenantCompanies.map((c) => {
+              const selected = companyId === c.companyKey;
+              return (
+                <button
+                  key={c.companyKey}
+                  type="button"
+                  onClick={() => {
+                    setValue("companyId", c.companyKey, { shouldValidate: true, shouldDirty: true });
+                    setValue("branchTypeId", 0, { shouldValidate: false });
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 rounded-xl border px-3.5 py-3 text-start transition-colors",
+                    selected
+                      ? "border-primary bg-primary/[0.04] ring-1 ring-primary/30"
+                      : "border-border bg-background hover:border-primary/40 hover:bg-muted/40"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold",
+                      selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {selected ? <Check className="h-4 w-4" /> : initials(c.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{c.name}</p>
+                    {c.code ? (
+                      <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{c.code}</p>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button type="button" disabled={!companyId} onClick={proceedWithCompany}>
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/${role}/masters/branch`} />}
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -336,6 +471,69 @@ export function BranchForm({ branch }: { branch?: Branch }) {
       <Card className="min-w-0 overflow-x-clip">
         <CardContent className="min-w-0">
           <form onSubmit={handleSubmit(onSubmit)} className="min-w-0 space-y-5" noValidate>
+            {!isEdit && selectedCompany && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3.5 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Company
+                    </p>
+                    <p className="truncate text-sm font-semibold">{selectedCompany.name}</p>
+                    {selectedCompany.code ? (
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {selectedCompany.code}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={changeCompany}>
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Change company
+                </Button>
+              </div>
+            )}
+
+            {isEdit && (
+              <div className="space-y-2">
+                <Label required>Company</Label>
+                <Controller
+                  control={control}
+                  name="companyId"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ? String(field.value) : ""}
+                      onValueChange={(v) => {
+                        field.onChange(Number(v));
+                        setValue("branchTypeId", 0, { shouldValidate: true });
+                      }}
+                    >
+                      <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <SelectValue>
+                          {(value: string | null) =>
+                            value
+                              ? (tenantCompanies.find((c) => String(c.companyKey) === value)?.name ?? value)
+                              : "Select company"
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tenantCompanies.map((c) => (
+                          <SelectItem key={c.id} value={String(c.companyKey)}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="branchName" required>
@@ -368,8 +566,15 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                       <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.branchTypeId}>
                         <SelectValue>
                           {(value: string | null) => {
-                            if (!value) return !companyId ? "Select a company first" : "Select branch type";
-                            return branchTypes.find((t) => String(t.branchTypeId) === value)?.branchTypeName ?? value;
+                            if (!value) {
+                              return branchTypes.length === 0
+                                ? "No branch types for this company"
+                                : "Select branch type";
+                            }
+                            return (
+                              branchTypes.find((t) => String(t.branchTypeId) === value)?.branchTypeName ??
+                              value
+                            );
                           }}
                         </SelectValue>
                       </SelectTrigger>
@@ -385,42 +590,6 @@ export function BranchForm({ branch }: { branch?: Branch }) {
                 />
                 {errors.branchTypeId && <p className="text-sm text-destructive">{errors.branchTypeId.message}</p>}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label required>Company</Label>
-              <Controller
-                control={control}
-                name="companyId"
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(Number(v));
-                      setValue("branchTypeId", 0, { shouldValidate: true });
-                    }}
-                  >
-                    <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <SelectValue>
-                        {(value: string | null) =>
-                          value
-                            ? (tenantCompanies.find((c) => String(c.companyKey) === value)?.name ?? value)
-                            : "Select company"
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tenantCompanies.map((c) => (
-                        <SelectItem key={c.id} value={String(c.companyKey)}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -636,6 +805,9 @@ export function BranchForm({ branch }: { branch?: Branch }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{previewName}</p>
+              {selectedCompany ? (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{selectedCompany.name}</p>
+              ) : null}
               <Badge variant="default" className="mt-0.5">
                 {branch?.status ?? "active"}
               </Badge>

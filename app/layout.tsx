@@ -20,11 +20,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Klyra Admin",
-  description: "Multi-tenant travel, property & CRM platform",
+  title: "Al Asmakh Nexus",
+  description: "One platform. Every business connected.",
   icons: {
-    icon: [{ url: "/brand/klyra-favicon.png", type: "image/png" }],
-    apple: [{ url: "/brand/klyra-favicon.png" }],
+    icon: [
+      { url: "/brand/al-asmakh-favicon.png", type: "image/png", sizes: "32x32" },
+      { url: "/brand/al-asmakh-favicon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 

@@ -15,7 +15,7 @@ function NewBranch() {
     <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title="Add branch"
-        description="Register a new branch under a company."
+        description="Select a company first, then enter branch details."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/branch`} />}>
             <ArrowLeft className="h-4 w-4" />

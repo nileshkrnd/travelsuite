@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: `Our partners — ${SAAS_BRAND.name}`,
-  description: "Airlines, hotels, payments, DMCs, and property partners on Klyra.",
+  description: `Airlines, hotels, payments, DMCs, and property partners on ${SAAS_BRAND.name}.`,
 };
 
 export default function PartnersPage() {
@@ -16,7 +16,7 @@ export default function PartnersPage() {
       <MarketingPageHero
         eyebrow="Our partners"
         title="The network that shows up in your booking desk."
-        description="Airlines, hotel groups, ground transport, payments, DMCs, and property desks — connected through Klyra modules and APIs."
+        description={`Airlines, hotel groups, ground transport, payments, DMCs, and property desks — connected through ${SAAS_BRAND.name} modules and APIs.`}
       />
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

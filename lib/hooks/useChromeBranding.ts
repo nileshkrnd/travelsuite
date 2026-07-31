@@ -8,7 +8,7 @@ import type { TenantBranding } from "@/types";
 
 /**
  * Logo / favicon branding for chrome:
- * - Super Admin (and platform mode / signed-out preview) → Klyra brand assets
+ * - Super Admin (and platform mode / signed-out preview) → Al Asmakh Nexus brand assets
  * - Tenant Admin and other roles → their tenant branding
  */
 export function useChromeBranding(): TenantBranding {

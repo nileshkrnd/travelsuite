@@ -13,6 +13,7 @@ export type SaasModuleId =
   | "crm"
   | "assets"
   | "inventory"
+  | "procurement"
   | "rentACar"
   | "carHire"
   | "fleetManagement"
@@ -245,6 +246,22 @@ export const SAAS_MODULES: SaasModule[] = [
     ],
   },
   {
+    id: "procurement",
+    name: "Procurement",
+    tagline: "Source-to-order purchasing for the group",
+    description:
+      "Vendor master, purchase requisitions, purchase orders and goods receipt against PO — so spend is approved before it hits Finance and Inventory. Built for hospitality consumables, office supply and operational purchasing across companies and branches.",
+    icon: "ShoppingCart",
+    category: "finance",
+    monthlyPrice: 99,
+    features: [
+      "Approved vendor catalogue",
+      "PR / PO cycle with approval path",
+      "Goods receipt against order",
+      "Spend visibility by company & branch",
+    ],
+  },
+  {
     id: "rentACar",
     name: "Rent A Car Module",
     tagline: "Fleet rental for agencies & corporates",
@@ -391,7 +408,7 @@ export const SAAS_MODULES: SaasModule[] = [
   {
     id: "api",
     name: "API",
-    tagline: "Connect Klyra to your stack",
+    tagline: "Connect Nexus to your stack",
     description:
       "Secure REST & webhook platform for partners and internal systems — bookings, inventory, rates, customers, and payments with keys, scopes, rate limits, and sandbox.",
     icon: "Code2",

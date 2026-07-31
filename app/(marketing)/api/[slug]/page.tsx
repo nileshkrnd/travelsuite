@@ -9,9 +9,12 @@ import { Button } from "@/components/ui/button";
 import { ICONS } from "@/lib/icon-registry";
 
 const SLUG_TO_ID: Record<string, ApiProductId> = {
-  gds: "gds",
-  ndc: "ndc",
-  lcc: "lcc",
+  flight: "flight",
+  hotel: "hotel",
+  transfer: "transfer",
+  rail: "rail",
+  insurance: "insurance",
+  "payment-gateway": "paymentGateway",
   "third-party": "thirdParty",
   "hotel-mapping": "hotelMapping",
 };
@@ -48,14 +51,14 @@ export default async function ApiProductPage({ params }: { params: Promise<{ slu
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <div className="grid gap-12 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a1814] text-[#f6f3ee]">
+            <div className="flex h-12 w-12 items-center justify-center border border-[#001C35]/15 bg-[#F8F9FB] text-[#001C35]">
               {Icon && <Icon className="h-5 w-5" />}
             </div>
-            <p className="mt-6 text-lg font-medium text-[#1a1814]/80">{product.tagline}</p>
+            <p className="mt-6 text-lg font-medium text-[#001C35]/80">{product.tagline}</p>
             <ul className="mt-8 space-y-3">
               {product.highlights.map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#c45c26]" />
+                <li key={item} className="flex items-start gap-2 text-sm text-[#001C35]/85">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0A4A6E]" />
                   {item}
                 </li>
               ))}
@@ -64,7 +67,7 @@ export default async function ApiProductPage({ params }: { params: Promise<{ slu
               <Button
                 nativeButton={false}
                 render={<Link href="/register?modules=api" />}
-                className="rounded-full bg-[#c45c26] text-white hover:bg-[#a94c1d]"
+                className="rounded-none bg-[#001C35] text-white hover:bg-[#0A4A6E]"
               >
                 Enable in trial
               </Button>
@@ -72,26 +75,26 @@ export default async function ApiProductPage({ params }: { params: Promise<{ slu
                 nativeButton={false}
                 render={<Link href="/contact" />}
                 variant="outline"
-                className="rounded-full border-[#1a1814]/20"
+                className="rounded-none border-[#001C35]/25 text-[#001C35]"
               >
                 Request sandbox
               </Button>
             </div>
           </div>
-          <aside className="rounded-2xl border border-[#1a1814]/10 bg-white/50 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1a1814]/45">
+          <aside className="border border-[#001C35]/10 bg-white p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#001C35]/45">
               Related APIs
             </p>
             <ul className="mt-4 space-y-3">
               {others.map((p) => (
                 <li key={p.id}>
-                  <Link href={p.href} className="text-sm font-medium text-[#c45c26] hover:underline">
-                    {p.shortName} — {p.name}
+                  <Link href={p.href} className="text-sm font-medium text-[#0A4A6E] hover:underline">
+                    {p.shortName}
                   </Link>
                 </li>
               ))}
               <li>
-                <Link href="/api" className="text-sm text-[#1a1814]/60 hover:text-[#1a1814]">
+                <Link href="/api" className="text-sm text-[#001C35]/55 hover:text-[#001C35]">
                   ← All APIs
                 </Link>
               </li>

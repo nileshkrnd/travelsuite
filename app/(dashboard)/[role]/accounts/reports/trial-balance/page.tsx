@@ -11,6 +11,7 @@ import { FinanceReportChrome, formatMoney } from "@/components/finance/FinanceRe
 import { useAccountGroupsStore } from "@/lib/store/account-groups.store";
 import { useLedgersStore } from "@/lib/store/ledgers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { buildTrialBalance } from "@/lib/finance-reports";
 
 function TrialBalanceView() {
@@ -20,7 +21,7 @@ function TrialBalanceView() {
   const allLedgers = useLedgersStore((s) => s.ledgers);
 
   useEffect(() => {
-    document.title = "Trial Balance · Klyra";
+    document.title = `Trial Balance · ${SAAS_BRAND.name}`;
   }, []);
 
   const groups = useMemo(

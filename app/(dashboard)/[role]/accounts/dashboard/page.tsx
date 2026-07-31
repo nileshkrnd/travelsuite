@@ -38,6 +38,7 @@ import { useAccountGroupsStore } from "@/lib/store/account-groups.store";
 import { useLedgersStore } from "@/lib/store/ledgers.store";
 import { useVouchersStore } from "@/lib/store/vouchers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { buildFinanceDashboard } from "@/lib/finance-dashboard";
 import type { CurrencyCode, RoleDef } from "@/types";
 
@@ -70,7 +71,7 @@ function FinanceDashboardView({ roleDef }: { roleDef: RoleDef }) {
   const base = `/${roleDef.slug}`;
 
   useEffect(() => {
-    document.title = "Finance Dashboard · Klyra";
+    document.title = `Finance Dashboard · ${SAAS_BRAND.name}`;
   }, []);
 
   const data = useMemo(

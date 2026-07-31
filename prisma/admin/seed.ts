@@ -389,7 +389,7 @@ async function seedSubscriptionCatalog() {
       description: "Human resources, payroll and workforce",
     },
     { name: "Procurement", description: "Purchasing, vendors and procurement" },
-    { name: "Finance", description: "Accounts, vouchers and financial reporting" },
+    { name: "Finance", description: "Finance, vouchers and financial reporting" },
     { name: "Hospitality", description: "Hotels, F&B and hospitality operations" },
     { name: "CRM", description: "Customer relationship management suite" },
     { name: "Helpdesk", description: "Support tickets and helpdesk suite" },

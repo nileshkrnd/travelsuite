@@ -7,7 +7,8 @@ import { ICONS } from "@/lib/icon-registry";
 
 export const metadata: Metadata = {
   title: `Products — ${SAAS_BRAND.name}`,
-  description: "Subscribe to POS, operations, OTA, property, CRM, fleet, payments, and more.",
+  description:
+    "Subscribe to POS, operations, OTA, property, CRM, fleet, procurement, payments, and more.",
 };
 
 export default function ProductsPage() {
@@ -16,7 +17,7 @@ export default function ProductsPage() {
       <MarketingPageHero
         eyebrow="Products"
         title="Every module is a subscription you can turn on."
-        description={`${SAAS_MODULES.length} products across travel operations, digital channels, real estate, mobility, and platform services.`}
+        description={`${SAAS_MODULES.length} products across travel operations, finance & procurement, digital channels, real estate, mobility, and platform services.`}
       />
       <section className="mx-auto max-w-6xl space-y-14 px-4 py-16 sm:px-6 sm:py-20">
         {MODULE_CATEGORIES.map((cat) => {
@@ -43,9 +44,17 @@ export default function ProductsPage() {
                       </div>
                       <h3 className="mt-4 font-semibold">{mod.name}</h3>
                       <p className="mt-1 text-sm text-[#1a1814]/65">{mod.tagline}</p>
-                      <p className="mt-3 flex-1 text-sm leading-relaxed text-[#1a1814]/55">
+                      <p className="mt-3 text-sm leading-relaxed text-[#1a1814]/55">
                         {mod.description}
                       </p>
+                      <ul className="mt-3 flex-1 space-y-1.5 text-sm text-[#1a1814]/65">
+                        {mod.features.map((feature) => (
+                          <li key={feature} className="flex gap-2">
+                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#c45c26]" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                       <Link
                         href={`/register?modules=${mod.id}`}
                         className="mt-4 text-sm font-medium text-[#c45c26] hover:underline"

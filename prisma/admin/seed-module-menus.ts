@@ -277,11 +277,11 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
   ],
   "Finance Core": [
     {
-      name: "Accounts",
+      name: "Finance",
       url: "accounts",
       icon: "Landmark",
       children: [
-        { name: "Accounts Dashboard", url: "accounts/dashboard", icon: "LayoutDashboard" },
+        { name: "Finance Dashboard", url: "accounts/dashboard", icon: "LayoutDashboard" },
         { name: "Account Group", url: "accounts/group", icon: "ListTree" },
         { name: "Ledger", url: "accounts/ledger", icon: "BookMarked" },
         { name: "Chart of Accounts", url: "accounts/chart-of-accounts", icon: "BookOpen" },
@@ -301,7 +301,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           ],
         },
         {
-          name: "Accounts Reports",
+          name: "Reports",
           url: "accounts/reports",
           icon: "BarChart3",
           children: [

@@ -29,15 +29,17 @@ const IMG_HEIGHT: Record<NonNullable<TenantLogoProps["size"]>, string> = {
 
 function resolveLogoSrc(branding: TenantBranding, markOnly: boolean): string | null {
   if (!branding.logoUrl) return null;
-  const isKlyra =
-    branding.logoUrl === SAAS_BRAND.logoUrl || branding.logoUrl.includes("klyra-logo");
-  if (markOnly && isKlyra) return SAAS_BRAND.faviconUrl;
+  const isPlatformBrand =
+    branding.logoUrl === SAAS_BRAND.logoUrl ||
+    branding.logoUrl.includes("al-asmakh") ||
+    branding.logoUrl.includes("klyra-logo");
+  if (markOnly && isPlatformBrand) return SAAS_BRAND.faviconUrl;
   return branding.logoUrl;
 }
 
 /**
  * Renders tenant/platform logo from branding.logoUrl, with monogram fallback.
- * Super Admin chrome uses Klyra assets; Tenant Admin uses their tenant logo when set.
+ * Super Admin chrome uses Nexus platform assets; Tenant Admin uses their tenant logo when set.
  */
 export function TenantLogo({
   branding,
@@ -49,7 +51,7 @@ export function TenantLogo({
   const [failed, setFailed] = useState(false);
   const src = resolveLogoSrc(branding, markOnly);
   const showImage = !!src && !failed;
-  const isKlyraLockup = src === SAAS_BRAND.logoUrl;
+  const isPlatformLockup = src === SAAS_BRAND.logoUrl;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -61,7 +63,7 @@ export function TenantLogo({
           className={cn(
             "w-auto object-contain",
             IMG_HEIGHT[size],
-            isKlyraLockup && !markOnly ? "max-w-[140px]" : SIZE_CLASSES[size]
+            isPlatformLockup && !markOnly ? "max-w-[140px]" : SIZE_CLASSES[size]
           )}
           onError={() => setFailed(true)}
         />
@@ -77,7 +79,7 @@ export function TenantLogo({
           {initials(branding.name)}
         </div>
       )}
-      {showName && !isKlyraLockup && (
+      {showName && !isPlatformLockup && (
         <span className="font-semibold text-foreground">{branding.name}</span>
       )}
     </div>

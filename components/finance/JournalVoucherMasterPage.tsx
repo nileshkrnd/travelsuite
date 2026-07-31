@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Minus,
 } from "lucide-react";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -269,7 +270,7 @@ function JournalList({ roleDef }: { roleDef: RoleDef }) {
   }, [allDepartments]);
 
   useEffect(() => {
-    document.title = `${config.title} · Klyra`;
+    document.title = `${config.title} · ${SAAS_BRAND.name}`;
   }, []);
 
   const rows = useMemo(() => {

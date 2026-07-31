@@ -5,7 +5,7 @@ import { ContactForm } from "@/components/marketing/ContactForm";
 
 export const metadata: Metadata = {
   title: `Contact us — ${SAAS_BRAND.name}`,
-  description: "Sales, partnerships, and support for Klyra holdings.",
+  description: `Sales, partnerships, and support for ${SAAS_BRAND.name} holdings.`,
 };
 
 export default function ContactPage() {

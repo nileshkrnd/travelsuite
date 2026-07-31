@@ -354,7 +354,9 @@ export function SubscriptionModuleMenuForm({
               {...register("menuUrl")}
             />
             <p className="text-xs text-muted-foreground">
-              Path after the role (example: <code>hrms</code>, <code>sales/dashboard</code>).
+              Relative Module Menu path only — no role prefix or leading slash (example:{" "}
+              <code>dashboard</code>, <code>masters/company</code>, <code>accounts/dashboard</code>
+              ). The sidebar builds <code>/tenantAdmin/…</code> from the signed-in role.
             </p>
             {errors.menuUrl && (
               <p className="text-sm text-destructive">{errors.menuUrl.message}</p>

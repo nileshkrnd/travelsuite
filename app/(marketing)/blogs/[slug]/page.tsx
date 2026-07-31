@@ -33,7 +33,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           {new Date(post.date).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}{" "}
           · {post.readMins} min · {post.author}
         </p>
-        <div className="prose-klyra mt-8 space-y-4 text-base leading-relaxed text-[#1a1814]/75">
+        <div className="prose-nexus mt-8 space-y-4 text-base leading-relaxed text-[#1a1814]/75">
           <p>
             This is a prototype article for {SAAS_BRAND.name}. In production, this page would load
             long-form content from your CMS. The structure is intentionally quiet — title, meta,

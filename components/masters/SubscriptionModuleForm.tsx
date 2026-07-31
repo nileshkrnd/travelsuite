@@ -167,7 +167,7 @@ export function SubscriptionModuleForm({ module }: { module?: SubscriptionModule
               id="subscriptionModuleName"
               autoFocus
               maxLength={50}
-              placeholder="e.g. POS, Inventory, Accounts"
+              placeholder="e.g. POS, Inventory, Finance Core"
               {...register("subscriptionModuleName")}
             />
             {errors.subscriptionModuleName && (

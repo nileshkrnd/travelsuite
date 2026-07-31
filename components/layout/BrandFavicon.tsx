@@ -17,21 +17,24 @@ function upsertIconLink(rel: string, href: string) {
 }
 
 /**
- * Super Admin → Klyra favicon.
- * Tenant Admin → tenant logo when set, otherwise Klyra favicon.
+ * Super Admin → Al Asmakh Nexus favicon.
+ * Tenant Admin → tenant logo when set, otherwise platform favicon.
+ * Legacy klyra-logo URLs are still treated as platform brand.
  */
 export function BrandFavicon() {
   const branding = useChromeBranding();
 
   useEffect(() => {
-    const isKlyra =
-      branding.logoUrl === SAAS_BRAND.logoUrl || branding.logoUrl.includes("klyra-logo");
+    const isPlatformBrand =
+      branding.logoUrl === SAAS_BRAND.logoUrl ||
+      branding.logoUrl.includes("al-asmakh") ||
+      branding.logoUrl.includes("klyra-logo");
     const href =
-      branding.logoUrl && !isKlyra ? branding.logoUrl : SAAS_BRAND.faviconUrl;
+      branding.logoUrl && !isPlatformBrand ? branding.logoUrl : SAAS_BRAND.faviconUrl;
 
     upsertIconLink("icon", href);
     upsertIconLink("shortcut icon", href);
-    upsertIconLink("apple-touch-icon", href);
+    upsertIconLink("apple-touch-icon", SAAS_BRAND.appleTouchIconUrl ?? href);
   }, [branding.logoUrl]);
 
   return null;

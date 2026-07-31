@@ -365,7 +365,7 @@ export function TenantModuleAccessPanel({
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Grant modules to {tenantName}</DialogTitle>
             <DialogDescription>
@@ -376,13 +376,16 @@ export function TenantModuleAccessPanel({
           {ungrantedModules.length === 0 ? (
             <p className="text-sm text-muted-foreground">All modules are already granted.</p>
           ) : (
-            <div className="max-h-80 space-y-4 overflow-y-auto rounded-lg border border-border p-3">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto rounded-lg border border-border p-4">
               {modulesByProduct.map(([productName, productModules]) => (
                 <div key={productName} className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {productName}
+                    <span className="ms-1.5 font-normal normal-case tracking-normal">
+                      ({productModules.length})
+                    </span>
                   </p>
-                  <div className="grid gap-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {productModules.map((m) => {
                       const checked = selectedIds.includes(m.subscriptionModuleId);
                       return (
@@ -397,7 +400,7 @@ export function TenantModuleAccessPanel({
                               toggleSelected(m.subscriptionModuleId, !checked);
                             }
                           }}
-                          className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted/50"
+                          className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm hover:bg-muted/50"
                         >
                           <Checkbox
                             checked={checked}

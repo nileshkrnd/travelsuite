@@ -198,7 +198,7 @@ export const DEFAULT_PREVIEW_TENANT: Tenant = {
   id: "default",
   tenantKey: 0,
   slug: "",
-  groupName: "Klyra",
+  groupName: SAAS_BRAND.shortName,
   branding: DEFAULT_BRANDING,
   defaultCurrency: "USD",
   supportedCurrencies: ["USD"],

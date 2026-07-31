@@ -2,25 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICONS } from "@/lib/icon-registry";
-import { getMenuForRole, type MenuItem } from "@/config/permissions";
-import { buildTenantWorkspaceMenus } from "@/lib/subscription-menu-access";
+import { type MenuItem } from "@/config/permissions";
 import { useUiPrefsStore } from "@/lib/store/ui-prefs.store";
-import { isPlatformMode, useTenantStore } from "@/lib/store/tenant.store";
 import { useChromeBranding } from "@/lib/hooks/useChromeBranding";
+import { useWorkspaceMenus } from "@/lib/hooks/useWorkspaceMenus";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { listTenantSubscriptionModuleMenus } from "@/lib/services/subscription-module-menus.service";
 import {
   collectMenuLeafPaths,
   menuItemHref,
   resolveActiveMenuPath,
 } from "@/lib/menu-active-path";
-import type { RoleDef, SubscriptionModuleMenu } from "@/types";
+import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
+import type { RoleDef } from "@/types";
 
 function menuLabel(item: MenuItem, t: (key: string) => string): string {
   if (item.label) return item.label;
@@ -46,54 +45,16 @@ interface SidebarProps {
 export function Sidebar({ roleDef, mobile = false, className, onNavigate }: SidebarProps) {
   const t = useTranslations("sidebar");
   const pathname = usePathname();
+  const params = useParams<{ role?: string }>();
+  const roleSlug = typeof params.role === "string" && params.role ? params.role : roleDef.slug;
   const branding = useChromeBranding();
-  const tenantId = useTenantStore((s) => s.tenantId);
-  const tenantKey = useTenantStore((s) => s.tenant.tenantKey);
   const collapsed = useUiPrefsStore((s) => s.sidebarCollapsed) && !mobile;
   const toggleCollapsed = useUiPrefsStore((s) => s.toggleSidebarCollapsed);
-  const platformMode = isPlatformMode(tenantId);
-  const [dbMenus, setDbMenus] = useState<SubscriptionModuleMenu[]>([]);
-  const [menusLoaded, setMenusLoaded] = useState(platformMode);
-
-  useEffect(() => {
-    if (platformMode || !tenantKey || tenantKey <= 0) {
-      setDbMenus([]);
-      setMenusLoaded(true);
-      return;
-    }
-    let cancelled = false;
-    setMenusLoaded(false);
-    // Only menus for modules granted via Subscription Module Access.
-    listTenantSubscriptionModuleMenus(tenantKey)
-      .then((rows) => {
-        if (!cancelled) {
-          setDbMenus(rows);
-          setMenusLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDbMenus([]);
-          setMenusLoaded(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [platformMode, tenantKey, tenantId]);
-
-  const items = useMemo(() => {
-    if (platformMode) {
-      return getMenuForRole(roleDef, { platformMode: true });
-    }
-    const roleMenus = getMenuForRole(roleDef, { platformMode: false });
-    // Only DB menus for modules granted via Module Access (Administration, POS, HRMS, …).
-    return buildTenantWorkspaceMenus(roleMenus, menusLoaded ? dbMenus : []);
-  }, [platformMode, roleDef, dbMenus, menusLoaded]);
+  const { items } = useWorkspaceMenus(roleDef);
 
   const activePath = useMemo(
-    () => resolveActiveMenuPath(pathname, roleDef.slug, collectMenuLeafPaths(items)),
-    [pathname, roleDef.slug, items]
+    () => resolveActiveMenuPath(pathname, roleSlug, collectMenuLeafPaths(items)),
+    [pathname, roleSlug, items]
   );
 
   return (
@@ -114,7 +75,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
             <SidebarGroup
               key={item.key}
               item={item}
-              slug={roleDef.slug}
+              slug={roleSlug}
               pathname={pathname}
               activePath={activePath}
               collapsed={collapsed}
@@ -126,7 +87,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
             <SidebarLeaf
               key={item.key}
               item={item}
-              slug={roleDef.slug}
+              slug={roleSlug}
               activePath={activePath}
               collapsed={collapsed}
               onNavigate={onNavigate}
@@ -164,7 +125,7 @@ function groupContainsActivePath(items: MenuItem[], activePath: string | null): 
   return items.some((child) =>
     child.children
       ? groupContainsActivePath(child.children, activePath)
-      : child.path === activePath
+      : normalizeMenuUrl(child.path) === activePath
   );
 }
 
@@ -197,7 +158,6 @@ function SidebarGroup({
   }, [isActiveGroup, pathname]);
 
   if (collapsed) {
-    // Collapsed rail has no room for group headers — flatten nested leaves into tooltip icons.
     return (
       <>
         {flattenLeaves(children).map((child) => (
@@ -283,8 +243,9 @@ function SidebarLeaf({
   onNavigate?: () => void;
   label: string;
 }) {
-  const href = menuItemHref(slug, item.path);
-  const active = activePath != null && item.path === activePath;
+  const menuPath = normalizeMenuUrl(item.path);
+  const href = menuItemHref(slug, menuPath);
+  const active = activePath != null && menuPath === activePath;
   const Icon = menuIcon(item.icon);
   const linkClassName = cn(
     "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors",
@@ -300,6 +261,10 @@ function SidebarLeaf({
       {!collapsed && <span className="truncate">{label}</span>}
     </>
   );
+
+  if (!menuPath) {
+    return null;
+  }
 
   if (!collapsed) {
     return (

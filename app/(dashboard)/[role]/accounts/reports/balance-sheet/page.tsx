@@ -11,6 +11,7 @@ import { FinanceReportChrome, formatMoney } from "@/components/finance/FinanceRe
 import { useAccountGroupsStore } from "@/lib/store/account-groups.store";
 import { useLedgersStore } from "@/lib/store/ledgers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { buildBalanceSheet, type StatementLine } from "@/lib/finance-reports";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ function BalanceSheetView() {
   const allLedgers = useLedgersStore((s) => s.ledgers);
 
   useEffect(() => {
-    document.title = "Balance Sheet · Klyra";
+    document.title = `Balance Sheet · ${SAAS_BRAND.name}`;
   }, []);
 
   const groups = useMemo(

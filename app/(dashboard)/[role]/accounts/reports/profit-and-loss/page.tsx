@@ -11,6 +11,7 @@ import { FinanceReportChrome, formatMoney } from "@/components/finance/FinanceRe
 import { useAccountGroupsStore } from "@/lib/store/account-groups.store";
 import { useLedgersStore } from "@/lib/store/ledgers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { SAAS_BRAND } from "@/config/saasBrand";
 import { buildProfitAndLoss, type StatementLine } from "@/lib/finance-reports";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ function ProfitAndLossView() {
   const allLedgers = useLedgersStore((s) => s.ledgers);
 
   useEffect(() => {
-    document.title = "Profit and Loss · Klyra";
+    document.title = `Profit and Loss · ${SAAS_BRAND.name}`;
   }, []);
 
   const groups = useMemo(

@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
@@ -10,6 +11,8 @@ import { SubscriptionModuleAccessForm } from "@/components/masters/SubscriptionM
 
 function NewAccess() {
   const { role } = useParams<{ role: string }>();
+  const searchParams = useSearchParams();
+  const tenantId = Number(searchParams.get("tenantId") ?? 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -27,7 +30,9 @@ function NewAccess() {
           </Button>
         }
       />
-      <SubscriptionModuleAccessForm />
+      <SubscriptionModuleAccessForm
+        initialTenantId={tenantId > 0 ? tenantId : undefined}
+      />
     </div>
   );
 }
@@ -35,7 +40,11 @@ function NewAccess() {
 export default function NewSubscriptionModuleAccessPage() {
   return (
     <AccessGate module="subscriptionModuleAccess" action="create">
-      {() => <NewAccess />}
+      {() => (
+        <Suspense fallback={null}>
+          <NewAccess />
+        </Suspense>
+      )}
     </AccessGate>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Controller, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import {
   updateSubscriptionModuleAccess,
   SubscriptionModuleAccessApiError,
 } from "@/lib/services/subscription-module-access.service";
+import { cn } from "@/lib/utils";
 import type { SubscriptionModule, SubscriptionModuleAccess, Tenant } from "@/types";
 
 const createSchema = z.object({
@@ -39,8 +40,11 @@ type FormValues = z.infer<typeof createSchema>;
 
 export function SubscriptionModuleAccessForm({
   access,
+  initialTenantId,
 }: {
   access?: SubscriptionModuleAccess;
+  /** Prefill tenant when granting from a tenant card. */
+  initialTenantId?: number;
 }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
@@ -49,9 +53,13 @@ export function SubscriptionModuleAccessForm({
   const isEdit = !!access;
   const listHref = `/${role}/masters/subscription-module-access`;
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
+  const presetTenantId =
+    typeof initialTenantId === "number" && initialTenantId > 0 ? initialTenantId : 0;
   const [modules, setModules] = useState<SubscriptionModule[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [existingModuleIds, setExistingModuleIds] = useState<number[]>([]);
+  const tenantFieldRef = useRef<HTMLDivElement>(null);
+  const modulesFieldRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void Promise.all([listSubscriptionModules(), listTenants()])
@@ -93,7 +101,7 @@ export function SubscriptionModuleAccessForm({
   } = useForm<FormValues>({
     resolver: zodResolver(isEdit ? editSchema : createSchema),
     defaultValues: {
-      tenantId: access?.tenantId ?? 0,
+      tenantId: access?.tenantId ?? (presetTenantId > 0 ? presetTenantId : 0),
       subscriptionModuleIds: access?.subscriptionModuleId ? [access.subscriptionModuleId] : [],
     },
   });
@@ -105,6 +113,12 @@ export function SubscriptionModuleAccessForm({
       subscriptionModuleIds: [access.subscriptionModuleId],
     });
   }, [access, reset]);
+
+  useEffect(() => {
+    if (isEdit || access || presetTenantId <= 0) return;
+    if (getValues("tenantId") > 0) return;
+    setValue("tenantId", presetTenantId, { shouldValidate: true });
+  }, [isEdit, access, presetTenantId, getValues, setValue]);
 
   const tenantId = useWatch({ control, name: "tenantId" });
   const selectedIds = useWatch({ control, name: "subscriptionModuleIds" }) ?? [];
@@ -194,6 +208,21 @@ export function SubscriptionModuleAccessForm({
     (m) => isEdit || !existingModuleIds.includes(m.subscriptionModuleId)
   ).length;
 
+  function focusFirstInvalid(formErrors: FieldErrors<FormValues>) {
+    const target =
+      formErrors.tenantId
+        ? tenantFieldRef.current
+        : formErrors.subscriptionModuleIds
+          ? modulesFieldRef.current
+          : null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    const focusable = target.querySelector<HTMLElement>(
+      'button:not([disabled]), [role="combobox"], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    window.setTimeout(() => focusable?.focus({ preventScroll: true }), 250);
+  }
+
   return (
     <Card>
       <CardContent className="space-y-6 pt-6">
@@ -213,8 +242,12 @@ export function SubscriptionModuleAccessForm({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
+        <form
+          onSubmit={handleSubmit(onSubmit, focusFirstInvalid)}
+          className="grid gap-4 sm:grid-cols-2"
+          noValidate
+        >
+          <div ref={tenantFieldRef} className="space-y-2 sm:col-span-2">
             <Label required>Tenant</Label>
             <Controller
               name="tenantId"
@@ -229,7 +262,13 @@ export function SubscriptionModuleAccessForm({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 w-full max-w-full min-w-0">
+                  <SelectTrigger
+                    aria-invalid={!!errors.tenantId}
+                    className={cn(
+                      "h-10 w-full max-w-full min-w-0",
+                      errors.tenantId && "border-destructive"
+                    )}
+                  >
                     <SelectValue>
                       {(value: string | null) => {
                         if (!value) return "Select tenant…";
@@ -255,11 +294,13 @@ export function SubscriptionModuleAccessForm({
               )}
             />
             {errors.tenantId && (
-              <p className="text-sm text-destructive">{errors.tenantId.message}</p>
+              <p className="text-sm text-destructive" role="alert">
+                {errors.tenantId.message}
+              </p>
             )}
           </div>
 
-          <div className="space-y-3 sm:col-span-2">
+          <div ref={modulesFieldRef} className="space-y-3 sm:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label required>Subscription modules</Label>
               {!isEdit && activeModules.length > 0 && (
@@ -293,16 +334,30 @@ export function SubscriptionModuleAccessForm({
               )}
             </div>
 
+            {errors.subscriptionModuleIds && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.subscriptionModuleIds.message}
+              </p>
+            )}
+
             {activeModules.length === 0 ? (
               <p className="text-sm text-muted-foreground">No subscription modules available.</p>
             ) : (
-              <div className="max-h-80 space-y-4 overflow-y-auto rounded-lg border border-border p-3">
+              <div
+                className={cn(
+                  "space-y-5 rounded-lg border p-4",
+                  errors.subscriptionModuleIds ? "border-destructive" : "border-border"
+                )}
+              >
                 {modulesByProduct.map(([productName, productModules]) => (
                   <div key={productName} className="space-y-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {productName}
+                      <span className="ms-1.5 font-normal normal-case tracking-normal">
+                        ({productModules.length})
+                      </span>
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {productModules.map((m) => {
                         const alreadyGranted =
                           !isEdit && existingModuleIds.includes(m.subscriptionModuleId);
@@ -323,7 +378,7 @@ export function SubscriptionModuleAccessForm({
                                 toggleModule(m.subscriptionModuleId, !checked);
                               }
                             }}
-                            className={`flex items-start gap-2.5 rounded-md border border-transparent px-2 py-2 text-sm hover:bg-muted/50 ${
+                            className={`flex items-start gap-2.5 rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm hover:bg-muted/50 ${
                               alreadyGranted
                                 ? "cursor-not-allowed opacity-60"
                                 : "cursor-pointer"
@@ -367,20 +422,12 @@ export function SubscriptionModuleAccessForm({
                 All modules are already granted to this tenant. Choose another tenant to grant more.
               </p>
             )}
-            {errors.subscriptionModuleIds && (
-              <p className="text-sm text-destructive">{errors.subscriptionModuleIds.message}</p>
-            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
             <Button
               type="submit"
-              disabled={
-                isSubmitting ||
-                activeModules.length === 0 ||
-                activeTenants.length === 0 ||
-                (!isEdit && selectedIds.length === 0)
-              }
+              disabled={isSubmitting || activeModules.length === 0 || activeTenants.length === 0}
             >
               <Save className="h-4 w-4" />
               {isEdit

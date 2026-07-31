@@ -1,31 +1,26 @@
 /**
- * Market brand for the multi-vertical SaaS platform.
- *
- * Chosen: Klyra (KLY-rah)
- * Why: 5 letters, easy to say globally, not travel-locked, available-feeling
- * for trademarks/domains vs overused names like Nexora / Voyara.
- *
- * Alternatives kept for stakeholders:
- * - Velqo — sharper tech tone
- * - Arvio — soft enterprise
- * - Solvra — “solve” association
- * - Trivio — travel hint without being a tour brand
+ * Al Asmakh Nexus — platform brand under Al Asmakh Group Holding.
+ * Visual system follows the official lockup (navy mark on light grounds).
  */
 export const SAAS_BRAND = {
-  name: "Klyra",
-  legalName: "Klyra Technologies",
-  tagline: "Connecting journeys, creating value",
+  name: "Al Asmakh Nexus",
+  shortName: "Nexus",
+  groupName: "Al Asmakh Group Holding",
+  legalName: "Al Asmakh Group Holding",
+  tagline: "One platform. Every business connected.",
   description:
-    "Modular SaaS for agencies, OTAs, corporates, and real-estate teams. Subscribe to ERP, portals, CRM, property, payments, APIs, and mobile apps as you grow.",
-  domainHint: "klyra.io",
-  supportEmail: "hello@klyra.io",
-  salesEmail: "sales@klyra.io",
-  phone: "+974 4000 1200",
-  address: "West Bay, Doha, Qatar",
-  /** Full lockup (mark + wordmark) — Super Admin / platform chrome. */
-  logoUrl: "/brand/klyra-logo.png",
-  /** Compact mark for favicon and collapsed sidebar. */
-  faviconUrl: "/brand/klyra-favicon.png",
-  primaryColor: "#002D5B",
-  accentColor: "#00A3E0",
+    "Al Asmakh Nexus unifies Travel, Real Estate, Hospitality, Finance, HRMS, Fleet, Procurement, CRM, and Helpdesk — one tenant, every business connected.",
+  domainHint: "nexus.alasmakhgroup.com",
+  supportEmail: "nexus@alasmakhgroup.com",
+  salesEmail: "nexus@alasmakhgroup.com",
+  phone: "+974 4434 4444",
+  address: "Doha, Qatar",
+  /** Full horizontal lockup — marketing header & footer. */
+  logoUrl: "/brand/al-asmakh-logo-lockup.png",
+  /** Arabic calligraphy mark — favicon / compact chrome. */
+  faviconUrl: "/brand/al-asmakh-favicon.png",
+  appleTouchIconUrl: "/brand/apple-touch-icon.png",
+  /** Official brand navy from the logo. */
+  primaryColor: "#001C35",
+  accentColor: "#0A4A6E",
 } as const;
