@@ -194,9 +194,11 @@ export type ModuleKey =
   // Accounts / Finance
   | "accounts"
   | "accountsDashboard"
+  | "accountsSetup"
   | "accountGroup"
   | "ledger"
   | "chartOfAccounts"
+  | "fiscalYearPeriod"
   | "vouchers"
   | "voucherJournal"
   | "voucherSales"
@@ -207,10 +209,31 @@ export type ModuleKey =
   | "voucherCreditNote"
   | "voucherDebitNote"
   | "invoices"
+  | "receivablesPayables"
+  | "customerOutstanding"
+  | "vendorOutstanding"
+  | "ageingAr"
+  | "ageingAp"
+  | "financeBank"
+  | "financeBankAccounts"
+  | "bankReconciliation"
+  | "financeSupplier"
+  | "supplierReconciliation"
+  | "companyReports"
   | "accountsReports"
   | "reportBalanceSheet"
   | "reportProfitAndLoss"
   | "reportTrialBalance"
+  | "generalLedgerReport"
+  | "voucherRegister"
+  | "groupConsolidatedReports"
+  | "consolidatedTrialBalance"
+  | "consolidatedProfitAndLoss"
+  | "consolidatedBalanceSheet"
+  | "companyComparison"
+  | "periodClose"
+  | "periodLock"
+  | "yearEndClose"
   // CRM
   | "crm"
   | "crmDashboard"
@@ -840,10 +863,34 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: "Landmark",
     path: "accounts",
     children: [
-      { key: "accountsDashboard", labelKey: "sidebar.accountsDashboard", icon: "LayoutDashboard", path: "accounts/dashboard" },
-      { key: "accountGroup", labelKey: "sidebar.accountGroup", icon: "ListTree", path: "accounts/group" },
-      { key: "ledger", labelKey: "sidebar.ledger", icon: "BookMarked", path: "accounts/ledger" },
-      { key: "chartOfAccounts", labelKey: "sidebar.chartOfAccounts", icon: "BookOpen", path: "accounts/chart-of-accounts" },
+      {
+        key: "accountsDashboard",
+        labelKey: "sidebar.accountsDashboard",
+        icon: "LayoutDashboard",
+        path: "accounts/dashboard",
+      },
+      {
+        key: "accountsSetup",
+        labelKey: "sidebar.accountsSetup",
+        icon: "Settings",
+        path: "accounts/setup",
+        children: [
+          { key: "accountGroup", labelKey: "sidebar.accountGroup", icon: "ListTree", path: "accounts/group" },
+          {
+            key: "chartOfAccounts",
+            labelKey: "sidebar.chartOfAccounts",
+            icon: "BookOpen",
+            path: "accounts/chart-of-accounts",
+          },
+          { key: "ledger", labelKey: "sidebar.ledger", icon: "BookMarked", path: "accounts/ledger" },
+          {
+            key: "fiscalYearPeriod",
+            labelKey: "sidebar.fiscalYearPeriod",
+            icon: "CalendarDays",
+            path: "accounts/setup/fiscal-year",
+          },
+        ],
+      },
       {
         key: "vouchers",
         labelKey: "sidebar.vouchers",
@@ -861,16 +908,82 @@ export const MENU_ITEMS: MenuItem[] = [
         ],
       },
       {
-        key: "accountsReports",
-        labelKey: "sidebar.accountsReports",
-        icon: "BarChart3",
-        path: "accounts/reports",
+        key: "receivablesPayables",
+        labelKey: "sidebar.receivablesPayables",
+        icon: "BadgeDollarSign",
+        path: "accounts/receivables-payables",
         children: [
           {
-            key: "reportBalanceSheet",
-            labelKey: "sidebar.reportBalanceSheet",
-            icon: "Scale",
-            path: "accounts/reports/balance-sheet",
+            key: "customerOutstanding",
+            labelKey: "sidebar.customerOutstanding",
+            icon: "Users",
+            path: "accounts/receivables-payables/customer-outstanding",
+          },
+          {
+            key: "vendorOutstanding",
+            labelKey: "sidebar.vendorOutstanding",
+            icon: "Store",
+            path: "accounts/receivables-payables/vendor-outstanding",
+          },
+          {
+            key: "ageingAr",
+            labelKey: "sidebar.ageingAr",
+            icon: "Hourglass",
+            path: "accounts/receivables-payables/ageing-ar",
+          },
+          {
+            key: "ageingAp",
+            labelKey: "sidebar.ageingAp",
+            icon: "Hourglass",
+            path: "accounts/receivables-payables/ageing-ap",
+          },
+        ],
+      },
+      {
+        key: "financeBank",
+        labelKey: "sidebar.financeBank",
+        icon: "Landmark",
+        path: "accounts/bank",
+        children: [
+          {
+            key: "financeBankAccounts",
+            labelKey: "sidebar.financeBankAccounts",
+            icon: "Wallet",
+            path: "accounts/bank/accounts",
+          },
+          {
+            key: "bankReconciliation",
+            labelKey: "sidebar.bankReconciliation",
+            icon: "ArrowLeftRight",
+            path: "accounts/bank/reconciliation",
+          },
+        ],
+      },
+      {
+        key: "financeSupplier",
+        labelKey: "sidebar.financeSupplier",
+        icon: "Store",
+        path: "accounts/supplier",
+        children: [
+          {
+            key: "supplierReconciliation",
+            labelKey: "sidebar.supplierReconciliation",
+            icon: "ArrowLeftRight",
+            path: "accounts/supplier/reconciliation",
+          },
+        ],
+      },
+      {
+        key: "companyReports",
+        labelKey: "sidebar.companyReports",
+        icon: "BarChart3",
+        path: "accounts/company-reports",
+        children: [
+          {
+            key: "reportTrialBalance",
+            labelKey: "sidebar.reportTrialBalance",
+            icon: "FileSpreadsheet",
+            path: "accounts/reports/trial-balance",
           },
           {
             key: "reportProfitAndLoss",
@@ -879,10 +992,74 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "accounts/reports/profit-and-loss",
           },
           {
-            key: "reportTrialBalance",
-            labelKey: "sidebar.reportTrialBalance",
+            key: "reportBalanceSheet",
+            labelKey: "sidebar.reportBalanceSheet",
+            icon: "Scale",
+            path: "accounts/reports/balance-sheet",
+          },
+          {
+            key: "generalLedgerReport",
+            labelKey: "sidebar.generalLedgerReport",
+            icon: "BookOpen",
+            path: "accounts/company-reports/general-ledger",
+          },
+          {
+            key: "voucherRegister",
+            labelKey: "sidebar.voucherRegister",
+            icon: "ScrollText",
+            path: "accounts/company-reports/voucher-register",
+          },
+        ],
+      },
+      {
+        key: "groupConsolidatedReports",
+        labelKey: "sidebar.groupConsolidatedReports",
+        icon: "Building2",
+        path: "accounts/group-reports",
+        children: [
+          {
+            key: "consolidatedTrialBalance",
+            labelKey: "sidebar.consolidatedTrialBalance",
             icon: "FileSpreadsheet",
-            path: "accounts/reports/trial-balance",
+            path: "accounts/group-reports/trial-balance",
+          },
+          {
+            key: "consolidatedProfitAndLoss",
+            labelKey: "sidebar.consolidatedProfitAndLoss",
+            icon: "TrendingUp",
+            path: "accounts/group-reports/profit-and-loss",
+          },
+          {
+            key: "consolidatedBalanceSheet",
+            labelKey: "sidebar.consolidatedBalanceSheet",
+            icon: "Scale",
+            path: "accounts/group-reports/balance-sheet",
+          },
+          {
+            key: "companyComparison",
+            labelKey: "sidebar.companyComparison",
+            icon: "GitBranch",
+            path: "accounts/group-reports/company-comparison",
+          },
+        ],
+      },
+      {
+        key: "periodClose",
+        labelKey: "sidebar.periodClose",
+        icon: "Lock",
+        path: "accounts/period-close",
+        children: [
+          {
+            key: "periodLock",
+            labelKey: "sidebar.periodLock",
+            icon: "Lock",
+            path: "accounts/period-close/period-lock",
+          },
+          {
+            key: "yearEndClose",
+            labelKey: "sidebar.yearEndClose",
+            icon: "CalendarDays",
+            path: "accounts/period-close/year-end",
           },
         ],
       },

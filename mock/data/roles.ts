@@ -113,6 +113,7 @@ const EXTRANET_KEYS: ModuleKey[] = [
 ];
 const ACCOUNTS_KEYS: ModuleKey[] = [
   "accountsDashboard",
+  "fiscalYearPeriod",
   "accountGroup",
   "ledger",
   "chartOfAccounts",
@@ -125,9 +126,24 @@ const ACCOUNTS_KEYS: ModuleKey[] = [
   "voucherCreditNote",
   "voucherDebitNote",
   "invoices",
+  "customerOutstanding",
+  "vendorOutstanding",
+  "ageingAr",
+  "ageingAp",
+  "financeBankAccounts",
+  "bankReconciliation",
+  "supplierReconciliation",
   "reportBalanceSheet",
   "reportProfitAndLoss",
   "reportTrialBalance",
+  "generalLedgerReport",
+  "voucherRegister",
+  "consolidatedTrialBalance",
+  "consolidatedProfitAndLoss",
+  "consolidatedBalanceSheet",
+  "companyComparison",
+  "periodLock",
+  "yearEndClose",
 ];
 const CRM_KEYS: ModuleKey[] = [
   "crmDashboard",

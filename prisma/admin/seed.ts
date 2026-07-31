@@ -671,6 +671,14 @@ async function seedSubscriptionCatalog() {
     }
   }
 
+  function collectSeedMenuUrls(nodes: SeedMenuNode[], into: Set<string> = new Set()) {
+    for (const node of nodes) {
+      into.add(node.url);
+      if (node.children?.length) collectSeedMenuUrls(node.children, into);
+    }
+    return into;
+  }
+
   // Seed menus for every active module.
   const activeModules = await prisma.subscriptionModule.findMany({
     where: { isActive: true, subscriptionModuleId: { in: moduleIds } },
@@ -680,6 +688,21 @@ async function seedSubscriptionCatalog() {
     const tree = MODULE_MENU_SEEDS[mod.subscriptionModuleName];
     if (!tree) continue;
     await upsertMenuTree(mod.subscriptionModuleId, tree, null);
+
+    // Drop legacy menus removed from the seed tree (e.g. old Accounts → Reports parent).
+    const desiredUrls = collectSeedMenuUrls(tree);
+    await prisma.subscriptionModuleMenu.updateMany({
+      where: {
+        subscriptionModuleId: mod.subscriptionModuleId,
+        menuUrl: { notIn: [...desiredUrls] },
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
   }
 
   // Link Administration menus to products that unlock them for tenants.

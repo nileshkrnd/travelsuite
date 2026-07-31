@@ -282,9 +282,17 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       icon: "Landmark",
       children: [
         { name: "Finance Dashboard", url: "accounts/dashboard", icon: "LayoutDashboard" },
-        { name: "Account Group", url: "accounts/group", icon: "ListTree" },
-        { name: "Ledger", url: "accounts/ledger", icon: "BookMarked" },
-        { name: "Chart of Accounts", url: "accounts/chart-of-accounts", icon: "BookOpen" },
+        {
+          name: "Setup",
+          url: "accounts/setup",
+          icon: "Settings",
+          children: [
+            { name: "Account Group", url: "accounts/group", icon: "ListTree" },
+            { name: "Chart of Accounts", url: "accounts/chart-of-accounts", icon: "BookOpen" },
+            { name: "Ledger", url: "accounts/ledger", icon: "BookMarked" },
+            { name: "Fiscal Year / Period", url: "accounts/setup/fiscal-year", icon: "CalendarDays" },
+          ],
+        },
         {
           name: "Vouchers",
           url: "accounts/vouchers",
@@ -301,13 +309,123 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           ],
         },
         {
-          name: "Reports",
-          url: "accounts/reports",
+          name: "Receivables & Payables",
+          url: "accounts/receivables-payables",
+          icon: "BadgeDollarSign",
+          children: [
+            {
+              name: "Customer Outstanding",
+              url: "accounts/receivables-payables/customer-outstanding",
+              icon: "Users",
+            },
+            {
+              name: "Vendor Outstanding",
+              url: "accounts/receivables-payables/vendor-outstanding",
+              icon: "Store",
+            },
+            {
+              name: "Ageing (AR)",
+              url: "accounts/receivables-payables/ageing-ar",
+              icon: "Hourglass",
+            },
+            {
+              name: "Ageing (AP)",
+              url: "accounts/receivables-payables/ageing-ap",
+              icon: "Hourglass",
+            },
+          ],
+        },
+        {
+          name: "Bank",
+          url: "accounts/bank",
+          icon: "Landmark",
+          children: [
+            { name: "Bank Accounts", url: "accounts/bank/accounts", icon: "Wallet" },
+            {
+              name: "Bank Reconciliation",
+              url: "accounts/bank/reconciliation",
+              icon: "ArrowLeftRight",
+            },
+          ],
+        },
+        {
+          name: "Supplier",
+          url: "accounts/supplier",
+          icon: "Store",
+          children: [
+            {
+              name: "Supplier Reconciliation",
+              url: "accounts/supplier/reconciliation",
+              icon: "ArrowLeftRight",
+            },
+          ],
+        },
+        {
+          name: "Company Reports",
+          url: "accounts/company-reports",
           icon: "BarChart3",
           children: [
+            {
+              name: "Trial Balance",
+              url: "accounts/reports/trial-balance",
+              icon: "FileSpreadsheet",
+            },
+            {
+              name: "Profit & Loss",
+              url: "accounts/reports/profit-and-loss",
+              icon: "TrendingUp",
+            },
             { name: "Balance Sheet", url: "accounts/reports/balance-sheet", icon: "Scale" },
-            { name: "Profit & Loss", url: "accounts/reports/profit-and-loss", icon: "TrendingUp" },
-            { name: "Trial Balance", url: "accounts/reports/trial-balance", icon: "FileSpreadsheet" },
+            {
+              name: "General Ledger",
+              url: "accounts/company-reports/general-ledger",
+              icon: "BookOpen",
+            },
+            {
+              name: "Voucher Register",
+              url: "accounts/company-reports/voucher-register",
+              icon: "ScrollText",
+            },
+          ],
+        },
+        {
+          name: "Group Consolidated Reports",
+          url: "accounts/group-reports",
+          icon: "Building2",
+          children: [
+            {
+              name: "Consolidated Trial Balance",
+              url: "accounts/group-reports/trial-balance",
+              icon: "FileSpreadsheet",
+            },
+            {
+              name: "Consolidated Profit & Loss",
+              url: "accounts/group-reports/profit-and-loss",
+              icon: "TrendingUp",
+            },
+            {
+              name: "Consolidated Balance Sheet",
+              url: "accounts/group-reports/balance-sheet",
+              icon: "Scale",
+            },
+            {
+              name: "Company Comparison",
+              url: "accounts/group-reports/company-comparison",
+              icon: "GitBranch",
+            },
+          ],
+        },
+        {
+          name: "Period Close",
+          url: "accounts/period-close",
+          icon: "Lock",
+          children: [
+            { name: "Period Lock", url: "accounts/period-close/period-lock", icon: "Lock" },
+            {
+              name: "Year-End Close",
+              url: "accounts/period-close/year-end",
+              icon: "CalendarDays",
+            },
           ],
         },
       ],
