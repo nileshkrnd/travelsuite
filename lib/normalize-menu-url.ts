@@ -14,6 +14,7 @@ function isAccidentalRolePrefix(segment: string): boolean {
   if (/^[a-z]+(?:[A-Z][a-z0-9]*)+$/.test(segment)) return true;
   if (/^(super)?admin$/i.test(segment)) return true;
   if (/^tenantadmin$/i.test(segment)) return true;
+  if (/^app$/i.test(segment)) return true;
   return false;
 }
 

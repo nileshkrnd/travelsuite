@@ -1,5 +1,9 @@
 import { DEFAULT_PREVIEW_TENANT } from "@/mock/data/tenants";
-import { SUPER_ADMIN_ROLE_ID, TENANT_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import {
+  APP_WORKSPACE_ROLE_ID,
+  SUPER_ADMIN_ROLE_ID,
+  TENANT_ADMIN_ROLE_ID,
+} from "@/mock/data/roles";
 import {
   defaultUserTypeId,
   isUserTypeId,
@@ -35,7 +39,8 @@ function toIso(value: Date | string | null | undefined): string | null {
 function roleIdForScope(scope: UserScope): string {
   if (scope === "superAdmin") return SUPER_ADMIN_ROLE_ID;
   if (scope === "tenantAdmin") return TENANT_ADMIN_ROLE_ID;
-  return "role_hr"; // default employee-facing role until role master moves to DB
+  // Neutral URL shell `/app/…` — menus come from Access Role permissions.
+  return APP_WORKSPACE_ROLE_ID;
 }
 
 function resolveUserTypeId(row: UserRow): UserTypeId {

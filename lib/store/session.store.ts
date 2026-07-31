@@ -16,7 +16,19 @@ export const useSessionStore = create<SessionState>()(
       login: (user) => set({ user }),
       logout: () => set({ user: null }),
     }),
-    { name: "travelsuite.session" }
+    {
+      name: "travelsuite.session",
+      version: 2,
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<SessionState>;
+        const user = state.user;
+        // Remap legacy employee shell role_hr → neutral /app workspace.
+        if (user && user.roleId === "role_hr" && user.scope === "employee") {
+          return { user: { ...user, roleId: "role_app" } };
+        }
+        return { user: user ?? null };
+      },
+    }
   )
 );
 

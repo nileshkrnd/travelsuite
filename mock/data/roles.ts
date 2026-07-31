@@ -181,6 +181,15 @@ export const roles: RoleDef[] = [
     permissions: grant(allLeafModuleKeys().filter((key) => !GLOBAL_TENANT_SETTING_KEYS.includes(key))),
   }),
   seedRole({
+    id: "role_app",
+    name: "App",
+    description:
+      "Neutral employee workspace. Sidebar and access come from Access Role menu permissions, not this label.",
+    category: "internal",
+    // Broad shell access so AccessGate does not block menus granted via Access Role.
+    permissions: grant(allLeafModuleKeys().filter((key) => !GLOBAL_TENANT_SETTING_KEYS.includes(key))),
+  }),
+  seedRole({
     id: "role_hr",
     name: "HR",
     description: "Manages the employee lifecycle — attendance, leave, payroll, and recruitment.",
@@ -292,3 +301,8 @@ export const roles: RoleDef[] = [
 export const SUPER_ADMIN_ROLE_ID = "role_super_admin";
 /** Tenant-scoped admin — full menus under one tenant (legacy id kept for demo logins). */
 export const TENANT_ADMIN_ROLE_ID = "role_administrator";
+/**
+ * Neutral workspace shell for employees / consultants.
+ * URL prefix is `/app/…` — Access Role (e.g. Travel Consultant) drives menus, not this slug.
+ */
+export const APP_WORKSPACE_ROLE_ID = "role_app";
