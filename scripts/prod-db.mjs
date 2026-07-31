@@ -75,10 +75,18 @@ async function run(args) {
 const prismaBin = `node "${resolve(root, "node_modules/prisma/build/index.js")}"`;
 const tsxBin = `node "${resolve(root, "node_modules/tsx/dist/cli.mjs")}"`;
 
-console.log(`[prod-db] Using .env.production (${action})`);
-if (action === "migrate") {
-  console.log("[prod-db] Using *_DIRECT_URL for Prisma migrate deploy");
+// Prefer direct DB URL for migrate AND seed (pooler/pgbouncer can hang long scripts).
+if (fileEnv.ADMINCNX_DIRECT_URL) {
+  env.ADMINCNX_URL = fileEnv.ADMINCNX_DIRECT_URL;
+  env.DATABASE_URL = fileEnv.ADMINCNX_DIRECT_URL;
+}
+if (fileEnv.BASECNX_DIRECT_URL) env.BASECNX_URL = fileEnv.BASECNX_DIRECT_URL;
+if (fileEnv.ACCOUNTSCNX_DIRECT_URL) env.ACCOUNTSCNX_URL = fileEnv.ACCOUNTSCNX_DIRECT_URL;
 
+console.log(`[prod-db] Using .env.production (${action})`);
+console.log(`[prod-db] ADMIN host: ${safeHost(env.ADMINCNX_URL)}`);
+
+if (action === "migrate") {
   // Clear failed migration state from a previous partial deploy (ignore if clean).
   await run([
     prismaBin,
@@ -103,3 +111,11 @@ if (action === "migrate") {
 
 const seedCode = await run([tsxBin, "prisma/admin/seed.ts"]);
 process.exit(seedCode);
+
+function safeHost(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "(invalid url)";
+  }
+}

@@ -3,10 +3,15 @@ import { COUNTRY_CITY_SEEDS, CURRENCY_SEEDS } from "./seed-reference";
 import { hashPassword } from "../../lib/password";
 import { MODULE_MENU_SEEDS, ADMIN_MENU_PRODUCT_LINKS, type SeedMenuNode } from "./seed-module-menus";
 
-/** Seeds KlyraAdmin (ADMINCNX_URL) only. */
+/** Seeds KlyraAdmin only (prefer direct URL when seeding against pooler hosts). */
+const adminUrl = process.env.ADMINCNX_DIRECT_URL || process.env.ADMINCNX_URL;
+if (!adminUrl) {
+  throw new Error("Set ADMINCNX_URL (or ADMINCNX_DIRECT_URL) before seeding.");
+}
 const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.ADMINCNX_URL } },
+  datasources: { db: { url: adminUrl } },
 });
+
 
 const CREATED_BY = 1; // Super Admin userKey
 const DEMO_PASSWORD = "123456";
