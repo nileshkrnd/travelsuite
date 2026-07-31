@@ -18,12 +18,12 @@ function PreviewGroup({ item, depth = 0 }: { item: MenuItem; depth?: number }) {
     return (
       <div
         className={cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground",
+          "flex items-start gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground",
           depth > 0 && "py-1.5 text-[13px]"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="truncate">{label}</span>
+        <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{label}</span>
       </div>
     );
   }
@@ -34,13 +34,17 @@ function PreviewGroup({ item, depth = 0 }: { item: MenuItem; depth?: number }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground",
+          "flex w-full items-start gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground",
           depth > 0 && "py-1.5 text-[13px]"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 truncate text-left">{label}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+        <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">
+          {label}
+        </span>
+        <ChevronDown
+          className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")}
+        />
       </button>
       {open && (
         <div

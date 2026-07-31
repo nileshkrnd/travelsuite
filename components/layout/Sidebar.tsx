@@ -61,7 +61,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
     <aside
       className={cn(
         "flex h-full flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150",
-        collapsed ? "w-16" : "w-64",
+        collapsed ? "w-16" : "w-72",
         className
       )}
     >
@@ -69,7 +69,7 @@ export function Sidebar({ roleDef, mobile = false, className, onNavigate }: Side
         <TenantLogo branding={branding} size="sm" showName={!collapsed} markOnly={collapsed} />
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
+      <nav className="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto p-2">
         {items.map((item) =>
           item.children ? (
             <SidebarGroup
@@ -181,14 +181,21 @@ function SidebarGroup({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          "flex w-full items-start gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
           depth > 0 && "py-1.5 text-[13px]",
           isActiveGroup ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
       >
-        <GroupIcon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 truncate text-left">{menuLabel(item, t)}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+        <GroupIcon className="mt-0.5 h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">
+          {menuLabel(item, t)}
+        </span>
+        <ChevronDown
+          className={cn(
+            "mt-0.5 h-3.5 w-3.5 shrink-0 transition-transform",
+            open && "rotate-180"
+          )}
+        />
       </button>
       {open && (
         <div
@@ -248,8 +255,8 @@ function SidebarLeaf({
   const active = activePath != null && menuPath === activePath;
   const Icon = menuIcon(item.icon);
   const linkClassName = cn(
-    "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors",
-    collapsed && "justify-center px-0",
+    "flex rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors",
+    collapsed ? "items-center justify-center px-0" : "items-start gap-2.5",
     active
       ? "border-primary bg-primary/10 text-primary"
       : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -257,8 +264,12 @@ function SidebarLeaf({
 
   const content = (
     <>
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      <Icon className={cn("h-4 w-4 shrink-0", !collapsed && "mt-0.5")} />
+      {!collapsed && (
+        <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+          {label}
+        </span>
+      )}
     </>
   );
 

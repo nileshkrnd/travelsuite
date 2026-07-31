@@ -15,7 +15,7 @@ export function AppShell({ roleDef, children }: { roleDef: RoleDef; children: Re
       <Sidebar roleDef={roleDef} className="hidden lg:flex" />
 
       <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-72 p-0 sm:max-w-72">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Sidebar roleDef={roleDef} mobile onNavigate={() => setMobileDrawerOpen(false)} />
         </SheetContent>
