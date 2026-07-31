@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -210,7 +210,7 @@ function JournalList({ roleDef }: { roleDef: RoleDef }) {
   const [selected, setSelected] = useState<Voucher | undefined>();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: emptyFormValues(),
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "lines" });

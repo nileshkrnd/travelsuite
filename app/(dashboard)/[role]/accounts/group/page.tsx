@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -19,9 +19,19 @@ import {
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { SortableTableHead, type SortDirection } from "@/components/shared/SortableTableHead";
+import {
+  SortableTableHead,
+  type SortDirection,
+} from "@/components/shared/SortableTableHead";
 import { Card } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,24 +82,39 @@ const schema = z.object({
     .trim()
     .min(1, "Group code is required")
     .max(20, "Code must be 20 characters or fewer")
-    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$/, "Use letters, numbers, underscore or hyphen"),
+    .regex(
+      /^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$/,
+      "Use letters, numbers, underscore or hyphen",
+    ),
   name: z.string().trim().min(1, "Group name is required").max(100),
   parentId: z.string().min(1, "Under (parent group) is required"),
   nature: z
     .string()
-    .refine((v): v is AccountGroupNature => ACCOUNT_GROUP_NATURES.some((n) => n.value === v), {
-      message: "Nature of group is required",
-    }),
+    .refine(
+      (v): v is AccountGroupNature =>
+        ACCOUNT_GROUP_NATURES.some((n) => n.value === v),
+      {
+        message: "Nature of group is required",
+      },
+    ),
   reportType: z
     .string()
-    .refine((v): v is AccountGroupReportType => ACCOUNT_GROUP_REPORT_TYPES.some((n) => n.value === v), {
-      message: "Report type is required",
-    }),
+    .refine(
+      (v): v is AccountGroupReportType =>
+        ACCOUNT_GROUP_REPORT_TYPES.some((n) => n.value === v),
+      {
+        message: "Report type is required",
+      },
+    ),
   normalBalance: z
     .string()
-    .refine((v): v is AccountGroupNormalBalance => ACCOUNT_GROUP_NORMAL_BALANCES.some((n) => n.value === v), {
-      message: "Normal balance is required",
-    }),
+    .refine(
+      (v): v is AccountGroupNormalBalance =>
+        ACCOUNT_GROUP_NORMAL_BALANCES.some((n) => n.value === v),
+      {
+        message: "Normal balance is required",
+      },
+    ),
   affectsGrossProfit: z
     .string()
     .refine((v): v is YesNo => YES_NO_OPTIONS.some((n) => n.value === v), {
@@ -107,9 +132,12 @@ const schema = z.object({
     }),
   status: z
     .string()
-    .refine((v): v is "active" | "inactive" => v === "active" || v === "inactive", {
-      message: "Status is required",
-    }),
+    .refine(
+      (v): v is "active" | "inactive" => v === "active" || v === "inactive",
+      {
+        message: "Status is required",
+      },
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -126,7 +154,7 @@ function emptyFormValues(): FormValues {
     behavesLikeSubLedger: "",
     nettBalancesForReporting: "",
     status: "",
-  };
+  } as unknown as FormValues;
 }
 
 function formValuesFromGroup(group: AccountGroup): FormValues {
@@ -144,7 +172,9 @@ function formValuesFromGroup(group: AccountGroup): FormValues {
   };
 }
 
-function applyParentDefaults(parent: AccountGroup | undefined): Partial<FormValues> {
+function applyParentDefaults(
+  parent: AccountGroup | undefined,
+): Partial<FormValues> {
   if (!parent) {
     return {
       nature: "assets",
@@ -193,7 +223,7 @@ function GroupDialog({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: group ? formValuesFromGroup(group) : emptyFormValues(),
   });
 
@@ -209,13 +239,19 @@ function GroupDialog({
     if (raw === ROOT_PARENT) return;
     const parent = groups.find((g) => g.id === raw);
     const defaults = applyParentDefaults(parent);
-    if (defaults.nature) setValue("nature", defaults.nature, { shouldValidate: true });
-    if (defaults.reportType) setValue("reportType", defaults.reportType, { shouldValidate: true });
+    if (defaults.nature)
+      setValue("nature", defaults.nature, { shouldValidate: true });
+    if (defaults.reportType)
+      setValue("reportType", defaults.reportType, { shouldValidate: true });
     if (defaults.normalBalance) {
-      setValue("normalBalance", defaults.normalBalance, { shouldValidate: true });
+      setValue("normalBalance", defaults.normalBalance, {
+        shouldValidate: true,
+      });
     }
     if (defaults.affectsGrossProfit) {
-      setValue("affectsGrossProfit", defaults.affectsGrossProfit, { shouldValidate: true });
+      setValue("affectsGrossProfit", defaults.affectsGrossProfit, {
+        shouldValidate: true,
+      });
     }
   }
 
@@ -223,7 +259,7 @@ function GroupDialog({
     const codeTaken = groups.some(
       (g) =>
         g.id !== group?.id &&
-        g.code.toLowerCase() === values.code.trim().toLowerCase()
+        g.code.toLowerCase() === values.code.trim().toLowerCase(),
     );
     if (codeTaken) {
       toast.error("This group code already exists");
@@ -232,7 +268,7 @@ function GroupDialog({
     const nameTaken = groups.some(
       (g) =>
         g.id !== group?.id &&
-        g.name.toLowerCase() === values.name.trim().toLowerCase()
+        g.name.toLowerCase() === values.name.trim().toLowerCase(),
     );
     if (nameTaken) {
       toast.error("This group name already exists");
@@ -263,7 +299,11 @@ function GroupDialog({
   }
 
   const title =
-    mode === "create" ? "Add account group" : mode === "edit" ? "Edit account group" : "Account group details";
+    mode === "create"
+      ? "Add account group"
+      : mode === "edit"
+        ? "Edit account group"
+        : "Account group details";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -271,11 +311,16 @@ function GroupDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Mock master for review — industry-standard group fields before database work.
+            Mock master for review — industry-standard group fields before
+            database work.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="max-h-[70vh] space-y-4 overflow-y-auto pe-1" noValidate>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="max-h-[70vh] space-y-4 overflow-y-auto pe-1"
+          noValidate
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ag-code" required>
@@ -288,7 +333,11 @@ function GroupDialog({
                 aria-invalid={!!errors.code}
                 {...register("code")}
               />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+              {errors.code && (
+                <p className="text-sm text-destructive">
+                  {errors.code.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="ag-status" required>
@@ -312,7 +361,11 @@ function GroupDialog({
                   </select>
                 )}
               />
-              {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+              {errors.status && (
+                <p className="text-sm text-destructive">
+                  {errors.status.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -326,7 +379,9 @@ function GroupDialog({
               aria-invalid={!!errors.name}
               {...register("name")}
             />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -354,9 +409,15 @@ function GroupDialog({
                 </select>
               )}
             />
-            {errors.parentId && <p className="text-sm text-destructive">{errors.parentId.message}</p>}
+            {errors.parentId && (
+              <p className="text-sm text-destructive">
+                {errors.parentId.message}
+              </p>
+            )}
             {parentId === ROOT_PARENT && (
-              <p className="text-xs text-muted-foreground">Primary groups sit at the root of the chart of accounts.</p>
+              <p className="text-xs text-muted-foreground">
+                Primary groups sit at the root of the chart of accounts.
+              </p>
             )}
           </div>
 
@@ -386,7 +447,11 @@ function GroupDialog({
                   </select>
                 )}
               />
-              {errors.nature && <p className="text-sm text-destructive">{errors.nature.message}</p>}
+              {errors.nature && (
+                <p className="text-sm text-destructive">
+                  {errors.nature.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="ag-report" required>
@@ -413,7 +478,11 @@ function GroupDialog({
                   </select>
                 )}
               />
-              {errors.reportType && <p className="text-sm text-destructive">{errors.reportType.message}</p>}
+              {errors.reportType && (
+                <p className="text-sm text-destructive">
+                  {errors.reportType.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -444,7 +513,9 @@ function GroupDialog({
                 )}
               />
               {errors.normalBalance && (
-                <p className="text-sm text-destructive">{errors.normalBalance.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.normalBalance.message}
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -473,7 +544,9 @@ function GroupDialog({
                 )}
               />
               {errors.affectsGrossProfit && (
-                <p className="text-sm text-destructive">{errors.affectsGrossProfit.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.affectsGrossProfit.message}
+                </p>
               )}
             </div>
           </div>
@@ -505,7 +578,9 @@ function GroupDialog({
                 )}
               />
               {errors.behavesLikeSubLedger && (
-                <p className="text-sm text-destructive">{errors.behavesLikeSubLedger.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.behavesLikeSubLedger.message}
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -534,14 +609,18 @@ function GroupDialog({
                 )}
               />
               {errors.nettBalancesForReporting && (
-                <p className="text-sm text-destructive">{errors.nettBalancesForReporting.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.nettBalancesForReporting.message}
+                </p>
               )}
             </div>
           </div>
 
           {!isReadOnly && (
             <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <DialogClose render={<Button type="button" variant="outline" />}>
+                Cancel
+              </DialogClose>
               <Button type="submit" disabled={isSubmitting}>
                 {isEdit ? "Save changes" : "Create group"}
               </Button>
@@ -569,7 +648,9 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
   const [sortKey, setSortKey] = useState<SortKey | null>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create");
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">(
+    "create",
+  );
   const [selected, setSelected] = useState<AccountGroup | undefined>();
 
   const canCreate = can(roleDef, "accountGroup", "create");
@@ -578,7 +659,7 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
 
   const groups = useMemo(
     () => allGroups.filter((g) => g.tenantId === tenantId),
-    [allGroups, tenantId]
+    [allGroups, tenantId],
   );
 
   const parentName = (parentId: string | null) => {
@@ -603,7 +684,7 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
         (g) =>
           g.name.toLowerCase().includes(term) ||
           g.code.toLowerCase().includes(term) ||
-          accountGroupNatureLabel(g.nature).toLowerCase().includes(term)
+          accountGroupNatureLabel(g.nature).toLowerCase().includes(term),
       );
     }
     if (natureFilter !== "all") {
@@ -613,7 +694,9 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
       rows = [...rows].sort((a, b) => {
         const av = a[sortKey];
         const bv = b[sortKey];
-        const cmp = String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
+        const cmp = String(av).localeCompare(String(bv), undefined, {
+          sensitivity: "base",
+        });
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
@@ -653,7 +736,7 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative sm:w-72">
-          <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute inset-y-0 my-auto h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search code or name…"
             value={search}
@@ -673,7 +756,9 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
             </option>
           ))}
         </select>
-        <p className="text-sm text-muted-foreground sm:ms-auto">{visible.length} group(s)</p>
+        <p className="text-sm text-muted-foreground sm:ms-auto">
+          {visible.length} group(s)
+        </p>
       </div>
 
       <Card>
@@ -690,14 +775,29 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">Sr.</TableHead>
-                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                <SortableTableHead
+                  sortKey="code"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
                   Code
                 </SortableTableHead>
-                <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                <SortableTableHead
+                  sortKey="name"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
                   Group name
                 </SortableTableHead>
                 <TableHead>Under</TableHead>
-                <SortableTableHead sortKey="nature" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                <SortableTableHead
+                  sortKey="nature"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
                   Nature
                 </SortableTableHead>
                 <TableHead>Report</TableHead>
@@ -709,9 +809,13 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
             <TableBody>
               {visible.map((g, index) => (
                 <TableRow key={g.id}>
-                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {index + 1}
+                  </TableCell>
                   <TableCell>
-                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{g.code}</code>
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      {g.code}
+                    </code>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -723,16 +827,28 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{parentName(g.parentId)}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {parentName(g.parentId)}
+                  </TableCell>
                   <TableCell>{accountGroupNatureLabel(g.nature)}</TableCell>
-                  <TableCell className="text-sm">{accountGroupReportLabel(g.reportType)}</TableCell>
-                  <TableCell className="capitalize text-sm">{g.normalBalance}</TableCell>
+                  <TableCell className="text-sm">
+                    {accountGroupReportLabel(g.reportType)}
+                  </TableCell>
+                  <TableCell className="capitalize text-sm">
+                    {g.normalBalance}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={g.status === "active" ? "default" : "secondary"}>{g.status}</Badge>
+                    <Badge
+                      variant={g.status === "active" ? "default" : "secondary"}
+                    >
+                      {g.status}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                      <DropdownMenuTrigger
+                        render={<Button variant="ghost" size="icon-sm" />}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -749,8 +865,15 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
                         {canEdit && (
                           <DropdownMenuItem
                             onClick={() => {
-                              setGroupStatus(g.id, g.status === "active" ? "inactive" : "active");
-                              toast.success(g.status === "active" ? "Group deactivated" : "Group activated");
+                              setGroupStatus(
+                                g.id,
+                                g.status === "active" ? "inactive" : "active",
+                              );
+                              toast.success(
+                                g.status === "active"
+                                  ? "Group deactivated"
+                                  : "Group activated",
+                              );
                             }}
                           >
                             {g.status === "active" ? (
@@ -771,7 +894,9 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
                             onClick={() => {
                               const ok = deleteGroup(g.id);
                               if (!ok) {
-                                toast.error("Cannot delete — system group or has child groups");
+                                toast.error(
+                                  "Cannot delete — system group or has child groups",
+                                );
                                 return;
                               }
                               toast.success("Group deleted");
@@ -803,5 +928,9 @@ function AccountGroupList({ roleDef }: { roleDef: RoleDef }) {
 }
 
 export default function AccountGroupPage() {
-  return <AccessGate module="accountGroup">{(roleDef) => <AccountGroupList roleDef={roleDef} />}</AccessGate>;
+  return (
+    <AccessGate module="accountGroup">
+      {(roleDef) => <AccountGroupList roleDef={roleDef} />}
+    </AccessGate>
+  );
 }

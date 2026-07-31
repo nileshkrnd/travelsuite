@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
@@ -156,7 +156,7 @@ function emptyFormValues(): FormValues {
     joiningDate: "",
     password: "",
     employeeImage: "",
-  };
+  } as unknown as FormValues;
 }
 
 function formValuesFromEmployee(employee: Employee): FormValues {
@@ -182,7 +182,7 @@ function formValuesFromEmployee(employee: Employee): FormValues {
     joiningDate: toDateInputValue(employee.joiningDate),
     password: "",
     employeeImage: employee.employeeImage ?? "",
-  };
+  } as unknown as FormValues;
 }
 
 export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
@@ -215,7 +215,7 @@ export function EmployeeMasterForm({ employee }: { employee?: Employee }) {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     mode: "onBlur",
     // Avoid controlled `values` — it resets dropdowns on every re-render and blocks selection.
     defaultValues: employee ? formValuesFromEmployee(employee) : emptyFormValues(),

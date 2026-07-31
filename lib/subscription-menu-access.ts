@@ -44,7 +44,7 @@ export function isMenuPathAllowed(itemPath: string, allowedUrls: Set<string>): b
 }
 
 export type AssignableMenuOption = {
-  key: ModuleKey;
+  key: ModuleKey | string;
   label: string;
   path: string;
   depth: number;
@@ -72,7 +72,7 @@ export function getAssignableMenuTree(): MenuItem[] {
 
 /** Flat list of app menus that can be linked to a subscription module. */
 export function listAssignableMenuOptions(
-  labelForKey: (key: ModuleKey) => string = (key) => key
+  labelForKey: (key: ModuleKey | string) => string = (key) => key
 ): AssignableMenuOption[] {
   const options: AssignableMenuOption[] = [];
 

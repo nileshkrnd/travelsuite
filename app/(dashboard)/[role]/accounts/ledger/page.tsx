@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -121,7 +121,7 @@ function emptyFormValues(): FormValues {
     creditLimit: "",
     mailingName: "",
     status: "",
-  };
+  } as unknown as FormValues;
 }
 
 function formValuesFromLedger(ledger: Ledger): FormValues {
@@ -188,7 +188,7 @@ function LedgerDialog({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: ledger ? formValuesFromLedger(ledger) : emptyFormValues(),
   });
 

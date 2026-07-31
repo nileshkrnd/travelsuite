@@ -126,6 +126,8 @@ export function TenantModuleAccessPanel({
           subscriptionModuleName:
             access.subscriptionModuleName ?? `Module #${access.subscriptionModuleId}`,
           description: "",
+          sortOrder: 0,
+          showInMenu: true,
           isActive: true,
           createdBy: access.createdBy,
           createdDtTm: access.createdDtTm,

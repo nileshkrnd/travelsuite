@@ -68,7 +68,9 @@ function findMenuGroupKey(moduleKey: ModuleKey): ModuleKey | undefined {
     return items.some((item) => item.key === target || contains(item.children, target));
   }
   for (const item of MENU_ITEMS) {
-    if (item.key === moduleKey || contains(item.children, moduleKey)) return item.key;
+    if (item.key === moduleKey || contains(item.children, moduleKey)) {
+      return item.key as ModuleKey;
+    }
   }
   return undefined;
 }
@@ -88,10 +90,11 @@ export default function ModuleCatchAllPage() {
 
   const path = useMemo(() => (moduleSegments ?? []).join("/"), [moduleSegments]);
   const resolved = useMemo(() => resolveMenuFormRoute(path), [path]);
-  const groupKey = resolved ? findMenuGroupKey(resolved.menuItem.key) : undefined;
+  const moduleKey = resolved ? (resolved.menuItem.key as ModuleKey) : undefined;
+  const groupKey = moduleKey ? findMenuGroupKey(moduleKey) : undefined;
 
   // Dedicated masters (Country, City, …) must never fall through to the placeholder.
-  if (path.startsWith("masters/") || (resolved && REAL_MODULE_KEYS.has(resolved.menuItem.key))) {
+  if (path.startsWith("masters/") || (moduleKey != null && REAL_MODULE_KEYS.has(moduleKey))) {
     const leaf = findMenuItemByPath(path) ?? resolved?.menuItem;
     const href = leaf ? `/${role}/${leaf.path}` : `/${role}/dashboard`;
     return (
@@ -111,7 +114,7 @@ export default function ModuleCatchAllPage() {
     );
   }
 
-  if (!resolved) {
+  if (!resolved || !moduleKey) {
     return (
       <EmptyState
         icon={FileQuestion}
@@ -124,7 +127,7 @@ export default function ModuleCatchAllPage() {
 
   const { menuItem, formMode, recordId } = resolved;
 
-  if (!roleDef || !can(roleDef, menuItem.key, requiredAction(formMode))) {
+  if (!roleDef || !can(roleDef, moduleKey, requiredAction(formMode))) {
     return (
       <EmptyState
         icon={ShieldAlert}
@@ -136,7 +139,7 @@ export default function ModuleCatchAllPage() {
   }
 
   if (formMode !== "list") {
-    if (!hasPrototypeForm(menuItem.key)) {
+    if (!hasPrototypeForm(moduleKey)) {
       return (
         <EmptyState
           icon={FileQuestion}
@@ -149,8 +152,8 @@ export default function ModuleCatchAllPage() {
 
     return (
       <ModulePrototypeFormPage
-        moduleKey={menuItem.key}
-        title={t(menuItem.key)}
+        moduleKey={moduleKey}
+        title={t(moduleKey)}
         groupLabel={groupKey ? t(groupKey) : undefined}
         listPath={menuItem.path}
         mode={formMode}
@@ -161,8 +164,8 @@ export default function ModuleCatchAllPage() {
 
   return (
     <ModulePrototypePage
-      moduleKey={menuItem.key}
-      title={t(menuItem.key)}
+      moduleKey={moduleKey}
+      title={t(moduleKey)}
       groupLabel={groupKey ? t(groupKey) : undefined}
       listPath={menuItem.path}
     />

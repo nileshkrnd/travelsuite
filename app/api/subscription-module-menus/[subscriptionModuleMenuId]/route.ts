@@ -55,10 +55,11 @@ async function assertValidParent(
     if (cursor === menuId) return "Cannot set parent — would create a cycle";
     if (seen.has(cursor)) break;
     seen.add(cursor);
-    const row = await prisma.subscriptionModuleMenu.findUnique({
-      where: { subscriptionModuleMenuId: cursor },
-      select: { parentMenuId: true },
-    });
+    const row: { parentMenuId: number | null } | null =
+      await prisma.subscriptionModuleMenu.findUnique({
+        where: { subscriptionModuleMenuId: cursor },
+        select: { parentMenuId: true },
+      });
     cursor = row?.parentMenuId ?? null;
   }
   return null;

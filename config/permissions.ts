@@ -1013,17 +1013,21 @@ export function flatMenuItems(): MenuItem[] {
 }
 
 /** Top-level menu group that contains a leaf/sub-group key (for breadcrumbs / topbar). */
-export function findTopMenuGroup(key: ModuleKey): MenuItem | undefined {
-  function contains(items: MenuItem[] | undefined, target: ModuleKey): boolean {
+export function findTopMenuGroup(key: ModuleKey | string): MenuItem | undefined {
+  function contains(items: MenuItem[] | undefined, target: string): boolean {
     if (!items) return false;
     return items.some((item) => item.key === target || contains(item.children, target));
   }
   return MENU_ITEMS.find((group) => group.key === key || contains(group.children, key));
 }
 
-export function can(roleDef: RoleDef | undefined, module: ModuleKey, action: PermissionAction): boolean {
+export function can(
+  roleDef: RoleDef | undefined,
+  module: ModuleKey | string,
+  action: PermissionAction
+): boolean {
   if (!roleDef) return false;
-  return roleDef.permissions[module]?.includes(action) ?? false;
+  return roleDef.permissions[module as ModuleKey]?.includes(action) ?? false;
 }
 
 export function getMenuForRole(
@@ -1071,7 +1075,7 @@ export function getMenuForRole(
               .map((u) => u.trim().replace(/^\/+|\/+$/g, "").toLowerCase())
               .filter(Boolean)
           );
-    const alwaysKeys = new Set<ModuleKey>([]);
+    const alwaysKeys = new Set<string>([]);
 
     function pathAllowed(itemPath: string): boolean {
       const path = itemPath.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
@@ -1114,5 +1118,5 @@ export function roleHomePath(roleDef: RoleDef): string {
 
 /** All leaf ModuleKeys — used when seeding full-access roles. */
 export function allLeafModuleKeys(): ModuleKey[] {
-  return flatMenuItems().map((item) => item.key);
+  return flatMenuItems().map((item) => item.key as ModuleKey);
 }
