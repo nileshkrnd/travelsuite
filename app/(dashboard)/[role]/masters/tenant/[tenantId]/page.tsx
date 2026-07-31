@@ -176,8 +176,19 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
                     return meta ? `${meta.code} — ${meta.name}` : tenant.defaultCurrency;
                   })()}
                 </DetailRow>
-                <DetailRow label="Default language">
+                <DetailRow label="Default culture">
                   {LOCALE_LABELS[tenant.defaultLocale] ?? tenant.defaultLocale}
+                </DetailRow>
+                <DetailRow label="Supported cultures">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(tenant.supportedLocales?.length ? tenant.supportedLocales : [tenant.defaultLocale]).map(
+                      (code) => (
+                        <Badge key={code} variant="secondary">
+                          {LOCALE_LABELS[code] ?? code}
+                        </Badge>
+                      )
+                    )}
+                  </div>
                 </DetailRow>
                 <DetailRow label="Registered">{new Date(tenant.createdAt).toLocaleDateString()}</DetailRow>
               </dl>

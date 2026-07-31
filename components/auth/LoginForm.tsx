@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticate, authenticateByEmail, InvalidCredentialsError } from "@/lib/services/auth.service";
+import { getTenantByUid } from "@/lib/services/tenants.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, findTenantBySlug } from "@/lib/store/tenant.store";
+import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
@@ -54,6 +56,7 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
   const setTenant = useTenantStore((s) => s.setTenant);
   const setTenantBySlug = useTenantStore((s) => s.setTenantBySlug);
   const resetToDefaultBranding = useTenantStore((s) => s.resetToDefaultBranding);
+  const upsertTenant = useTenantsStore((s) => s.upsertTenant);
   const login = useSessionStore((s) => s.login);
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -98,7 +101,15 @@ export function LoginForm({ lockedTenant }: LoginFormProps) {
         router.push("/select-tenant");
         return;
       }
-      if (user.tenantId) setTenant(user.tenantId);
+      if (user.tenantId) {
+        try {
+          const fresh = await getTenantByUid(user.tenantId);
+          upsertTenant(fresh);
+          setTenant(fresh.id);
+        } catch {
+          setTenant(user.tenantId);
+        }
+      }
       router.push(roleHomePath(roleDef));
     } catch (err) {
       setServerError(err instanceof InvalidCredentialsError ? t("invalidCredentials") : t("invalidCredentials"));

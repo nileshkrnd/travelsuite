@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
@@ -37,35 +38,46 @@ import {
   updateTenant as updateTenantApi,
   TenantsApiError,
 } from "@/lib/services/tenants.service";
+import { listCultures } from "@/lib/services/cultures.service";
 import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
 import { useReferenceStore } from "@/lib/store/reference.store";
 import { generateTenantCode } from "@/lib/slug";
-import type { CurrencyCode, Tenant } from "@/types";
+import type { Culture, CurrencyCode, Tenant } from "@/types";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
 function useTenantSchema(tenants: Tenant[], currentId?: string) {
-  return z.object({
-    name: z.string().min(1, "Tenant name is required"),
-    slug: z
-      .string()
-      .min(1, "Tenant code is required")
-      .max(30, "Tenant code must be 30 characters or fewer")
-      .refine(
-        (value) => !tenants.some((t) => t.id !== currentId && t.slug.toLowerCase() === value.trim().toLowerCase()),
-        "This tenant code is already in use"
-      ),
-    defaultCurrency: z.string().min(1, "Currency is required"),
-    addressLine1: z.string().min(1, "Address line 1 is required"),
-    addressLine2: z.string().optional(),
-    country: z.string().min(1, "Country is required"),
-    city: z.string().min(1, "City is required"),
-    zip: z.string().min(1, "Zip / postal code is required"),
-    timezone: z.string().min(1, "Timezone is required"),
-    email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-    dialCode: z.string().min(1, "Country dial code is required"),
-    phone: z.string().min(1, "Phone number is required"),
-  });
+  return z
+    .object({
+      name: z.string().min(1, "Tenant name is required"),
+      slug: z
+        .string()
+        .min(1, "Tenant code is required")
+        .max(30, "Tenant code must be 30 characters or fewer")
+        .refine(
+          (value) =>
+            !tenants.some(
+              (t) => t.id !== currentId && t.slug.toLowerCase() === value.trim().toLowerCase()
+            ),
+          "This tenant code is already in use"
+        ),
+      defaultCurrency: z.string().min(1, "Currency is required"),
+      defaultCultureId: z.number().int().positive("Default culture is required"),
+      supportedCultureIds: z.array(z.number().int().positive()).min(1, "Select at least one culture"),
+      addressLine1: z.string().min(1, "Address line 1 is required"),
+      addressLine2: z.string().optional(),
+      country: z.string().min(1, "Country is required"),
+      city: z.string().min(1, "City is required"),
+      zip: z.string().min(1, "Zip / postal code is required"),
+      timezone: z.string().min(1, "Timezone is required"),
+      email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+      dialCode: z.string().min(1, "Country dial code is required"),
+      phone: z.string().min(1, "Phone number is required"),
+    })
+    .refine((v) => v.supportedCultureIds.includes(v.defaultCultureId), {
+      message: "Default culture must be one of the supported cultures",
+      path: ["defaultCultureId"],
+    });
 }
 
 type FormValues = z.infer<ReturnType<typeof useTenantSchema>>;
@@ -81,11 +93,33 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const countries = useReferenceStore((s) => s.countries);
   const currencies = useReferenceStore((s) => s.currencies);
   const { loading: referenceLoading, error: referenceError } = useHydrateReferenceMasters();
+  const [cultures, setCultures] = useState<Culture[]>([]);
+  const [culturesLoading, setCulturesLoading] = useState(true);
   const schema = useTenantSchema(tenants, tenant?.id);
   const isEdit = !!tenant;
   const actorKey = user
     ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0)
     : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    setCulturesLoading(true);
+    listCultures({ activeOnly: true })
+      .then((rows) => {
+        if (!cancelled) setCultures(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCultures([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCulturesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const defaultCultureFallback = cultures.find((c) => c.code === "en")?.cultureKey ?? cultures[0]?.cultureKey ?? 0;
 
   const {
     register,
@@ -99,6 +133,13 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       name: tenant?.branding.name ?? "",
       slug: tenant?.slug ?? "",
       defaultCurrency: tenant?.defaultCurrency ?? "USD",
+      defaultCultureId: tenant?.defaultCultureId ?? defaultCultureFallback,
+      supportedCultureIds:
+        tenant?.supportedCultureIds?.length
+          ? tenant.supportedCultureIds
+          : defaultCultureFallback
+            ? [defaultCultureFallback]
+            : [],
       addressLine1: tenant?.address.line1 ?? "",
       addressLine2: tenant?.address.line2 ?? "",
       country: tenant?.address.country ?? "",
@@ -114,6 +155,8 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const nameValue = useWatch({ control, name: "name" });
   const slugValue = useWatch({ control, name: "slug" });
   const countryValue = useWatch({ control, name: "country" });
+  const supportedCultureIds = useWatch({ control, name: "supportedCultureIds" }) ?? [];
+  const defaultCultureId = useWatch({ control, name: "defaultCultureId" });
   const { cities: cityOptions, loading: citiesLoading } = useCitiesForCountry(countryValue || undefined);
 
   // Create: derive a unique tenant code from the name (never reuse an existing code).
@@ -123,6 +166,31 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
     const next = generateTenantCode(nameValue ?? "", existing);
     setValue("slug", next, { shouldValidate: true, shouldDirty: true });
   }, [isEdit, nameValue, tenants, setValue]);
+
+  // When cultures load on create, ensure default/supported are set.
+  useEffect(() => {
+    if (isEdit || !defaultCultureFallback) return;
+    if (!supportedCultureIds.length) {
+      setValue("supportedCultureIds", [defaultCultureFallback], { shouldValidate: true });
+    }
+    if (!defaultCultureId) {
+      setValue("defaultCultureId", defaultCultureFallback, { shouldValidate: true });
+    }
+  }, [isEdit, defaultCultureFallback, supportedCultureIds.length, defaultCultureId, setValue]);
+
+  function toggleSupportedCulture(cultureId: number, checked: boolean) {
+    const current = supportedCultureIds;
+    const next = checked
+      ? [...new Set([...current, cultureId])]
+      : current.filter((id) => id !== cultureId);
+    setValue("supportedCultureIds", next, { shouldValidate: true, shouldDirty: true });
+    if (!checked && defaultCultureId === cultureId) {
+      setValue("defaultCultureId", next[0] ?? 0, { shouldValidate: true, shouldDirty: true });
+    }
+    if (checked && !defaultCultureId) {
+      setValue("defaultCultureId", cultureId, { shouldValidate: true, shouldDirty: true });
+    }
+  }
 
   async function onSubmit(values: FormValues) {
     if (!actorKey) {
@@ -148,8 +216,8 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       groupName: values.name.trim(),
       defaultCurrency: values.defaultCurrency as CurrencyCode,
       supportedCurrencies: tenant?.supportedCurrencies ?? [values.defaultCurrency as CurrencyCode],
-      defaultLocale: tenant?.defaultLocale ?? "en",
-      supportedLocales: tenant?.supportedLocales ?? ["en"],
+      defaultCultureId: values.defaultCultureId,
+      supportedCultureIds: values.supportedCultureIds,
       primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
       logoUrl: tenant?.branding.logoUrl ?? "",
       address: {
@@ -194,12 +262,24 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
     primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
   };
 
-  if (referenceLoading) {
-    return <div className="text-sm text-muted-foreground">Loading country, city, and currency masters…</div>;
+  if (referenceLoading || culturesLoading) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Loading country, city, currency, and culture masters…
+      </div>
+    );
   }
 
   if (referenceError) {
     return <div className="text-sm text-destructive">{referenceError}</div>;
+  }
+
+  if (cultures.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Add at least one active culture under Masters → Culture before registering a tenant.
+      </div>
+    );
   }
 
   return (
@@ -284,6 +364,83 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                     <p className="text-sm text-destructive">{errors.defaultCurrency.message}</p>
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label required>Supported cultures</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tenants can review data in these cultures. Select one or more active cultures.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {cultures.map((c) => {
+                    const checked = supportedCultureIds.includes(c.cultureKey);
+                    return (
+                      <label
+                        key={c.cultureKey}
+                        className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 text-sm hover:bg-muted/40"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(value) =>
+                            toggleSupportedCulture(c.cultureKey, value === true)
+                          }
+                        />
+                        <span className="min-w-0">
+                          <span className="font-medium">{c.name}</span>
+                          <span className="ms-1.5 font-mono text-xs text-muted-foreground">
+                            {c.code}
+                          </span>
+                          <span className="ms-1.5 text-xs uppercase text-muted-foreground">
+                            {c.direction}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {errors.supportedCultureIds && (
+                  <p className="text-sm text-destructive">{errors.supportedCultureIds.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label required>Default culture</Label>
+                <Controller
+                  control={control}
+                  name="defaultCultureId"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value > 0 ? String(field.value) : ""}
+                      onValueChange={(v) => field.onChange(v ? Number(v) : 0)}
+                      disabled={supportedCultureIds.length === 0}
+                    >
+                      <SelectTrigger className="h-10 w-full max-w-md">
+                        <Globe2 className="h-4 w-4 text-muted-foreground" />
+                        <SelectValue>
+                          {(value: string | null) => {
+                            if (!value) return "Select default culture";
+                            const c = cultures.find((row) => String(row.cultureKey) === value);
+                            return c ? `${c.name} (${c.code})` : value;
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cultures
+                          .filter((c) => supportedCultureIds.includes(c.cultureKey))
+                          .map((c) => (
+                            <SelectItem key={c.cultureKey} value={String(c.cultureKey)}>
+                              {c.name} ({c.code})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.defaultCultureId && (
+                  <p className="text-sm text-destructive">{errors.defaultCultureId.message}</p>
+                )}
               </div>
             </div>
 

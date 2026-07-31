@@ -21,6 +21,8 @@ export const tenants: Tenant[] = [
     supportedCurrencies: ["AED", "USD", "EUR", "GBP", "INR"],
     defaultLocale: "en",
     supportedLocales: ["en", "ar"],
+    defaultDirection: "ltr",
+    cultureDirections: { en: "ltr", ar: "rtl" },
     status: "active",
     createdAt: "2023-11-01T09:00:00.000Z",
     address: {
@@ -204,6 +206,8 @@ export const DEFAULT_PREVIEW_TENANT: Tenant = {
   supportedCurrencies: ["USD"],
   defaultLocale: "en",
   supportedLocales: ["en"],
+  defaultDirection: "ltr",
+  cultureDirections: { en: "ltr" },
   status: "active",
   createdAt: "2023-01-01T00:00:00.000Z",
   address: { line1: "", country: "", city: "", zip: "", timezone: "UTC" },

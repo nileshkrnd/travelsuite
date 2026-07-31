@@ -28,6 +28,11 @@ export interface TenantRow {
   createdDtTm: Date | string;
   modifiedBy: number | null;
   modifiedDtTm: Date | string | null;
+  tenantCultures?: {
+    cultureId: number;
+    isDefault: boolean;
+    culture?: { cultureCode: string; direction?: string };
+  }[];
 }
 
 function splitList(value: string): string[] {
@@ -44,7 +49,26 @@ function toIso(value: Date | string): string {
 /** Maps a DB Tenant row to the app Tenant used by shell / branding / masters. */
 export function toAppTenant(row: TenantRow): Tenant {
   const currencies = splitList(row.supportedCurrencies) as CurrencyCode[];
-  const locales = splitList(row.supportedLocales);
+  const cultures = row.tenantCultures ?? [];
+  const defaultCulture = cultures.find((c) => c.isDefault) ?? cultures[0];
+  const supportedCultureIds = cultures.map((c) => c.cultureId);
+  const cultureCodes = cultures
+    .map((c) => c.culture?.cultureCode)
+    .filter((c): c is string => !!c);
+  const locales =
+    cultureCodes.length > 0 ? cultureCodes : splitList(row.supportedLocales);
+  const cultureDirections: Record<string, "ltr" | "rtl"> = {};
+  for (const link of cultures) {
+    const code = link.culture?.cultureCode;
+    if (!code) continue;
+    cultureDirections[code] = link.culture?.direction === "rtl" ? "rtl" : "ltr";
+  }
+  const defaultLocale = defaultCulture?.culture?.cultureCode || row.defaultLocale || "en";
+  const defaultDirection: "ltr" | "rtl" =
+    defaultCulture?.culture?.direction === "rtl"
+      ? "rtl"
+      : cultureDirections[defaultLocale] ?? "ltr";
+
   return {
     id: row.tenantUid,
     tenantKey: row.tenantId,
@@ -57,8 +81,12 @@ export function toAppTenant(row: TenantRow): Tenant {
     },
     defaultCurrency: (row.defaultCurrency as CurrencyCode) || "USD",
     supportedCurrencies: currencies.length ? currencies : [row.defaultCurrency as CurrencyCode],
-    defaultLocale: row.defaultLocale || "en",
+    defaultLocale,
     supportedLocales: locales.length ? locales : ["en"],
+    defaultCultureId: defaultCulture?.cultureId ?? null,
+    supportedCultureIds,
+    defaultDirection,
+    cultureDirections,
     status: (row.status === "inactive" ? "inactive" : "active") as TenantStatus,
     createdAt: toIso(row.createdDtTm),
     address: {

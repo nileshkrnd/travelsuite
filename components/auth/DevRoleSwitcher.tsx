@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authenticateByEmail, InvalidCredentialsError } from "@/lib/services/auth.service";
+import { getTenantByUid } from "@/lib/services/tenants.service";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 import { roleHomePath } from "@/config/permissions";
 import { MOCK_PASSWORD, users as demoUsers } from "@/mock/data/users";
@@ -22,6 +24,7 @@ export function DevRoleSwitcher() {
   const t = useTranslations("auth.login");
   const login = useSessionStore((s) => s.login);
   const setTenant = useTenantStore((s) => s.setTenant);
+  const upsertTenant = useTenantsStore((s) => s.upsertTenant);
   const roles = useRolesStore((s) => s.roles);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -46,7 +49,15 @@ export function DevRoleSwitcher() {
         router.push("/select-tenant");
         return;
       }
-      setTenant(authed.tenantId);
+      if (authed.tenantId) {
+        try {
+          const fresh = await getTenantByUid(authed.tenantId);
+          upsertTenant(fresh);
+          setTenant(fresh.id);
+        } catch {
+          setTenant(authed.tenantId);
+        }
+      }
       router.push(roleHomePath(roleDef));
     } catch (error) {
       toast.error(

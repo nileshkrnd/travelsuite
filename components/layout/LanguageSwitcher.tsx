@@ -22,10 +22,8 @@ export function LanguageSwitcher() {
   const topbar = useTranslations("topbar");
 
   function handleSelect(code: string) {
-    // Direction (LTR/RTL) flips immediately via DirectionSync regardless of
-    // locale — that's a structural layout concern. Translated copy is a
-    // separate, still-Phase-2 concern: Phase 1 ships English content only,
-    // so non-English selections still get a "coming soon" notice.
+    // Direction flips via DirectionSync from Culture.direction (or locale map).
+    // Translated copy is still Phase 2 — non-English selections get a notice.
     setLocale(code);
     if (code !== "en") {
       toast.info(common("comingSoon", { label: LOCALE_LABELS[code] ?? code }));

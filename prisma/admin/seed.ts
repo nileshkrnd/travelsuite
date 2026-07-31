@@ -223,6 +223,27 @@ const TENANT_SEEDS = [
   },
 ];
 
+async function seedCultures() {
+  const seeds = [
+    { cultureCode: "en", cultureName: "English", direction: "ltr" },
+    { cultureCode: "ar", cultureName: "Arabic", direction: "rtl" },
+    { cultureCode: "es", cultureName: "Spanish", direction: "ltr" },
+    { cultureCode: "hi", cultureName: "Hindi", direction: "ltr" },
+  ];
+
+  for (const row of seeds) {
+    await prisma.culture.upsert({
+      where: { cultureCode: row.cultureCode },
+      create: { ...row, isActive: true, createdBy: CREATED_BY },
+      update: {
+        cultureName: row.cultureName,
+        direction: row.direction,
+        isActive: true,
+      },
+    });
+  }
+}
+
 async function seedTenants() {
   for (const row of TENANT_SEEDS) {
     await prisma.tenant.upsert({
@@ -255,6 +276,39 @@ async function seedTenants() {
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('"Tenant"', 'TenantID'), (SELECT COALESCE(MAX("TenantID"), 1) FROM "Tenant"))`
   );
+}
+
+/** Assign Default + Supported cultures from each tenant's legacy locale fields. */
+async function seedTenantCultures() {
+  const cultures = await prisma.culture.findMany();
+  const byCode = new Map(cultures.map((c) => [c.cultureCode.toLowerCase(), c]));
+
+  for (const seed of TENANT_SEEDS) {
+    const tenant = await prisma.tenant.findUnique({ where: { tenantUid: seed.tenantUid } });
+    if (!tenant) continue;
+
+    const codes = seed.supportedLocales
+      .split(",")
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean);
+    const defaultCode = seed.defaultLocale.trim().toLowerCase();
+    const ordered = [...new Set([defaultCode, ...codes])];
+
+    await prisma.tenantCulture.deleteMany({ where: { tenantId: tenant.tenantId } });
+
+    for (const code of ordered) {
+      const culture = byCode.get(code);
+      if (!culture) continue;
+      await prisma.tenantCulture.create({
+        data: {
+          tenantId: tenant.tenantId,
+          cultureId: culture.cultureId,
+          isDefault: code === defaultCode,
+          createdBy: CREATED_BY,
+        },
+      });
+    }
+  }
 }
 
 async function seedRegions() {
@@ -1419,7 +1473,9 @@ async function seedEmployees() {
 
 async function main() {
   await seedReferenceMasters();
+  await seedCultures();
   await seedTenants();
+  await seedTenantCultures();
   await seedRegions();
   await seedUsers();
   await seedAccessRoles();

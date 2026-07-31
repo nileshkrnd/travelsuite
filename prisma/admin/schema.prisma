@@ -37,9 +37,48 @@ model Tenant {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  moduleAccess SubscriptionModuleAccess[]
+  moduleAccess  SubscriptionModuleAccess[]
+  tenantCultures TenantCulture[]
 
   @@map("Tenant")
+}
+
+/// Global Culture master — languages/locales assignable to tenants (en, ar, es, …).
+model Culture {
+  cultureId    Int       @id @default(autoincrement()) @map("CultureID")
+  cultureCode  String    @unique @map("CultureCode") @db.VarChar(10)
+  cultureName  String    @map("CultureName") @db.VarChar(200)
+  /// Text direction: "ltr" | "rtl"
+  direction    String    @default("ltr") @map("Direction") @db.VarChar(10)
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  tenantCultures TenantCulture[]
+
+  @@map("Culture")
+}
+
+/// Cultures enabled for a tenant — one row marked IsDefault.
+model TenantCulture {
+  tenantCultureId Int       @id @default(autoincrement()) @map("TenantCultureID")
+  tenantId        Int       @map("TenantID")
+  cultureId       Int       @map("CultureID")
+  isDefault       Boolean   @default(false) @map("IsDefault")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  culture Culture @relation(fields: [cultureId], references: [cultureId], onDelete: Restrict)
+
+  @@unique([tenantId, cultureId], map: "TenantCulture_Tenant_Culture_key")
+  @@index([tenantId], map: "TenantCulture_TenantID_idx")
+  @@index([cultureId], map: "TenantCulture_CultureID_idx")
+  @@map("TenantCulture")
 }
 
 /// Global Country master — not scoped to Tenant or Company.

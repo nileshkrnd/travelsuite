@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { joinList } from "@/lib/mappers/tenant.mapper";
+import { syncTenantCultures, TENANT_CULTURE_INCLUDE } from "@/lib/tenant-cultures";
 
 const idSchema = z.coerce.number().int().positive();
 
@@ -29,6 +30,8 @@ const updateSchema = z.object({
   supportedCurrencies: z.array(z.string()).optional(),
   defaultLocale: z.string().trim().max(10).optional(),
   supportedLocales: z.array(z.string()).optional(),
+  defaultCultureId: z.number().int().positive(),
+  supportedCultureIds: z.array(z.number().int().positive()).min(1),
   primaryColor: z.string().trim().max(20).optional(),
   logoUrl: z.string().trim().max(500).optional(),
   address: addressSchema,
@@ -61,7 +64,10 @@ export async function GET(
       return NextResponse.json({ error: "Invalid tenant id" }, { status: 400 });
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { tenantId: tenantId.data } });
+    const tenant = await prisma.tenant.findUnique({
+      where: { tenantId: tenantId.data },
+      include: TENANT_CULTURE_INCLUDE,
+    });
     if (!tenant) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
@@ -96,32 +102,46 @@ export async function PUT(
       ? data.supportedCurrencies
       : [data.defaultCurrency];
 
-    const tenant = await prisma.tenant.update({
-      where: { tenantId: tenantId.data },
-      data: {
-        tenantCode: data.tenantCode,
-        tenantName: data.tenantName,
-        groupName: data.groupName?.trim() || data.tenantName,
-        defaultCurrency: data.defaultCurrency,
-        supportedCurrencies: joinList(currencies),
-        defaultLocale: data.defaultLocale ?? "en",
-        supportedLocales: joinList(data.supportedLocales?.length ? data.supportedLocales : ["en"]),
-        primaryColor: data.primaryColor,
-        logoUrl: data.logoUrl,
-        addressLine1: data.address.line1,
-        addressLine2: data.address.line2 || null,
-        country: data.address.country,
-        city: data.address.city,
-        zip: data.address.zip,
-        timezone: data.address.timezone,
-        email: data.contact.email,
-        dialCode: data.contact.dialCode,
-        phone: data.contact.phone,
-        status: data.status,
-        modifiedBy: data.modifiedBy,
-        modifiedDtTm: new Date(),
-      },
+    const tenant = await prisma.$transaction(async (tx) => {
+      await tx.tenant.update({
+        where: { tenantId: tenantId.data },
+        data: {
+          tenantCode: data.tenantCode,
+          tenantName: data.tenantName,
+          groupName: data.groupName?.trim() || data.tenantName,
+          defaultCurrency: data.defaultCurrency,
+          supportedCurrencies: joinList(currencies),
+          primaryColor: data.primaryColor,
+          logoUrl: data.logoUrl,
+          addressLine1: data.address.line1,
+          addressLine2: data.address.line2 || null,
+          country: data.address.country,
+          city: data.address.city,
+          zip: data.address.zip,
+          timezone: data.address.timezone,
+          email: data.contact.email,
+          dialCode: data.contact.dialCode,
+          phone: data.contact.phone,
+          status: data.status,
+          modifiedBy: data.modifiedBy,
+          modifiedDtTm: new Date(),
+        },
+      });
+
+      await syncTenantCultures(
+        tx,
+        tenantId.data,
+        data.supportedCultureIds,
+        data.defaultCultureId,
+        data.modifiedBy
+      );
+
+      return tx.tenant.findUniqueOrThrow({
+        where: { tenantId: tenantId.data },
+        include: TENANT_CULTURE_INCLUDE,
+      });
     });
+
     return NextResponse.json(tenant);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -131,6 +151,9 @@ export async function PUT(
       if (error.code === "P2002") {
         return NextResponse.json({ error: "Tenant code is already in use" }, { status: 409 });
       }
+    }
+    if (error instanceof Error && /culture/i.test(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return dbUnavailable(error);
   }
@@ -163,6 +186,7 @@ export async function PATCH(
         modifiedBy: parsed.data.modifiedBy,
         modifiedDtTm: new Date(),
       },
+      include: TENANT_CULTURE_INCLUDE,
     });
     return NextResponse.json(tenant);
   } catch (error) {

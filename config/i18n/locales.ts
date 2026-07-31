@@ -3,6 +3,7 @@ export const LOCALE_LABELS: Record<string, string> = {
   en: "English",
   fr: "Français",
   ar: "العربية",
+  es: "Español",
   hi: "हिन्दी",
 };
 
@@ -11,5 +12,6 @@ export const LOCALE_DIR: Record<string, "ltr" | "rtl"> = {
   en: "ltr",
   fr: "ltr",
   ar: "rtl",
+  es: "ltr",
   hi: "ltr",
 };

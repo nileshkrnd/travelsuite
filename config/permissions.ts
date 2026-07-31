@@ -26,6 +26,7 @@ export type ModuleKey =
   | "city"
   | "region"
   | "currency"
+  | "culture"
   | "airlineType"
   | "airline"
   | "airport"
@@ -295,6 +296,7 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "city",
   "region",
   "currency",
+  "culture",
   "airlineType",
   "airline",
   "airport",
@@ -327,6 +329,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
       { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
+      { key: "culture", labelKey: "sidebar.culture", icon: "Globe2", path: "masters/culture" },
       { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
       { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
       { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },

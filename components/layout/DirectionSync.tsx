@@ -2,21 +2,23 @@
 
 import { useEffect } from "react";
 import { useUiPrefsStore } from "@/lib/store/ui-prefs.store";
-import { LOCALE_DIR } from "@/config/i18n/locales";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { resolveTextDirection } from "@/lib/tenant-locale";
 
 /**
- * Mirrors the whole app to RTL when an RTL locale (e.g. Arabic) is active.
- * Runs independently of translated content — next-intl still serves English
- * copy in Phase 1 (see config/i18n/request.ts), but the layout direction is
- * a structural concern that flips today so RTL readiness is visible now.
+ * Mirrors the whole app to RTL when the active culture/locale is RTL.
+ * Prefers Culture.direction from the tenant's assigned cultures; falls back
+ * to the static locale map. next-intl may still serve English copy in Phase 1,
+ * but layout direction flips from the default culture after login.
  */
 export function DirectionSync() {
   const locale = useUiPrefsStore((s) => s.locale);
+  const tenant = useTenantStore((s) => s.tenant);
 
   useEffect(() => {
-    document.documentElement.dir = LOCALE_DIR[locale] ?? "ltr";
+    document.documentElement.dir = resolveTextDirection(locale, tenant);
     document.documentElement.lang = locale;
-  }, [locale]);
+  }, [locale, tenant]);
 
   return null;
 }

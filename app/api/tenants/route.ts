@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { joinList } from "@/lib/mappers/tenant.mapper";
+import { syncTenantCultures, TENANT_CULTURE_INCLUDE } from "@/lib/tenant-cultures";
 
 const addressSchema = z.object({
   line1: z.string().trim().min(1).max(200),
@@ -27,6 +28,8 @@ const createSchema = z.object({
   supportedCurrencies: z.array(z.string()).optional(),
   defaultLocale: z.string().trim().max(10).optional(),
   supportedLocales: z.array(z.string()).optional(),
+  defaultCultureId: z.number().int().positive(),
+  supportedCultureIds: z.array(z.number().int().positive()).min(1),
   primaryColor: z.string().trim().max(20).optional(),
   logoUrl: z.string().trim().max(500).optional(),
   address: addressSchema,
@@ -50,11 +53,17 @@ export async function GET(request: Request) {
     const uid = searchParams.get("uid")?.trim();
 
     if (uid) {
-      const tenant = await prisma.tenant.findUnique({ where: { tenantUid: uid } });
+      const tenant = await prisma.tenant.findUnique({
+        where: { tenantUid: uid },
+        include: TENANT_CULTURE_INCLUDE,
+      });
       return NextResponse.json(tenant ? [tenant] : []);
     }
 
-    const tenants = await prisma.tenant.findMany({ orderBy: { tenantName: "asc" } });
+    const tenants = await prisma.tenant.findMany({
+      include: TENANT_CULTURE_INCLUDE,
+      orderBy: { tenantName: "asc" },
+    });
     return NextResponse.json(tenants);
   } catch (error) {
     return dbUnavailable(error);
@@ -104,14 +113,26 @@ export async function POST(request: Request) {
         },
       });
 
-      // Stabilize app uid to tenant_{TenantID} when caller did not supply one.
+      await syncTenantCultures(
+        tx,
+        row.tenantId,
+        data.supportedCultureIds,
+        data.defaultCultureId,
+        data.createdBy
+      );
+
+      const tenantId = row.tenantId;
       if (!data.tenantUid?.trim()) {
-        return tx.tenant.update({
-          where: { tenantId: row.tenantId },
-          data: { tenantUid: `tenant_${row.tenantId}` },
+        await tx.tenant.update({
+          where: { tenantId },
+          data: { tenantUid: `tenant_${tenantId}` },
         });
       }
-      return row;
+
+      return tx.tenant.findUniqueOrThrow({
+        where: { tenantId },
+        include: TENANT_CULTURE_INCLUDE,
+      });
     });
 
     return NextResponse.json(created, { status: 201 });
@@ -121,6 +142,9 @@ export async function POST(request: Request) {
         { error: "Tenant code or id is already in use" },
         { status: 409 }
       );
+    }
+    if (error instanceof Error && /culture/i.test(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return dbUnavailable(error);
   }

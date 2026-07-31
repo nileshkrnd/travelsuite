@@ -104,6 +104,7 @@
     "city": "City",
     "region": "Region",
     "currency": "Currency",
+    "culture": "Culture",
     "airlineType": "Airline Type",
     "airline": "Airline",
     "airport": "Airport",

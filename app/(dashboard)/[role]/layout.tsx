@@ -8,6 +8,7 @@ import { useTenantStore } from "@/lib/store/tenant.store";
 import { roleHomePath } from "@/config/permissions";
 import { AppShell } from "@/components/layout/AppShell";
 import { useHydrateReferenceMasters } from "@/lib/hooks/useReferenceMasters";
+import { useHydrateSessionTenant } from "@/lib/hooks/useHydrateSessionTenant";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 
 export default function DashboardRoleLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function DashboardRoleLayout({ children }: { children: React.Reac
   const tenantId = useTenantStore((s) => s.tenantId);
   const router = useRouter();
   useHydrateReferenceMasters();
+  useHydrateSessionTenant();
 
   const userRoleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
 

@@ -41,6 +41,13 @@ export interface Tenant {
   supportedCurrencies: CurrencyCode[];
   defaultLocale: string;
   supportedLocales: string[];
+  /** Culture master assignment (multi-culture). */
+  defaultCultureId?: number | null;
+  supportedCultureIds?: number[];
+  /** Text direction of the default culture (`ltr` | `rtl`). */
+  defaultDirection?: "ltr" | "rtl";
+  /** Direction per supported culture code (from Culture master). */
+  cultureDirections?: Record<string, "ltr" | "rtl">;
   status: TenantStatus;
   createdAt: string;
   address: TenantAddress;

@@ -53,6 +53,8 @@ export interface TenantWriteInput {
   supportedCurrencies?: CurrencyCode[];
   defaultLocale?: string;
   supportedLocales?: string[];
+  defaultCultureId: number;
+  supportedCultureIds: number[];
   primaryColor?: string;
   logoUrl?: string;
   address: TenantAddress;

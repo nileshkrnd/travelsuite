@@ -66,6 +66,8 @@ export const useTenantsStore = create<TenantsState>()(
           supportedCurrencies: [input.defaultCurrency],
           defaultLocale: "en",
           supportedLocales: ["en"],
+          defaultDirection: "ltr",
+          cultureDirections: { en: "ltr" },
           status: "active",
           createdAt: new Date().toISOString(),
           address: input.address,
