@@ -35,6 +35,8 @@ export type SubscriptionModuleMenuInput = {
   menuIcon?: string;
   sortOrder?: number;
   isActive?: boolean;
+  /** Products that unlock this menu when under Administration (empty = common). */
+  subscriptionProductIds?: number[];
 };
 
 export async function listSubscriptionModuleMenus(options?: {

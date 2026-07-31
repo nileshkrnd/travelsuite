@@ -12,10 +12,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { listSubscriptionModules } from "@/lib/services/subscription-modules.service";
+import { listSubscriptionProducts } from "@/lib/services/subscription-products.service";
 import {
   createSubscriptionModuleMenu,
   listSubscriptionModuleMenus,
@@ -24,7 +26,7 @@ import {
 } from "@/lib/services/subscription-module-menus.service";
 import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
 import { ICONS, ICON_NAMES } from "@/lib/icon-registry";
-import type { SubscriptionModule, SubscriptionModuleMenu } from "@/types";
+import type { SubscriptionModule, SubscriptionModuleMenu, SubscriptionProduct } from "@/types";
 
 const schema = z.object({
   subscriptionModuleId: z.number().int().positive("Module is required"),
@@ -33,6 +35,7 @@ const schema = z.object({
   menuUrl: z.string().trim().min(1, "Menu URL is required").max(200),
   menuIcon: z.string().trim().min(1, "Icon is required").max(50),
   sortOrder: z.coerce.number().int().min(0).max(9999),
+  subscriptionProductIds: z.array(z.number().int().positive()),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -53,12 +56,16 @@ export function SubscriptionModuleMenuForm({
   const listHref = `/${role}/masters/subscription-module-menu`;
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
   const [modules, setModules] = useState<SubscriptionModule[]>([]);
+  const [products, setProducts] = useState<SubscriptionProduct[]>([]);
   const [allMenus, setAllMenus] = useState<SubscriptionModuleMenu[]>([]);
 
   useEffect(() => {
     void listSubscriptionModules()
       .then(setModules)
       .catch(() => setModules([]));
+    void listSubscriptionProducts({ activeOnly: true })
+      .then(setProducts)
+      .catch(() => setProducts([]));
     void listSubscriptionModuleMenus()
       .then(setAllMenus)
       .catch(() => setAllMenus([]));
@@ -73,6 +80,7 @@ export function SubscriptionModuleMenuForm({
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -87,12 +95,36 @@ export function SubscriptionModuleMenuForm({
       menuUrl: menu?.menuUrl ?? "",
       menuIcon: menu?.menuIcon ?? "Layers",
       sortOrder: menu?.sortOrder ?? 0,
+      subscriptionProductIds: menu?.subscriptionProductIds ?? [],
     },
   });
 
   const moduleId = watch("subscriptionModuleId");
   const menuIcon = watch("menuIcon");
+  const selectedProductIds = watch("subscriptionProductIds");
   const IconPreview = ICONS[menuIcon] ?? Layers;
+
+  const selectedModule = activeModules.find((m) => m.subscriptionModuleId === moduleId);
+  const isAdministrationModule =
+    selectedModule?.subscriptionModuleName === "Administration" &&
+    selectedModule?.subscriptionProductName === "Administration";
+
+  const linkableProducts = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          p.isActive &&
+          p.subscriptionProductName !== "Administration" &&
+          (isEdit || p.isActive)
+      ),
+    [products, isEdit]
+  );
+
+  useEffect(() => {
+    if (!isAdministrationModule) {
+      setValue("subscriptionProductIds", []);
+    }
+  }, [isAdministrationModule, setValue]);
 
   const parentOptions = useMemo(() => {
     if (!moduleId) return [];
@@ -105,6 +137,21 @@ export function SubscriptionModuleMenuForm({
       .sort((a, b) => a.sortOrder - b.sortOrder || a.menuName.localeCompare(b.menuName));
   }, [allMenus, moduleId, menu?.subscriptionModuleMenuId]);
 
+  function toggleProduct(productId: number, checked: boolean) {
+    const current = selectedProductIds ?? [];
+    if (checked) {
+      if (!current.includes(productId)) {
+        setValue("subscriptionProductIds", [...current, productId], { shouldDirty: true });
+      }
+      return;
+    }
+    setValue(
+      "subscriptionProductIds",
+      current.filter((id) => id !== productId),
+      { shouldDirty: true }
+    );
+  }
+
   async function onSubmit(values: FormValues) {
     if (!userKey) {
       toast.error("Missing user key — sign in again.");
@@ -115,6 +162,7 @@ export function SubscriptionModuleMenuForm({
       toast.error("Menu URL is required");
       return;
     }
+    const productIds = isAdministrationModule ? values.subscriptionProductIds : [];
     try {
       if (isEdit && menu) {
         await updateSubscriptionModuleMenu(menu.subscriptionModuleMenuId, {
@@ -125,6 +173,7 @@ export function SubscriptionModuleMenuForm({
           menuIcon: values.menuIcon,
           sortOrder: values.sortOrder,
           isActive: menu.isActive,
+          subscriptionProductIds: productIds,
           modifiedBy: userKey,
         });
         toast.success("Module menu updated");
@@ -137,6 +186,7 @@ export function SubscriptionModuleMenuForm({
           menuUrl: normalizedUrl,
           menuIcon: values.menuIcon,
           sortOrder: values.sortOrder,
+          subscriptionProductIds: productIds,
           createdBy: userKey,
         });
         toast.success("Module menu created");
@@ -210,6 +260,41 @@ export function SubscriptionModuleMenuForm({
             )}
           </div>
 
+          {isAdministrationModule && (
+            <div className="space-y-3 sm:col-span-2 rounded-lg border border-border p-4">
+              <div>
+                <Label>Visible for products</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tenant sees this menu when they have Module Access under any selected product.
+                  Leave all unchecked for a common menu (e.g. Dashboard).
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {linkableProducts.map((p) => {
+                  const checked = (selectedProductIds ?? []).includes(p.subscriptionProductId);
+                  return (
+                    <label
+                      key={p.subscriptionProductId}
+                      className="flex cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) =>
+                          toggleProduct(p.subscriptionProductId, v === true)
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm leading-snug">{p.subscriptionProductName}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {linkableProducts.length === 0 && (
+                <p className="text-sm text-muted-foreground">No products available.</p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2 sm:col-span-2">
             <Label>Parent menu</Label>
             <Controller
@@ -252,7 +337,7 @@ export function SubscriptionModuleMenuForm({
             <Label htmlFor="menuName" required>
               Menu name
             </Label>
-            <Input id="menuName" maxLength={100} placeholder="e.g. HRMS" {...register("menuName")} />
+            <Input id="menuName" maxLength={100} placeholder="e.g. Employee" {...register("menuName")} />
             {errors.menuName && (
               <p className="text-sm text-destructive">{errors.menuName.message}</p>
             )}
@@ -265,7 +350,7 @@ export function SubscriptionModuleMenuForm({
             <Input
               id="menuUrl"
               maxLength={200}
-              placeholder="e.g. hrms or accounts/reports"
+              placeholder="e.g. masters/employee"
               {...register("menuUrl")}
             />
             <p className="text-xs text-muted-foreground">

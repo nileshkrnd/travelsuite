@@ -183,6 +183,13 @@ function SortableTreeNode({
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{node.menuName}</p>
             <p className="truncate font-mono text-[11px] text-muted-foreground">{node.menuUrl}</p>
+            {node.subscriptionProductName === "Administration" && (
+              <p className="truncate text-[10px] text-muted-foreground">
+                {node.linkedProductNames?.length
+                  ? `Products: ${node.linkedProductNames.join(", ")}`
+                  : "Common (all products)"}
+              </p>
+            )}
           </div>
           {!node.isActive && (
             <Badge variant="secondary" className="shrink-0 text-[10px]">

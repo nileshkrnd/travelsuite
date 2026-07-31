@@ -118,11 +118,16 @@ export interface SubscriptionModuleMenuRow {
     product?: { subscriptionProductName: string } | null;
   } | null;
   parent?: { menuName: string } | null;
+  productLinks?: Array<{
+    subscriptionProductId: number;
+    product?: { subscriptionProductName: string } | null;
+  }> | null;
 }
 
 export function toAppSubscriptionModuleMenu(
   row: SubscriptionModuleMenuRow
 ): SubscriptionModuleMenu {
+  const productLinks = row.productLinks ?? [];
   return {
     subscriptionModuleMenuId: row.subscriptionModuleMenuId,
     subscriptionModuleId: row.subscriptionModuleId,
@@ -140,5 +145,9 @@ export function toAppSubscriptionModuleMenu(
     subscriptionProductName: row.module?.product?.subscriptionProductName,
     parentMenuName: row.parent?.menuName,
     moduleSortOrder: row.module?.sortOrder ?? 0,
+    subscriptionProductIds: productLinks.map((l) => l.subscriptionProductId),
+    linkedProductNames: productLinks
+      .map((l) => l.product?.subscriptionProductName)
+      .filter((name): name is string => !!name),
   };
 }

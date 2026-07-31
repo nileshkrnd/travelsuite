@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { COUNTRY_CITY_SEEDS, CURRENCY_SEEDS } from "./seed-reference";
 import { hashPassword } from "../../lib/password";
-import { MODULE_MENU_SEEDS, type SeedMenuNode } from "./seed-module-menus";
+import { MODULE_MENU_SEEDS, ADMIN_MENU_PRODUCT_LINKS, type SeedMenuNode } from "./seed-module-menus";
 
 /** Seeds KlyraAdmin (ADMINCNX_URL) only. */
 const prisma = new PrismaClient({
@@ -368,93 +368,235 @@ async function seedAccessRoles() {
 }
 
 async function seedSubscriptionCatalog() {
-  const core = await prisma.subscriptionProduct.upsert({
-    where: { subscriptionProductName: "Klyra Core" },
-    create: {
-      subscriptionProductName: "Klyra Core",
-      description: "Core platform suite for travel holdings",
-      isActive: true,
-      createdBy: CREATED_BY,
-    },
-    update: { isActive: true, description: "Core platform suite for travel holdings" },
-  });
-  const finance = await prisma.subscriptionProduct.upsert({
-    where: { subscriptionProductName: "Finance Pack" },
-    create: {
-      subscriptionProductName: "Finance Pack",
-      description: "Accounts, vouchers and financial reports",
-      isActive: true,
-      createdBy: CREATED_BY,
-    },
-    update: { isActive: true },
-  });
-
-  const moduleSeeds: {
-    productId: number;
-    name: string;
-    description: string;
-    sortOrder: number;
-  }[] = [
+  const productSeeds: { name: string; description: string }[] = [
     {
-      productId: core.subscriptionProductId,
       name: "Administration",
-      description: "Company, branch, employee and tenant setup menus",
-      sortOrder: 0,
+      description: "Shared company setup menus visible across products by access",
     },
+    { name: "Travel", description: "Travel booking, POS and operations suite" },
+    { name: "Real Estate", description: "Property and real estate management" },
+    { name: "Facility Management", description: "Facilities operations and maintenance" },
+    { name: "Fleet Management", description: "Vehicle and fleet operations" },
+    { name: "Inventory Management", description: "Stock, warehouse and inventory control" },
+    { name: "Asset Management", description: "Fixed assets tracking and lifecycle" },
     {
-      productId: core.subscriptionProductId,
-      name: "POS",
-      description: "Point of sale booking desk",
-      sortOrder: 1,
+      name: "HRMS (Human Resource Management System)",
+      description: "Human resources, payroll and workforce",
     },
-    {
-      productId: core.subscriptionProductId,
-      name: "Inventory",
-      description: "Stock and warehouse operations",
-      sortOrder: 2,
-    },
-    {
-      productId: core.subscriptionProductId,
-      name: "HRMS",
-      description: "HR operations modules",
-      sortOrder: 3,
-    },
-    {
-      productId: finance.subscriptionProductId,
-      name: "Accounts",
-      description: "Ledgers, groups and vouchers",
-      sortOrder: 4,
-    },
-    {
-      productId: finance.subscriptionProductId,
-      name: "Reports",
-      description: "P&L, balance sheet, trial balance",
-      sortOrder: 5,
-    },
+    { name: "Procurement", description: "Purchasing, vendors and procurement" },
+    { name: "Finance", description: "Accounts, vouchers and financial reporting" },
+    { name: "Hospitality", description: "Hotels, F&B and hospitality operations" },
+    { name: "CRM", description: "Customer relationship management suite" },
+    { name: "Helpdesk", description: "Support tickets and helpdesk suite" },
   ];
 
-  const moduleIds: number[] = [];
-  const moduleByName = new Map<string, number>();
-  for (const m of moduleSeeds) {
-    const row = await prisma.subscriptionModule.upsert({
-      where: {
-        subscriptionProductId_subscriptionModuleName: {
-          subscriptionProductId: m.productId,
-          subscriptionModuleName: m.name,
-        },
-      },
+  const productByName = new Map<string, number>();
+  for (const p of productSeeds) {
+    const row = await prisma.subscriptionProduct.upsert({
+      where: { subscriptionProductName: p.name },
       create: {
-        subscriptionProductId: m.productId,
-        subscriptionModuleName: m.name,
-        description: m.description,
-        sortOrder: m.sortOrder,
+        subscriptionProductName: p.name,
+        description: p.description,
         isActive: true,
         createdBy: CREATED_BY,
       },
-      update: { description: m.description, sortOrder: m.sortOrder, isActive: true },
+      update: {
+        description: p.description,
+        isActive: true,
+      },
     });
-    moduleIds.push(row.subscriptionModuleId);
-    moduleByName.set(m.name, row.subscriptionModuleId);
+    productByName.set(p.name, row.subscriptionProductId);
+  }
+
+  // Keep legacy catalog rows inactive so the new product list is the source of truth.
+  for (const legacy of ["Klyra Core", "Finance Pack"]) {
+    await prisma.subscriptionProduct.updateMany({
+      where: { subscriptionProductName: legacy },
+      data: { isActive: false, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
+    });
+  }
+
+  // Remount Administration module onto the shared Administration product (was under Travel).
+  const administrationProductId = productByName.get("Administration")!;
+  const existingAdminModule = await prisma.subscriptionModule.findFirst({
+    where: { subscriptionModuleName: "Administration" },
+  });
+  if (
+    existingAdminModule &&
+    existingAdminModule.subscriptionProductId !== administrationProductId
+  ) {
+    await prisma.subscriptionModule.update({
+      where: { subscriptionModuleId: existingAdminModule.subscriptionModuleId },
+      data: {
+        subscriptionProductId: administrationProductId,
+        sortOrder: 0,
+        isActive: true,
+        description: "Shared company, branch, employee and setup menus",
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
+  }
+
+  // Preserve menus/access when renaming legacy module names.
+  await renameSubscriptionModule("Inventory", "Inventory Core");
+  await renameSubscriptionModule("Accounts", "Finance Core");
+
+  // Promote CRM / Helpdesk from per-product modules to dedicated products.
+  await consolidateModulesOntoProduct({
+    moduleName: "CRM",
+    targetProductId: productByName.get("CRM")!,
+    description: "Customer relationship management",
+  });
+  await consolidateModulesOntoProduct({
+    moduleName: "Helpdesk",
+    targetProductId: productByName.get("Helpdesk")!,
+    description: "Support tickets and helpdesk",
+  });
+
+  const modulesByProduct: Record<string, { name: string; description: string }[]> = {
+    Administration: [
+      {
+        name: "Administration",
+        description: "Shared company, branch, employee and setup menus",
+      },
+    ],
+    Travel: [
+      { name: "POS", description: "Point of sale booking desk" },
+      { name: "B2B", description: "Business-to-business travel portal" },
+      { name: "CBT", description: "Corporate booking tool" },
+      { name: "API", description: "Travel API integrations and connectors" },
+      { name: "B2C", description: "Consumer travel booking" },
+    ],
+    "Real Estate": [
+      { name: "Property Management", description: "Properties, units and portfolios" },
+      { name: "Tenant Management", description: "Lease and tenant lifecycle" },
+    ],
+    "Facility Management": [
+      { name: "Facility Operations", description: "Facilities ops and maintenance" },
+    ],
+    "Fleet Management": [
+      { name: "Fleet Operations", description: "Vehicles, trips and fleet ops" },
+    ],
+    "Inventory Management": [
+      { name: "Inventory Core", description: "Stock and warehouse operations" },
+    ],
+    "Asset Management": [
+      { name: "Asset Core", description: "Fixed assets tracking and lifecycle" },
+    ],
+    "HRMS (Human Resource Management System)": [
+      { name: "HRMS", description: "HR operations modules" },
+    ],
+    Procurement: [
+      { name: "Procurement Core", description: "Purchasing, vendors and POs" },
+    ],
+    Finance: [
+      { name: "Finance Core", description: "Ledgers, vouchers and financial reports" },
+    ],
+    Hospitality: [
+      { name: "Hospitality Core", description: "Hotels, F&B and hospitality ops" },
+    ],
+    CRM: [
+      { name: "CRM", description: "Customer relationship management" },
+    ],
+    Helpdesk: [
+      { name: "Helpdesk", description: "Support tickets and helpdesk" },
+    ],
+  };
+
+  const moduleIds: number[] = [];
+  const desiredModuleIds = new Set<number>();
+
+  for (const [productName, modules] of Object.entries(modulesByProduct)) {
+    const productId = productByName.get(productName);
+    if (!productId) continue;
+
+    for (let i = 0; i < modules.length; i++) {
+      const m = modules[i]!;
+      const sortOrder = productName === "Administration" ? -1 : i;
+      const existing = await prisma.subscriptionModule.findFirst({
+        where: {
+          subscriptionProductId: productId,
+          subscriptionModuleName: m.name,
+        },
+      });
+      const row = existing
+        ? await prisma.subscriptionModule.update({
+            where: { subscriptionModuleId: existing.subscriptionModuleId },
+            data: {
+              description: m.description,
+              sortOrder,
+              isActive: true,
+              modifiedBy: CREATED_BY,
+              modifiedDtTm: new Date(),
+            },
+          })
+        : await prisma.subscriptionModule.create({
+            data: {
+              subscriptionProductId: productId,
+              subscriptionModuleName: m.name,
+              description: m.description,
+              sortOrder,
+              isActive: true,
+              createdBy: CREATED_BY,
+            },
+          });
+      moduleIds.push(row.subscriptionModuleId);
+      desiredModuleIds.add(row.subscriptionModuleId);
+    }
+  }
+
+  // Fold legacy Reports menus into Finance Core, then deactivate Reports.
+  const financeCore = await prisma.subscriptionModule.findFirst({
+    where: {
+      subscriptionProductId: productByName.get("Finance"),
+      subscriptionModuleName: "Finance Core",
+      isActive: true,
+    },
+  });
+  const reports = await prisma.subscriptionModule.findFirst({
+    where: { subscriptionModuleName: "Reports" },
+  });
+  if (financeCore && reports && reports.subscriptionModuleId !== financeCore.subscriptionModuleId) {
+    await prisma.subscriptionModuleMenu.updateMany({
+      where: { subscriptionModuleId: reports.subscriptionModuleId },
+      data: {
+        subscriptionModuleId: financeCore.subscriptionModuleId,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
+    await prisma.subscriptionModuleAccess.deleteMany({
+      where: { subscriptionModuleId: reports.subscriptionModuleId },
+    });
+    await prisma.subscriptionModule.update({
+      where: { subscriptionModuleId: reports.subscriptionModuleId },
+      data: {
+        isActive: false,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
+  }
+
+  // Deactivate modules not in the catalog (legacy / renamed leftovers).
+  const catalogProductIds = [...productByName.values()];
+  const staleModules = await prisma.subscriptionModule.findMany({
+    where: {
+      subscriptionProductId: { in: catalogProductIds },
+      isActive: true,
+      subscriptionModuleId: { notIn: [...desiredModuleIds] },
+    },
+  });
+  for (const stale of staleModules) {
+    await prisma.subscriptionModule.update({
+      where: { subscriptionModuleId: stale.subscriptionModuleId },
+      data: {
+        isActive: false,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
   }
 
   for (const subscriptionModuleId of moduleIds) {
@@ -515,10 +657,182 @@ async function seedSubscriptionCatalog() {
     }
   }
 
-  for (const [moduleName, tree] of Object.entries(MODULE_MENU_SEEDS)) {
-    const subscriptionModuleId = moduleByName.get(moduleName);
-    if (!subscriptionModuleId) continue;
-    await upsertMenuTree(subscriptionModuleId, tree, null);
+  // Seed menus for every active module.
+  const activeModules = await prisma.subscriptionModule.findMany({
+    where: { isActive: true, subscriptionModuleId: { in: moduleIds } },
+    select: { subscriptionModuleId: true, subscriptionModuleName: true },
+  });
+  for (const mod of activeModules) {
+    const tree = MODULE_MENU_SEEDS[mod.subscriptionModuleName];
+    if (!tree) continue;
+    await upsertMenuTree(mod.subscriptionModuleId, tree, null);
+  }
+
+  // Link Administration menus to products that unlock them for tenants.
+  const adminModule = activeModules.find((m) => m.subscriptionModuleName === "Administration");
+  if (adminModule) {
+    const adminMenus = await prisma.subscriptionModuleMenu.findMany({
+      where: { subscriptionModuleId: adminModule.subscriptionModuleId, isActive: true },
+      select: { subscriptionModuleMenuId: true, menuUrl: true },
+    });
+    for (const menu of adminMenus) {
+      const productNames = ADMIN_MENU_PRODUCT_LINKS[menu.menuUrl];
+      if (productNames === undefined) continue;
+
+      const desiredProductIds = productNames
+        .map((name) => productByName.get(name))
+        .filter((id): id is number => id != null);
+
+      const existingLinks = await prisma.subscriptionModuleMenuProduct.findMany({
+        where: { subscriptionModuleMenuId: menu.subscriptionModuleMenuId },
+      });
+      const existingIds = new Set(existingLinks.map((l) => l.subscriptionProductId));
+      const desiredSet = new Set(desiredProductIds);
+
+      for (const link of existingLinks) {
+        if (!desiredSet.has(link.subscriptionProductId)) {
+          await prisma.subscriptionModuleMenuProduct.delete({
+            where: {
+              subscriptionModuleMenuProductId: link.subscriptionModuleMenuProductId,
+            },
+          });
+        }
+      }
+
+      for (const productId of desiredProductIds) {
+        if (existingIds.has(productId)) continue;
+        await prisma.subscriptionModuleMenuProduct.create({
+          data: {
+            subscriptionModuleMenuId: menu.subscriptionModuleMenuId,
+            subscriptionProductId: productId,
+            createdBy: CREATED_BY,
+          },
+        });
+      }
+    }
+  }
+}
+
+async function renameSubscriptionModule(fromName: string, toName: string) {
+  const existing = await prisma.subscriptionModule.findFirst({
+    where: { subscriptionModuleName: fromName },
+  });
+  if (!existing) return;
+
+  const clash = await prisma.subscriptionModule.findFirst({
+    where: {
+      subscriptionProductId: existing.subscriptionProductId,
+      subscriptionModuleName: toName,
+      NOT: { subscriptionModuleId: existing.subscriptionModuleId },
+    },
+  });
+  if (clash) {
+    await prisma.subscriptionModuleMenu.updateMany({
+      where: { subscriptionModuleId: existing.subscriptionModuleId },
+      data: {
+        subscriptionModuleId: clash.subscriptionModuleId,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
+    await prisma.subscriptionModuleAccess.deleteMany({
+      where: { subscriptionModuleId: existing.subscriptionModuleId },
+    });
+    await prisma.subscriptionModule.update({
+      where: { subscriptionModuleId: existing.subscriptionModuleId },
+      data: {
+        isActive: false,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
+    return;
+  }
+
+  await prisma.subscriptionModule.update({
+    where: { subscriptionModuleId: existing.subscriptionModuleId },
+    data: {
+      subscriptionModuleName: toName,
+      modifiedBy: CREATED_BY,
+      modifiedDtTm: new Date(),
+    },
+  });
+}
+
+/**
+ * Collapse duplicate modules with the same name (e.g. CRM under every product)
+ * onto a single dedicated product, preserving menus and tenant grants.
+ */
+async function consolidateModulesOntoProduct(options: {
+  moduleName: string;
+  targetProductId: number;
+  description: string;
+}) {
+  const { moduleName, targetProductId, description } = options;
+  const modules = await prisma.subscriptionModule.findMany({
+    where: { subscriptionModuleName: moduleName },
+    orderBy: { subscriptionModuleId: "asc" },
+  });
+  if (modules.length === 0) return;
+
+  const primary =
+    modules.find((m) => m.subscriptionProductId === targetProductId) ?? modules[0]!;
+
+  await prisma.subscriptionModule.update({
+    where: { subscriptionModuleId: primary.subscriptionModuleId },
+    data: {
+      subscriptionProductId: targetProductId,
+      description,
+      sortOrder: 0,
+      isActive: true,
+      modifiedBy: CREATED_BY,
+      modifiedDtTm: new Date(),
+    },
+  });
+
+  for (const other of modules) {
+    if (other.subscriptionModuleId === primary.subscriptionModuleId) continue;
+
+    // Drop duplicate trees on secondary modules (primary keeps the canonical menus).
+    await prisma.subscriptionModuleMenu.updateMany({
+      where: { subscriptionModuleId: other.subscriptionModuleId },
+      data: { parentMenuId: null },
+    });
+    await prisma.subscriptionModuleMenu.deleteMany({
+      where: { subscriptionModuleId: other.subscriptionModuleId },
+    });
+
+    const otherAccess = await prisma.subscriptionModuleAccess.findMany({
+      where: { subscriptionModuleId: other.subscriptionModuleId },
+    });
+    for (const grant of otherAccess) {
+      await prisma.subscriptionModuleAccess.upsert({
+        where: {
+          subscriptionModuleId_tenantId: {
+            subscriptionModuleId: primary.subscriptionModuleId,
+            tenantId: grant.tenantId,
+          },
+        },
+        create: {
+          subscriptionModuleId: primary.subscriptionModuleId,
+          tenantId: grant.tenantId,
+          isActive: grant.isActive,
+          createdBy: grant.createdBy,
+        },
+        update: { isActive: true },
+      });
+    }
+    await prisma.subscriptionModuleAccess.deleteMany({
+      where: { subscriptionModuleId: other.subscriptionModuleId },
+    });
+    await prisma.subscriptionModule.update({
+      where: { subscriptionModuleId: other.subscriptionModuleId },
+      data: {
+        isActive: false,
+        modifiedBy: CREATED_BY,
+        modifiedDtTm: new Date(),
+      },
+    });
   }
 }
 

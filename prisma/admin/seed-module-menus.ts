@@ -10,6 +10,44 @@ export type SeedMenuNode = {
   children?: SeedMenuNode[];
 };
 
+/**
+ * Administration menu URL → Subscription Product names that unlock it.
+ * Empty array / missing key = common (visible whenever Administration is shown).
+ */
+export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
+  dashboard: [],
+  administration: [],
+  "masters/company": ["Travel"],
+  "masters/branch": ["Travel"],
+  "masters/branch-type": ["Travel"],
+  "masters/department": ["Travel", "HRMS (Human Resource Management System)"],
+  "masters/designation": ["Travel", "HRMS (Human Resource Management System)"],
+  "masters/employee": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/hr-masters": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/hr-masters/grade": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/hr-masters/shift": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/hr-masters/leave-type": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/hr-masters/holiday-calendar": [
+    "Travel",
+    "HRMS (Human Resource Management System)",
+  ],
+  "administration/hr-masters/salary-component": [
+    "Travel",
+    "HRMS (Human Resource Management System)",
+  ],
+  "administration/hr-masters/document-type": [
+    "Travel",
+    "HRMS (Human Resource Management System)",
+  ],
+  "masters/access-role": ["Travel"],
+  "masters/roles": ["Travel"],
+  "administration/permissions": ["Travel"],
+  "administration/approval-matrix": ["Travel"],
+  "administration/holidays": ["Travel", "HRMS (Human Resource Management System)"],
+  "administration/masters": ["Travel"],
+  "masters/product": ["Travel"],
+};
+
 export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
   Administration: [
     {
@@ -99,7 +137,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       ],
     },
   ],
-  Inventory: [
+  "Inventory Core": [
     {
       name: "Inventory Management",
       url: "inventory",
@@ -237,7 +275,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       ],
     },
   ],
-  Accounts: [
+  "Finance Core": [
     {
       name: "Accounts",
       url: "accounts",
@@ -262,18 +300,168 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
             { name: "Debit Note", url: "accounts/vouchers/debit-note", icon: "FileText" },
           ],
         },
+        {
+          name: "Accounts Reports",
+          url: "accounts/reports",
+          icon: "BarChart3",
+          children: [
+            { name: "Balance Sheet", url: "accounts/reports/balance-sheet", icon: "Scale" },
+            { name: "Profit & Loss", url: "accounts/reports/profit-and-loss", icon: "TrendingUp" },
+            { name: "Trial Balance", url: "accounts/reports/trial-balance", icon: "FileSpreadsheet" },
+          ],
+        },
       ],
     },
   ],
-  Reports: [
+  B2B: [
     {
-      name: "Accounts Reports",
-      url: "accounts/reports",
-      icon: "BarChart3",
+      name: "B2B",
+      url: "b2b",
+      icon: "Network",
       children: [
-        { name: "Balance Sheet", url: "accounts/reports/balance-sheet", icon: "Scale" },
-        { name: "Profit & Loss", url: "accounts/reports/profit-and-loss", icon: "TrendingUp" },
-        { name: "Trial Balance", url: "accounts/reports/trial-balance", icon: "FileSpreadsheet" },
+        { name: "B2B Dashboard", url: "b2b/dashboard", icon: "LayoutDashboard" },
+        { name: "Booking", url: "b2b/booking", icon: "CalendarCheck" },
+        { name: "Wallet", url: "b2b/wallet", icon: "Wallet" },
+        { name: "Statements", url: "b2b/statements", icon: "FileSpreadsheet" },
+        { name: "Reports", url: "b2b/reports", icon: "BarChart3" },
+      ],
+    },
+  ],
+  CBT: [
+    {
+      name: "CBT",
+      url: "cbt",
+      icon: "Briefcase",
+      children: [
+        { name: "CBT Dashboard", url: "cbt/dashboard", icon: "LayoutDashboard" },
+      ],
+    },
+  ],
+  API: [
+    {
+      name: "API",
+      url: "api",
+      icon: "Code2",
+      children: [
+        { name: "API Dashboard", url: "api/dashboard", icon: "LayoutDashboard" },
+      ],
+    },
+  ],
+  B2C: [
+    {
+      name: "B2C",
+      url: "b2c",
+      icon: "Store",
+      children: [
+        { name: "B2C Dashboard", url: "b2c/dashboard", icon: "LayoutDashboard" },
+      ],
+    },
+  ],
+  CRM: [
+    {
+      name: "CRM",
+      url: "crm",
+      icon: "Handshake",
+      children: [
+        { name: "CRM Dashboard", url: "crm/dashboard", icon: "LayoutDashboard" },
+        { name: "Leads", url: "crm/leads", icon: "Target" },
+        { name: "Opportunities", url: "crm/opportunities", icon: "TrendingUp" },
+        { name: "Customers", url: "crm/customers", icon: "Users" },
+        { name: "Campaigns", url: "crm/campaigns", icon: "Megaphone" },
+      ],
+    },
+  ],
+  Helpdesk: [
+    {
+      name: "Helpdesk",
+      url: "helpdesk",
+      icon: "Headphones",
+      children: [
+        { name: "Helpdesk Dashboard", url: "helpdesk/dashboard", icon: "LayoutDashboard" },
+        { name: "Support Tickets", url: "helpdesk/tickets", icon: "Ticket" },
+      ],
+    },
+  ],
+  "Property Management": [
+    {
+      name: "Property Management",
+      url: "real-estate",
+      icon: "Building2",
+      children: [
+        { name: "Properties", url: "real-estate/properties", icon: "Home" },
+      ],
+    },
+  ],
+  "Tenant Management": [
+    {
+      name: "Tenant Management",
+      url: "real-estate/tenants",
+      icon: "Users",
+      children: [
+        { name: "Tenants", url: "real-estate/tenants/list", icon: "Users2" },
+      ],
+    },
+  ],
+  "Facility Operations": [
+    {
+      name: "Facility Operations",
+      url: "facility",
+      icon: "Wrench",
+      children: [
+        { name: "Facility Dashboard", url: "facility/dashboard", icon: "LayoutDashboard" },
+      ],
+    },
+  ],
+  "Fleet Operations": [
+    {
+      name: "Fleet Operations",
+      url: "fleet",
+      icon: "Truck",
+      children: [
+        { name: "Fleet Dashboard", url: "fleet/dashboard", icon: "LayoutDashboard" },
+      ],
+    },
+  ],
+  "Asset Core": [
+    {
+      name: "Assets",
+      url: "assets",
+      icon: "Package",
+      children: [
+        { name: "Assets Dashboard", url: "assets/dashboard", icon: "LayoutDashboard" },
+        { name: "Asset List", url: "assets/list", icon: "Package" },
+        { name: "Categories", url: "assets/categories", icon: "Tags" },
+        { name: "Assignment", url: "assets/assignment", icon: "UserCheck" },
+        { name: "Maintenance", url: "assets/maintenance", icon: "Wrench" },
+        { name: "Depreciation", url: "assets/depreciation", icon: "TrendingDown" },
+      ],
+    },
+  ],
+  "Procurement Core": [
+    {
+      name: "Procurement",
+      url: "procurement",
+      icon: "ShoppingCart",
+      children: [
+        { name: "Procurement Dashboard", url: "procurement/dashboard", icon: "LayoutDashboard" },
+        { name: "Requisitions", url: "procurement/requisitions", icon: "ClipboardCheck" },
+        { name: "RFQ", url: "procurement/rfq", icon: "FileSignature" },
+        { name: "Purchase Orders", url: "procurement/purchase-orders", icon: "ShoppingCart" },
+        { name: "Vendors", url: "procurement/vendors", icon: "Store" },
+        { name: "Goods Receipt", url: "procurement/goods-receipt", icon: "ArrowDownToLine" },
+        { name: "Vendor Invoices", url: "procurement/vendor-invoices", icon: "Receipt" },
+        { name: "Contracts", url: "procurement/contracts", icon: "FileText" },
+        { name: "Reports", url: "procurement/reports", icon: "BarChart3" },
+      ],
+    },
+  ],
+  "Hospitality Core": [
+    {
+      name: "Hospitality",
+      url: "hospitality",
+      icon: "BedDouble",
+      children: [
+        { name: "Hospitality Dashboard", url: "hospitality/dashboard", icon: "LayoutDashboard" },
       ],
     },
   ],

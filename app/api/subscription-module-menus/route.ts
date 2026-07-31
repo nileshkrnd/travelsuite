@@ -5,6 +5,10 @@ import { prisma } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { normalizeMenuUrl } from "@/lib/normalize-menu-url";
 import { ICONS } from "@/lib/icon-registry";
+import {
+  subscriptionModuleMenuInclude,
+  syncMenuProductLinks,
+} from "@/lib/subscription-module-menu-products";
 
 const createSchema = z.object({
   subscriptionModuleId: z.number().int().positive(),
@@ -14,19 +18,9 @@ const createSchema = z.object({
   menuIcon: z.string().trim().min(1).max(50).optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
   isActive: z.boolean().optional(),
+  subscriptionProductIds: z.array(z.number().int().positive()).optional(),
   createdBy: z.number().int().positive(),
 });
-
-const include = {
-  module: {
-    select: {
-      subscriptionModuleName: true,
-      sortOrder: true,
-      product: { select: { subscriptionProductName: true } },
-    },
-  },
-  parent: { select: { menuName: true } },
-} as const;
 
 async function assertValidParent(
   subscriptionModuleId: number,
@@ -60,7 +54,7 @@ export async function GET(request: Request) {
     }
     const rows = await prisma.subscriptionModuleMenu.findMany({
       where,
-      include,
+      include: subscriptionModuleMenuInclude,
       orderBy: [
         { subscriptionModuleId: "asc" },
         { sortOrder: "asc" },
@@ -86,6 +80,7 @@ export async function POST(request: Request) {
 
     const module = await prisma.subscriptionModule.findUnique({
       where: { subscriptionModuleId: parsed.data.subscriptionModuleId },
+      include: { product: { select: { subscriptionProductName: true } } },
     });
     if (!module) {
       return NextResponse.json({ error: "Subscription module not found" }, { status: 400 });
@@ -124,9 +119,20 @@ export async function POST(request: Request) {
         isActive: parsed.data.isActive ?? true,
         createdBy: parsed.data.createdBy,
       },
-      include,
     });
-    return NextResponse.json(created, { status: 201 });
+
+    await syncMenuProductLinks({
+      subscriptionModuleMenuId: created.subscriptionModuleMenuId,
+      subscriptionModuleId: parsed.data.subscriptionModuleId,
+      subscriptionProductIds: parsed.data.subscriptionProductIds ?? [],
+      createdBy: parsed.data.createdBy,
+    });
+
+    const row = await prisma.subscriptionModuleMenu.findUniqueOrThrow({
+      where: { subscriptionModuleMenuId: created.subscriptionModuleMenuId },
+      include: subscriptionModuleMenuInclude,
+    });
+    return NextResponse.json(row, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(

@@ -440,7 +440,8 @@ model SubscriptionProduct {
   modifiedBy              Int?      @map("ModifiedBy")
   modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  modules SubscriptionModule[]
+  modules    SubscriptionModule[]
+  menuLinks  SubscriptionModuleMenuProduct[]
 
   @@map("SubscriptionProduct")
 }
@@ -506,9 +507,32 @@ model SubscriptionModuleMenu {
   module   SubscriptionModule       @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
   parent   SubscriptionModuleMenu?  @relation("MenuHierarchy", fields: [parentMenuId], references: [subscriptionModuleMenuId], onDelete: Cascade)
   children SubscriptionModuleMenu[] @relation("MenuHierarchy")
+  /// Products that unlock this menu when it belongs to the shared Administration module.
+  productLinks SubscriptionModuleMenuProduct[]
 
   @@unique([subscriptionModuleId, menuUrl], map: "SubscriptionModuleMenu_Module_URL_key")
   @@index([subscriptionModuleId], map: "SubscriptionModuleMenu_ModuleID_idx")
   @@index([parentMenuId], map: "SubscriptionModuleMenu_ParentMenuID_idx")
   @@map("SubscriptionModuleMenu")
+}
+
+/// Links an Administration menu to Subscription Products that unlock it for a tenant
+/// (tenant sees the menu if they have Module Access to any module under a linked product).
+/// Empty links = common admin menu (visible whenever Administration is shown).
+model SubscriptionModuleMenuProduct {
+  subscriptionModuleMenuProductId Int       @id @default(autoincrement()) @map("SubscriptionModuleMenuProductID")
+  subscriptionModuleMenuId        Int       @map("SubscriptionModuleMenuID")
+  subscriptionProductId           Int       @map("SubscriptionProductID")
+  createdBy                       Int       @map("CreatedBy")
+  createdDtTm                     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                      Int?      @map("ModifiedBy")
+  modifiedDtTm                    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  menu    SubscriptionModuleMenu @relation(fields: [subscriptionModuleMenuId], references: [subscriptionModuleMenuId], onDelete: Cascade)
+  product SubscriptionProduct    @relation(fields: [subscriptionProductId], references: [subscriptionProductId], onDelete: Restrict)
+
+  @@unique([subscriptionModuleMenuId, subscriptionProductId], map: "SubscriptionModuleMenuProduct_Menu_Product_key")
+  @@index([subscriptionModuleMenuId], map: "SubscriptionModuleMenuProduct_MenuID_idx")
+  @@index([subscriptionProductId], map: "SubscriptionModuleMenuProduct_ProductID_idx")
+  @@map("SubscriptionModuleMenuProduct")
 }

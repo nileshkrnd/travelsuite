@@ -18,4 +18,7 @@ export interface SubscriptionModuleMenu {
   parentMenuName?: string;
   /** Module display priority (from SubscriptionModule.SortOrder). */
   moduleSortOrder?: number;
+  /** Products that unlock this Administration menu (empty = common). */
+  subscriptionProductIds?: number[];
+  linkedProductNames?: string[];
 }

@@ -141,6 +141,21 @@ function MenuView({ roleDef }: { roleDef: RoleDef }) {
             <DetailRow label="Sort order">{menu.sortOrder}</DetailRow>
             <DetailRow label="Subscription Module">{menu.subscriptionModuleName ?? "—"}</DetailRow>
             <DetailRow label="Subscription Product">{menu.subscriptionProductName ?? "—"}</DetailRow>
+            {menu.subscriptionProductName === "Administration" && (
+              <DetailRow label="Visible for products">
+                {menu.linkedProductNames?.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {menu.linkedProductNames.map((name) => (
+                      <Badge key={name} variant="secondary">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Common (all products)</span>
+                )}
+              </DetailRow>
+            )}
             <DetailRow label="Status">
               <Badge variant={menu.isActive ? "default" : "secondary"} className="gap-1">
                 {menu.isActive ? (
