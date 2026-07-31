@@ -69,53 +69,48 @@ export function NexusLiveCanvas() {
   });
 
   return (
-    <div className="relative h-full min-h-[320px] w-full border border-[#001C35]/12 bg-white text-[#001C35]">
-      <div className="relative flex h-full flex-col p-5 sm:p-7">
-        <div className="flex items-center justify-between gap-3 border-b border-[#001C35]/10 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0A4A6E] opacity-40" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#0A4A6E]" />
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0A4A6E]">
-              Platform activity
-            </span>
-          </div>
-          <div className="font-mono text-[11px] tabular-nums text-[#001C35]/50">
-            {date} · {time} AST
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {NEXUS_KPIS.map((kpi, i) => (
-            <div key={kpi.label} className="min-w-0">
-              <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-[#001C35] sm:text-3xl">
-                {kpiValues[i]}
-                {kpi.suffix}
-              </p>
-              <p className="mt-1 truncate text-[11px] uppercase tracking-[0.1em] text-[#001C35]/45">
-                {kpi.label}
-              </p>
+    <div className="relative flex h-full min-h-[380px] w-full flex-col bg-white text-[#001C35] lg:min-h-full">
+      <div className="relative flex h-full min-h-0 flex-1 flex-col justify-between gap-8 p-5 sm:p-7 lg:p-8">
+        <div className="shrink-0 space-y-8">
+          <div className="flex items-center justify-between gap-3 border-b border-[#001C35]/10 pb-4">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0A4A6E] opacity-40" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#0A4A6E]" />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0A4A6E]">
+                Platform activity
+              </span>
             </div>
-          ))}
+            <div className="font-mono text-[11px] tabular-nums text-[#001C35]/50">
+              {date} · {time} AST
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {NEXUS_KPIS.map((kpi, i) => (
+              <div key={kpi.label} className="min-w-0">
+                <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-[#001C35] sm:text-3xl">
+                  {kpiValues[i]}
+                  {kpi.suffix}
+                </p>
+                <p className="mt-1 truncate text-[11px] uppercase tracking-[0.1em] text-[#001C35]/45">
+                  {kpi.label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-8 border-t border-[#001C35]/10 pt-4">
-          <p className="text-[11px] font-medium text-[#001C35]/50">
-            {NEXUS_PRODUCTS.length} products · shared Administration · Module Access per company
-          </p>
-          <p className="mt-1 text-[11px] text-[#001C35]/40">{SAAS_BRAND.groupName}</p>
-        </div>
-
-        <div className="mt-auto pt-8">
+        <div className="min-h-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#001C35]/40">
             Recent cross-company events
           </p>
-          <ul className="mt-3 space-y-2.5" key={pulse}>
+          <ul className="mt-4 space-y-3.5" key={pulse}>
             {visible.map((event, i) => (
               <li
                 key={`${pulse}-${event.text}`}
-                className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-sm leading-snug"
+                className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both border-b border-[#001C35]/06 pb-3.5 text-sm leading-snug last:border-b-0 last:pb-0"
                 style={{ animationDelay: `${i * 80}ms`, animationDuration: "500ms" }}
               >
                 <span className="font-semibold text-[#0A4A6E]">{event.product}</span>
@@ -124,6 +119,13 @@ export function NexusLiveCanvas() {
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="shrink-0 border-t border-[#001C35]/10 pt-4">
+          <p className="text-[11px] font-medium leading-relaxed text-[#001C35]/55">
+            {NEXUS_PRODUCTS.length} products · shared Administration · Module Access per company
+          </p>
+          <p className="mt-1 text-[11px] text-[#001C35]/40">{SAAS_BRAND.groupName}</p>
         </div>
       </div>
     </div>

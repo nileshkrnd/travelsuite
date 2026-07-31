@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -38,6 +39,7 @@ import {
 } from "@/lib/services/tenants.service";
 import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
 import { useReferenceStore } from "@/lib/store/reference.store";
+import { generateTenantCode } from "@/lib/slug";
 import type { CurrencyCode, Tenant } from "@/types";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
@@ -114,14 +116,34 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const countryValue = useWatch({ control, name: "country" });
   const { cities: cityOptions, loading: citiesLoading } = useCitiesForCountry(countryValue || undefined);
 
+  // Create: derive a unique tenant code from the name (never reuse an existing code).
+  useEffect(() => {
+    if (isEdit) return;
+    const existing = tenants.map((t) => t.slug);
+    const next = generateTenantCode(nameValue ?? "", existing);
+    setValue("slug", next, { shouldValidate: true, shouldDirty: true });
+  }, [isEdit, nameValue, tenants, setValue]);
+
   async function onSubmit(values: FormValues) {
     if (!actorKey) {
       toast.error("Missing user key — sign in again before saving tenants.");
       return;
     }
 
+    const existingCodes = tenants
+      .filter((t) => t.id !== tenant?.id)
+      .map((t) => t.slug);
+    const tenantCode = isEdit
+      ? values.slug.trim()
+      : generateTenantCode(values.name.trim(), existingCodes);
+
+    if (!isEdit && !tenantCode) {
+      toast.error("Enter a tenant name so a unique tenant code can be generated.");
+      return;
+    }
+
     const write = {
-      tenantCode: values.slug.trim(),
+      tenantCode,
       tenantName: values.name.trim(),
       groupName: values.name.trim(),
       defaultCurrency: values.defaultCurrency as CurrencyCode,
@@ -215,13 +237,19 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                     <Hash className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
                     <Input
                       id="slug"
-                      placeholder="e.g. horizonTravel"
-                      disabled={isEdit}
+                      placeholder="Auto-generated from name"
+                      readOnly
+                      disabled
                       aria-invalid={!!errors.slug}
                       className="h-10 ps-9"
                       {...register("slug")}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isEdit
+                      ? "Tenant code cannot be changed after registration."
+                      : "Generated from the tenant name and kept unique in the database."}
+                  </p>
                   {errors.slug && <p className="text-sm text-destructive">{errors.slug.message}</p>}
                 </div>
 

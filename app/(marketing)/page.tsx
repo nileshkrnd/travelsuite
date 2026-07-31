@@ -28,7 +28,7 @@ export default function HomePage() {
           aria-hidden
         />
 
-        <div className="relative mx-auto grid min-h-[calc(100svh-4.25rem)] max-w-6xl lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="relative mx-auto grid max-w-6xl lg:min-h-[calc(100svh-4.25rem)] lg:grid-cols-[1.05fr_0.95fr]">
           <div className="flex flex-col justify-center px-4 py-14 sm:px-6 lg:py-20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -71,7 +71,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative min-h-[340px] border-t border-[#001C35]/10 bg-[#F8F9FB] lg:min-h-0 lg:border-s lg:border-t-0">
+          <div className="relative min-h-[380px] border-t border-[#001C35]/10 bg-[#F8F9FB] lg:min-h-0 lg:border-s lg:border-t-0">
             <NexusLiveCanvas />
           </div>
         </div>
