@@ -4,12 +4,10 @@ import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileQuestion, ShieldAlert } from "lucide-react";
-import Link from "next/link";
 import {
   GLOBAL_TENANT_SETTING_KEYS,
   MENU_ITEMS,
   can,
-  findMenuItemByPath,
   resolveMenuFormRoute,
   type ModuleKey,
   type PermissionAction,
@@ -18,7 +16,6 @@ import { ModulePrototypePage } from "@/components/shared/ModulePrototypePage";
 import { ModulePrototypeFormPage } from "@/components/shared/ModulePrototypeFormPage";
 import { hasPrototypeForm } from "@/components/shared/ModulePrototypeFormDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useRolesStore } from "@/lib/store/roles.store";
 
@@ -59,6 +56,8 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "reportBalanceSheet",
   "reportProfitAndLoss",
   "reportTrialBalance",
+  "permissions",
+  "culture",
   ...GLOBAL_TENANT_SETTING_KEYS,
 ]);
 
@@ -81,36 +80,36 @@ function requiredAction(formMode: "list" | "create" | "view" | "edit"): Permissi
   return "view";
 }
 
-export default function ModuleCatchAllPage() {
-  const { role, module: moduleSegments } = useParams<{ role: string; module: string[] }>();
+type ModuleCatchAllViewProps = {
+  /** Static path prefix for nested catch-alls (e.g. "hrms" under /[role]/hrms/[[...module]]). */
+  pathPrefix: string;
+};
+
+export function ModuleCatchAllView({ pathPrefix }: ModuleCatchAllViewProps) {
+  const { module: moduleSegments } = useParams<{ module?: string[] }>();
   const t = useTranslations("sidebar");
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
 
-  const path = useMemo(() => (moduleSegments ?? []).join("/"), [moduleSegments]);
+  const path = useMemo(() => {
+    const rest = (moduleSegments ?? []).join("/");
+    return rest ? `${pathPrefix}/${rest}` : pathPrefix;
+  }, [moduleSegments, pathPrefix]);
+
   const resolved = useMemo(() => resolveMenuFormRoute(path), [path]);
   const moduleKey = resolved ? (resolved.menuItem.key as ModuleKey) : undefined;
   const groupKey = moduleKey ? findMenuGroupKey(moduleKey) : undefined;
 
-  // Dedicated masters (Country, City, …) must never fall through to the placeholder.
+  // Dedicated screens must never fall through to the placeholder.
   if (path.startsWith("masters/") || (moduleKey != null && REAL_MODULE_KEYS.has(moduleKey))) {
-    const leaf = findMenuItemByPath(path) ?? resolved?.menuItem;
-    const href = leaf ? `/${role}/${leaf.path}` : `/${role}/dashboard`;
     return (
-      <div className="p-6">
-        <EmptyState
-          icon={FileQuestion}
-          tone="muted"
-          heading="Open the live master page"
-          description="This menu has a dedicated screen. Use the sidebar item again, or open it from here."
-          action={
-            <Button nativeButton={false} render={<Link href={href} />}>
-              Go to page
-            </Button>
-          }
-        />
-      </div>
+      <EmptyState
+        icon={FileQuestion}
+        tone="muted"
+        heading="Page not found"
+        description="This menu path doesn't exist or hasn't been configured yet."
+      />
     );
   }
 
