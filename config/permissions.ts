@@ -8,11 +8,20 @@ export type ModuleKey =
   // Administration
   | "administration"
   | "company"
+  | "adminCompany"
   | "branch"
   | "branchType"
+  | "adminMasters"
   | "department"
   | "designation"
   | "employee"
+  | "adminEmployees"
+  | "employeeGdsSign"
+  | "exchangeRate"
+  | "adminCustomers"
+  | "cashCustomer"
+  | "adminSuppliers"
+  | "creditControl"
   | "roles"
   | "accessRole"
   | "permissions"
@@ -375,12 +384,34 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: "ShieldCheck",
     path: "administration",
     children: [
-      { key: "company", labelKey: "sidebar.company", icon: "Building2", path: "masters/company" },
-      { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
-      { key: "branchType", labelKey: "sidebar.branchType", icon: "ListTree", path: "masters/branch-type" },
-      { key: "department", labelKey: "sidebar.department", icon: "Network", path: "masters/department" },
-      { key: "designation", labelKey: "sidebar.designation", icon: "Briefcase", path: "masters/designation" },
-      { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
+      {
+        key: "adminCompany",
+        labelKey: "sidebar.adminCompany",
+        icon: "Building2",
+        path: "administration/company",
+        children: [
+          { key: "company", labelKey: "sidebar.company", icon: "Building2", path: "masters/company" },
+          { key: "branch", labelKey: "sidebar.branch", icon: "GitBranch", path: "masters/branch" },
+          { key: "branchType", labelKey: "sidebar.branchType", icon: "ListTree", path: "masters/branch-type" },
+        ],
+      },
+      {
+        key: "adminMasters",
+        labelKey: "sidebar.adminMasters",
+        icon: "Layers",
+        path: "administration/masters",
+        children: [
+          { key: "department", labelKey: "sidebar.department", icon: "Network", path: "masters/department" },
+          { key: "designation", labelKey: "sidebar.designation", icon: "Briefcase", path: "masters/designation" },
+          { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
+          {
+            key: "permissions",
+            labelKey: "sidebar.permissions",
+            icon: "Lock",
+            path: "administration/permissions",
+          },
+        ],
+      },
       {
         key: "adminHrMasters",
         labelKey: "sidebar.adminHrMasters",
@@ -425,25 +456,68 @@ export const MENU_ITEMS: MenuItem[] = [
           },
         ],
       },
-      { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
-      { key: "roles", labelKey: "sidebar.roles", icon: "KeyRound", path: "masters/roles" },
-      { key: "permissions", labelKey: "sidebar.permissions", icon: "Lock", path: "administration/permissions" },
-      { key: "approvalMatrix", labelKey: "sidebar.approvalMatrix", icon: "ClipboardCheck", path: "administration/approval-matrix" },
-      { key: "holidays", labelKey: "sidebar.holidays", icon: "CalendarDays", path: "administration/holidays" },
-      { key: "mastersHub", labelKey: "sidebar.mastersHub", icon: "Layers", path: "administration/masters" },
-      { key: "product", labelKey: "sidebar.product", icon: "Package", path: "masters/product" },
-    ],
-  },
-  {
-    key: "partners",
-    labelKey: "sidebar.partners",
-    icon: "Handshake",
-    path: "partners",
-    children: [
-      { key: "agency", labelKey: "sidebar.agency", icon: "Users2", path: "masters/agency" },
-      { key: "subAgency", labelKey: "sidebar.subAgency", icon: "GitFork", path: "masters/subAgency" },
-      { key: "corporateAccounts", labelKey: "sidebar.corporateAccounts", icon: "Landmark", path: "masters/corporateAccounts" },
-      { key: "supplier", labelKey: "sidebar.supplier", icon: "Store", path: "masters/supplier" },
+      {
+        key: "exchangeRate",
+        labelKey: "sidebar.exchangeRate",
+        icon: "ArrowLeftRight",
+        path: "administration/exchange-rate",
+      },
+      {
+        key: "adminEmployees",
+        labelKey: "sidebar.adminEmployees",
+        icon: "UserCog",
+        path: "administration/employees",
+        children: [
+          { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
+          {
+            key: "employeeGdsSign",
+            labelKey: "sidebar.employeeGdsSign",
+            icon: "KeyRound",
+            path: "administration/employee-gds-sign",
+          },
+        ],
+      },
+      {
+        key: "adminCustomers",
+        labelKey: "sidebar.adminCustomers",
+        icon: "Users2",
+        path: "administration/customers",
+        children: [
+          {
+            key: "cashCustomer",
+            labelKey: "sidebar.cashCustomer",
+            icon: "Wallet",
+            path: "administration/customers/cash",
+          },
+          {
+            key: "corporateAccounts",
+            labelKey: "sidebar.corporateCustomer",
+            icon: "Landmark",
+            path: "masters/corporateAccounts",
+          },
+          {
+            key: "subAgency",
+            labelKey: "sidebar.subAgent",
+            icon: "GitFork",
+            path: "masters/subAgency",
+          },
+        ],
+      },
+      {
+        key: "adminSuppliers",
+        labelKey: "sidebar.adminSuppliers",
+        icon: "Store",
+        path: "administration/suppliers",
+        children: [
+          { key: "supplier", labelKey: "sidebar.supplier", icon: "Store", path: "masters/supplier" },
+        ],
+      },
+      {
+        key: "creditControl",
+        labelKey: "sidebar.creditControl",
+        icon: "CreditCard",
+        path: "administration/credit-control",
+      },
     ],
   },
   {

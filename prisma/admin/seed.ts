@@ -447,6 +447,10 @@ async function seedSubscriptionCatalog() {
     { name: "Hospitality", description: "Hotels, F&B and hospitality operations" },
     { name: "CRM", description: "Customer relationship management suite" },
     { name: "Helpdesk", description: "Support tickets and helpdesk suite" },
+    {
+      name: "Extranet",
+      description: "Supplier self-service portal for inventory, rates and bookings",
+    },
   ];
 
   const productByName = new Map<string, number>();
@@ -562,6 +566,12 @@ async function seedSubscriptionCatalog() {
     ],
     Helpdesk: [
       { name: "Helpdesk", description: "Support tickets and helpdesk" },
+    ],
+    Extranet: [
+      {
+        name: "Extranet",
+        description: "Supplier self-service for inventory, rates and bookings",
+      },
     ],
   };
 
