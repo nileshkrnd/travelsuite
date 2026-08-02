@@ -11,6 +11,8 @@ export type ModuleKey =
   | "adminCompany"
   | "branch"
   | "branchType"
+  | "adminProduct"
+  | "propertyType"
   | "adminMasters"
   | "department"
   | "designation"
@@ -517,6 +519,20 @@ export const MENU_ITEMS: MenuItem[] = [
         labelKey: "sidebar.creditControl",
         icon: "CreditCard",
         path: "administration/credit-control",
+      },
+      {
+        key: "adminProduct",
+        labelKey: "sidebar.adminProduct",
+        icon: "Package",
+        path: "administration/product",
+        children: [
+          {
+            key: "propertyType",
+            labelKey: "sidebar.propertyType",
+            icon: "Building2",
+            path: "masters/property-type",
+          },
+        ],
       },
     ],
   },

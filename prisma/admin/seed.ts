@@ -1228,6 +1228,40 @@ async function seedBranchTypes() {
   );
 }
 
+async function seedPropertyTypes() {
+  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
+  const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
+  if (!leisure || !corporate) return;
+
+  const names = ["Hotel", "Apartment", "Villa", "Commercial"];
+
+  for (const company of [leisure, corporate]) {
+    for (const propertyTypeName of names) {
+      await prisma.propertyType.upsert({
+        where: {
+          tenantId_companyId_propertyTypeName: {
+            tenantId: company.tenantId,
+            companyId: company.companyId,
+            propertyTypeName,
+          },
+        },
+        create: {
+          propertyTypeName,
+          tenantId: company.tenantId,
+          companyId: company.companyId,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: { isActive: true },
+      });
+    }
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"PropertyType"', 'PropertyTypeID'), (SELECT COALESCE(MAX("PropertyTypeID"), 1) FROM "PropertyType"))`
+  );
+}
+
 async function seedBranches() {
   const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
   const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
@@ -1495,6 +1529,7 @@ async function main() {
   await seedDepartments();
   await seedDesignations();
   await seedBranchTypes();
+  await seedPropertyTypes();
   await seedBranches();
   await seedEmployees();
 }

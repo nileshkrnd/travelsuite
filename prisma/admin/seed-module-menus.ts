@@ -53,6 +53,8 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "administration/suppliers": ["Travel"],
   "masters/supplier": ["Travel"],
   "administration/credit-control": ["Travel"],
+  "administration/product": ["Travel", "Real Estate"],
+  "masters/property-type": ["Travel", "Real Estate"],
 };
 
 export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
@@ -153,6 +155,14 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           name: "Credit Control",
           url: "administration/credit-control",
           icon: "CreditCard",
+        },
+        {
+          name: "Product",
+          url: "administration/product",
+          icon: "Package",
+          children: [
+            { name: "Property Type", url: "masters/property-type", icon: "Building2" },
+          ],
         },
       ],
     },

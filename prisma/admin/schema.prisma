@@ -314,6 +314,23 @@ model Company {
   @@map("Company")
 }
 
+/// Property Type master — scoped by TenantID + CompanyID (e.g. Hotel, Apartment, Villa).
+model PropertyType {
+  propertyTypeId   Int       @id @default(autoincrement()) @map("PropertyTypeID")
+  propertyTypeName String    @map("PropertyTypeName") @db.VarChar(100)
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId         Int       @map("TenantID")
+  companyId        Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, propertyTypeName], map: "PropertyType_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "PropertyType_TenantID_CompanyID_idx")
+  @@map("PropertyType")
+}
+
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).
 /// Branch type master — scoped by TenantID + CompanyID.
 model BranchType {

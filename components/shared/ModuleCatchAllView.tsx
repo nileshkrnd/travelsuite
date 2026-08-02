@@ -45,6 +45,7 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "employee",
   "roles",
   "product",
+  "propertyType",
   "agency",
   "subAgency",
   "corporateAccounts",

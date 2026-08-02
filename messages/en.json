@@ -102,6 +102,8 @@
     "subAgent": "Sub Agent",
     "adminSuppliers": "Suppliers",
     "creditControl": "Credit Control",
+    "adminProduct": "Product",
+    "propertyType": "Property Type",
     "roles": "Roles",
     "accessRole": "Access Role",
     "permissions": "Permissions",
