@@ -36,6 +36,7 @@ import {
   PropertyTypesApiError,
 } from "@/lib/services/property-types.service";
 import { can } from "@/config/permissions";
+import { shouldLockSessionCompany } from "@/lib/session-company";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { Company, PropertyType, RoleDef } from "@/types";
 
@@ -77,6 +78,7 @@ function PropertyTypePanel({
   companies,
   userKey,
   tenantId,
+  lockedCompanyId,
   onClose,
   onSaved,
 }: {
@@ -86,11 +88,22 @@ function PropertyTypePanel({
   companies: Company[];
   userKey: number;
   tenantId: number;
+  /** When set, company is taken from the session and not shown as a picker. */
+  lockedCompanyId: number | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
   const schema = usePropertyTypeSchema(propertyTypes, propertyType?.propertyTypeId);
   const isReadOnly = mode === "view";
+  const companyLocked = lockedCompanyId != null && lockedCompanyId > 0;
+  const defaultCompanyId =
+    propertyType?.companyId ??
+    lockedCompanyId ??
+    companies[0]?.companyKey ??
+    0;
+  const lockedCompanyName =
+    companies.find((c) => c.companyKey === (propertyType?.companyId ?? lockedCompanyId))?.name ??
+    null;
 
   const {
     register,
@@ -100,7 +113,7 @@ function PropertyTypePanel({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     values: {
-      companyId: propertyType?.companyId ?? companies[0]?.companyKey ?? 0,
+      companyId: defaultCompanyId,
       propertyTypeName: propertyType?.propertyTypeName ?? "",
     },
   });
@@ -154,37 +167,49 @@ function PropertyTypePanel({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <div className="space-y-2 sm:col-span-2">
-          <Label required>Company</Label>
-          <Controller
-            control={control}
-            name="companyId"
-            render={({ field }) => (
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(v) => field.onChange(Number(v))}
-                disabled={isReadOnly || mode === "edit"}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value) return "Select company";
-                      return companies.find((c) => String(c.companyKey) === value)?.name ?? value;
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={String(c.companyKey)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
-        </div>
+        {companyLocked || mode === "edit" || mode === "view" ? (
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Company</Label>
+            <Input
+              value={lockedCompanyName ?? `Company #${defaultCompanyId}`}
+              disabled
+              readOnly
+            />
+            <input type="hidden" {...register("companyId", { valueAsNumber: true })} />
+          </div>
+        ) : (
+          <div className="space-y-2 sm:col-span-2">
+            <Label required>Company</Label>
+            <Controller
+              control={control}
+              name="companyId"
+              render={({ field }) => (
+                <Select
+                  value={field.value ? String(field.value) : ""}
+                  onValueChange={(v) => field.onChange(Number(v))}
+                  disabled={isReadOnly}
+                >
+                  <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.companyId}>
+                    <SelectValue>
+                      {(value: string | null) => {
+                        if (!value) return "Select company";
+                        return companies.find((c) => String(c.companyKey) === value)?.name ?? value;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={String(c.companyKey)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
+          </div>
+        )}
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="propertyTypeName" required>
@@ -249,6 +274,10 @@ function PropertyTypeList({ roleDef }: { roleDef: RoleDef }) {
   const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
   const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
   const scopeTenantId = platformMode ? 0 : (user?.tenantKey ?? activeTenant.tenantKey ?? 0);
+  const { locked: companyLocked, companyId: lockedCompanyId } = shouldLockSessionCompany(
+    user,
+    companies
+  );
 
   const canEdit = can(roleDef, "propertyType", "edit");
   const canCreate = can(roleDef, "propertyType", "create");
@@ -297,7 +326,9 @@ function PropertyTypeList({ roleDef }: { roleDef: RoleDef }) {
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = propertyTypes;
-    if (companyFilter !== ALL_COMPANIES) {
+    if (companyLocked && lockedCompanyId != null) {
+      result = result.filter((t) => t.companyId === lockedCompanyId);
+    } else if (companyFilter !== ALL_COMPANIES) {
       const companyKey = Number(companyFilter);
       result = result.filter((t) => t.companyId === companyKey);
     }
@@ -317,7 +348,16 @@ function PropertyTypeList({ roleDef }: { roleDef: RoleDef }) {
       });
     }
     return result;
-  }, [propertyTypes, search, companyFilter, statusFilter, sortKey, sortDirection]);
+  }, [
+    propertyTypes,
+    search,
+    companyFilter,
+    statusFilter,
+    sortKey,
+    sortDirection,
+    companyLocked,
+    lockedCompanyId,
+  ]);
 
   async function toggleActive(row: PropertyType) {
     if (!userKey) {
@@ -378,6 +418,7 @@ function PropertyTypeList({ roleDef }: { roleDef: RoleDef }) {
           companies={companies}
           userKey={userKey}
           tenantId={scopeTenantId}
+          lockedCompanyId={companyLocked ? lockedCompanyId : null}
           onSaved={refresh}
           onClose={() => {
             setPanelMode("closed");
@@ -397,24 +438,26 @@ function PropertyTypeList({ roleDef }: { roleDef: RoleDef }) {
               className="ps-9"
             />
           </div>
-          <Select value={companyFilter} onValueChange={(v) => setCompanyFilter(v ?? ALL_COMPANIES)}>
-            <SelectTrigger className="w-52">
-              <SelectValue>
-                {(value: string | null) => {
-                  if (!value || value === ALL_COMPANIES) return "All companies";
-                  return companies.find((c) => String(c.companyKey) === value)?.name ?? value;
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_COMPANIES}>All companies</SelectItem>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={String(c.companyKey)}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!companyLocked && (
+            <Select value={companyFilter} onValueChange={(v) => setCompanyFilter(v ?? ALL_COMPANIES)}>
+              <SelectTrigger className="w-52">
+                <SelectValue>
+                  {(value: string | null) => {
+                    if (!value || value === ALL_COMPANIES) return "All companies";
+                    return companies.find((c) => String(c.companyKey) === value)?.name ?? value;
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_COMPANIES}>All companies</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={String(c.companyKey)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter((value as StatusFilter) ?? "all")}>
             <SelectTrigger className="w-40">
               <SelectValue />

@@ -331,6 +331,74 @@ model PropertyType {
   @@map("PropertyType")
 }
 
+/// Property Category master — scoped by TenantID + CompanyID (e.g. Luxury, Budget).
+model PropertyCategory {
+  propertyCategoryId   Int       @id @default(autoincrement()) @map("PropertyCategoryID")
+  propertyCategoryName String    @map("PropertyCategoryName") @db.VarChar(100)
+  isActive             Boolean   @default(true) @map("IsActive")
+  createdBy            Int       @map("CreatedBy")
+  createdDtTm          DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy           Int?      @map("ModifiedBy")
+  modifiedDtTm         DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId             Int       @map("TenantID")
+  companyId            Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, propertyCategoryName], map: "PropertyCategory_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "PropertyCategory_TenantID_CompanyID_idx")
+  @@map("PropertyCategory")
+}
+
+/// Property Usage master — scoped by TenantID + CompanyID (e.g. Rental, Owned, Leasing).
+model PropertyUsage {
+  propertyUsageId   Int       @id @default(autoincrement()) @map("PropertyUsageID")
+  propertyUsageName String    @map("PropertyUsageName") @db.VarChar(100)
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId          Int       @map("TenantID")
+  companyId         Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, propertyUsageName], map: "PropertyUsage_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "PropertyUsage_TenantID_CompanyID_idx")
+  @@map("PropertyUsage")
+}
+
+/// Ownership Type master — scoped by TenantID + CompanyID (e.g. Company Owned, Third Party).
+model OwnershipType {
+  ownershipTypeId   Int       @id @default(autoincrement()) @map("OwnershipTypeID")
+  ownershipTypeName String    @map("OwnershipTypeName") @db.VarChar(100)
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId          Int       @map("TenantID")
+  companyId         Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, ownershipTypeName], map: "OwnershipType_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "OwnershipType_TenantID_CompanyID_idx")
+  @@map("OwnershipType")
+}
+
+/// Property Brand master — scoped by TenantID + CompanyID (e.g. Hilton, Accor).
+model PropertyBrand {
+  propertyBrandId   Int       @id @default(autoincrement()) @map("PropertyBrandID")
+  propertyBrandName String    @map("PropertyBrandName") @db.VarChar(100)
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  tenantId          Int       @map("TenantID")
+  companyId         Int       @map("CompanyID")
+
+  @@unique([tenantId, companyId, propertyBrandName], map: "PropertyBrand_Tenant_Company_Name_key")
+  @@index([tenantId, companyId], map: "PropertyBrand_TenantID_CompanyID_idx")
+  @@map("PropertyBrand")
+}
+
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).
 /// Branch type master — scoped by TenantID + CompanyID.
 model BranchType {

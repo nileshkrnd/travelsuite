@@ -13,6 +13,10 @@ export type ModuleKey =
   | "branchType"
   | "adminProduct"
   | "propertyType"
+  | "propertyCategory"
+  | "propertyUsage"
+  | "ownershipType"
+  | "propertyBrand"
   | "adminMasters"
   | "department"
   | "designation"
@@ -531,6 +535,30 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.propertyType",
             icon: "Building2",
             path: "masters/property-type",
+          },
+          {
+            key: "propertyCategory",
+            labelKey: "sidebar.propertyCategory",
+            icon: "Tags",
+            path: "masters/property-category",
+          },
+          {
+            key: "propertyUsage",
+            labelKey: "sidebar.propertyUsage",
+            icon: "KeyRound",
+            path: "masters/property-usage",
+          },
+          {
+            key: "ownershipType",
+            labelKey: "sidebar.ownershipType",
+            icon: "Landmark",
+            path: "masters/ownership-type",
+          },
+          {
+            key: "propertyBrand",
+            labelKey: "sidebar.propertyBrand",
+            icon: "Award",
+            path: "masters/property-brand",
           },
         ],
       },

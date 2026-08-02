@@ -59,6 +59,8 @@ export function toAppUser(
     companyUidByKey?: Map<number, string>;
     /** Employee photo path/URL when the user has a linked Employee record. */
     avatarUrl?: string | null;
+    /** CompanyID from linked Employee when User.companyId is 0. */
+    employeeCompanyKey?: number | null;
   }
 ): User {
   const userTypeId = resolveUserTypeId(row);
@@ -70,6 +72,10 @@ export function toAppUser(
   const companyUid =
     row.companyId > 0 ? (opts?.companyUidByKey?.get(row.companyId) ?? `company_${row.companyId}`) : undefined;
   const avatarUrl = opts?.avatarUrl?.trim() || undefined;
+  const employeeCompanyKey =
+    opts?.employeeCompanyKey != null && opts.employeeCompanyKey > 0
+      ? opts.employeeCompanyKey
+      : undefined;
 
   return {
     id: `user_${row.userId}`,
@@ -79,6 +85,7 @@ export function toAppUser(
     email: row.username,
     tenantKey: row.tenantId,
     companyKey: row.companyId,
+    employeeCompanyKey,
     userTypeId,
     tenantId: tenantUid,
     companyId: companyUid,

@@ -1233,7 +1233,24 @@ async function seedPropertyTypes() {
   const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
   if (!leisure || !corporate) return;
 
-  const names = ["Hotel", "Apartment", "Villa", "Commercial"];
+  const names = [
+    "Hotel",
+    "Apartment",
+    "Villa",
+    "Resort",
+    "Camp",
+    "Office",
+    "Warehouse",
+    "Retail Shop",
+    "Building",
+    "Land",
+    "Holiday Home",
+    "Staff Accommodation",
+    "Labour Camp",
+    "Rental Property",
+    "Commercial Property",
+    "Mixed Use Building",
+  ];
 
   for (const company of [leisure, corporate]) {
     for (const propertyTypeName of names) {
@@ -1255,11 +1272,124 @@ async function seedPropertyTypes() {
         update: { isActive: true },
       });
     }
+
+    // Drop short-lived seed alias replaced by "Commercial Property".
+    await prisma.propertyType.deleteMany({
+      where: {
+        tenantId: company.tenantId,
+        companyId: company.companyId,
+        propertyTypeName: "Commercial",
+      },
+    });
   }
 
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('"PropertyType"', 'PropertyTypeID'), (SELECT COALESCE(MAX("PropertyTypeID"), 1) FROM "PropertyType"))`
   );
+}
+
+async function seedNamedPropertyMasters() {
+  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
+  const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
+  if (!leisure || !corporate) return;
+
+  const catalogs: {
+    names: string[];
+    upsert: (companyId: number, tenantId: number, name: string) => Promise<unknown>;
+    table: string;
+    idColumn: string;
+  }[] = [
+    {
+      names: ["Luxury", "Budget", "Midscale", "Upscale", "Economy"],
+      upsert: (companyId, tenantId, propertyCategoryName) =>
+        prisma.propertyCategory.upsert({
+          where: {
+            tenantId_companyId_propertyCategoryName: { tenantId, companyId, propertyCategoryName },
+          },
+          create: {
+            propertyCategoryName,
+            tenantId,
+            companyId,
+            isActive: true,
+            createdBy: CREATED_BY,
+          },
+          update: { isActive: true },
+        }),
+      table: "PropertyCategory",
+      idColumn: "PropertyCategoryID",
+    },
+    {
+      names: ["Rental", "Owned", "Leasing"],
+      upsert: (companyId, tenantId, propertyUsageName) =>
+        prisma.propertyUsage.upsert({
+          where: {
+            tenantId_companyId_propertyUsageName: { tenantId, companyId, propertyUsageName },
+          },
+          create: {
+            propertyUsageName,
+            tenantId,
+            companyId,
+            isActive: true,
+            createdBy: CREATED_BY,
+          },
+          update: { isActive: true },
+        }),
+      table: "PropertyUsage",
+      idColumn: "PropertyUsageID",
+    },
+    {
+      names: ["Company Owned", "Third Party"],
+      upsert: (companyId, tenantId, ownershipTypeName) =>
+        prisma.ownershipType.upsert({
+          where: {
+            tenantId_companyId_ownershipTypeName: { tenantId, companyId, ownershipTypeName },
+          },
+          create: {
+            ownershipTypeName,
+            tenantId,
+            companyId,
+            isActive: true,
+            createdBy: CREATED_BY,
+          },
+          update: { isActive: true },
+        }),
+      table: "OwnershipType",
+      idColumn: "OwnershipTypeID",
+    },
+    {
+      names: ["Hilton", "Accor", "Marriott", "IHG", "Independent"],
+      upsert: (companyId, tenantId, propertyBrandName) =>
+        prisma.propertyBrand.upsert({
+          where: {
+            tenantId_companyId_propertyBrandName: { tenantId, companyId, propertyBrandName },
+          },
+          create: {
+            propertyBrandName,
+            tenantId,
+            companyId,
+            isActive: true,
+            createdBy: CREATED_BY,
+          },
+          update: { isActive: true },
+        }),
+      table: "PropertyBrand",
+      idColumn: "PropertyBrandID",
+    },
+  ];
+
+  for (const company of [leisure, corporate]) {
+    for (const catalog of catalogs) {
+      for (const name of catalog.names) {
+        await catalog.upsert(company.companyId, company.tenantId, name);
+      }
+    }
+  }
+
+  for (const catalog of catalogs) {
+    await prisma.$executeRawUnsafe(
+      `SELECT setval(pg_get_serial_sequence('"${catalog.table}"', '${catalog.idColumn}'), (SELECT COALESCE(MAX("${catalog.idColumn}"), 1) FROM "${catalog.table}"))`
+    );
+  }
 }
 
 async function seedBranches() {
@@ -1462,53 +1592,109 @@ async function seedEmployees() {
         isActive: true,
       },
     });
-    return;
+  } else {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username,
+          passwordHash,
+          userDisplayName: "Raj Kumar",
+          userTypeId: 3,
+          tenantId: leisure.tenantId,
+          companyId: leisure.companyId,
+          isActive: true,
+          createdBy: CREATED_BY,
+          lastPasswordChangeDtTm: now,
+        },
+      });
+
+      await tx.employee.create({
+        data: {
+          title: "Mr",
+          firstName: "Raj",
+          lastName: "Kumar",
+          gender: "Male",
+          countryDialCode: "+91",
+          phoneNumber: "9876543210",
+          faxNumber: null,
+          email: username,
+          address: "123 Business Park, Mumbai",
+          countryId: inCountry.countryId,
+          cityId: mumbai.cityId,
+          employeeNumber,
+          designationId: designation.designationId,
+          joiningDate: now,
+          accessRoleId: accessRole.accessRoleId,
+          departmentId: salesDept?.departmentId ?? null,
+          reportingEmployeeId: null,
+          companyId: leisure.companyId,
+          branchId: mumbaiBranch.branchId,
+          userId: user.userId,
+          employeeImage: null,
+          tenantId: leisure.tenantId,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+      });
+    });
   }
 
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        username,
-        passwordHash,
-        userDisplayName: "Raj Kumar",
-        userTypeId: 3,
-        tenantId: leisure.tenantId,
-        companyId: leisure.companyId,
-        isActive: true,
-        createdBy: CREATED_BY,
-        lastPasswordChangeDtTm: now,
-      },
-    });
-
-    await tx.employee.create({
-      data: {
-        title: "Mr",
-        firstName: "Raj",
-        lastName: "Kumar",
-        gender: "Male",
-        countryDialCode: "+91",
-        phoneNumber: "9876543210",
-        faxNumber: null,
-        email: username,
-        address: "123 Business Park, Mumbai",
-        countryId: inCountry.countryId,
-        cityId: mumbai.cityId,
-        employeeNumber,
-        designationId: designation.designationId,
-        joiningDate: now,
-        accessRoleId: accessRole.accessRoleId,
-        departmentId: salesDept?.departmentId ?? null,
-        reportingEmployeeId: null,
-        companyId: leisure.companyId,
-        branchId: mumbaiBranch.branchId,
-        userId: user.userId,
-        employeeImage: null,
-        tenantId: leisure.tenantId,
-        isActive: true,
-        createdBy: CREATED_BY,
-      },
-    });
+  // Tenant Admin (User.companyId=0) still gets an Employee under a company so
+  // session can resolve a logged-in company for company-scoped masters.
+  const tenantAdminUser = await prisma.user.findUnique({
+    where: { username: "admin@travelsuite.com" },
   });
+  if (tenantAdminUser) {
+    const adminEmployeeNumber = "EMP-ADMIN";
+    const existingAdminEmp = await prisma.employee.findUnique({
+      where: { userId: tenantAdminUser.userId },
+    });
+    if (existingAdminEmp) {
+      await prisma.employee.update({
+        where: { employeeId: existingAdminEmp.employeeId },
+        data: {
+          companyId: leisure.companyId,
+          branchId: mumbaiBranch.branchId,
+          tenantId: leisure.tenantId,
+          designationId: designation.designationId,
+          accessRoleId: accessRole.accessRoleId,
+          departmentId: salesDept?.departmentId ?? null,
+          countryId: inCountry.countryId,
+          cityId: mumbai.cityId,
+          isActive: true,
+        },
+      });
+    } else {
+      await prisma.employee.create({
+        data: {
+          title: "Mr",
+          firstName: "Tenant",
+          lastName: "Admin",
+          gender: "Male",
+          countryDialCode: "+91",
+          phoneNumber: "9000000001",
+          faxNumber: null,
+          email: "admin@travelsuite.com",
+          address: "Head Office",
+          countryId: inCountry.countryId,
+          cityId: mumbai.cityId,
+          employeeNumber: adminEmployeeNumber,
+          designationId: designation.designationId,
+          joiningDate: now,
+          accessRoleId: accessRole.accessRoleId,
+          departmentId: salesDept?.departmentId ?? null,
+          reportingEmployeeId: null,
+          companyId: leisure.companyId,
+          branchId: mumbaiBranch.branchId,
+          userId: tenantAdminUser.userId,
+          employeeImage: null,
+          tenantId: leisure.tenantId,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+      });
+    }
+  }
 
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('"Employee"', 'EmployeeID'), (SELECT COALESCE(MAX("EmployeeID"), 1) FROM "Employee"))`
@@ -1530,6 +1716,7 @@ async function main() {
   await seedDesignations();
   await seedBranchTypes();
   await seedPropertyTypes();
+  await seedNamedPropertyMasters();
   await seedBranches();
   await seedEmployees();
 }

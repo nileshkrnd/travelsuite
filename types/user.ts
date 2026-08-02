@@ -19,6 +19,11 @@ export interface User {
   tenantKey: number;
   /** Numeric CompanyID (0 = no company / Tenant Admin). */
   companyKey: number;
+  /**
+   * CompanyID from the linked Employee record when User.companyId is 0
+   * (e.g. Tenant Admin who also has an employee profile under a company).
+   */
+  employeeCompanyKey?: number;
   /** UserTypeID enum (1–8). */
   userTypeId: UserTypeId;
   /** App tenant uid when tenantKey > 0; platform id when 0. */

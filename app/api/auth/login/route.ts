@@ -32,7 +32,9 @@ export async function POST(request: Request) {
     const username = parsed.data.username.trim().toLowerCase();
     const row = await adminDb.user.findUnique({
       where: { username },
-      include: { employee: { select: { employeeImage: true, isActive: true } } },
+      include: {
+        employee: { select: { employeeImage: true, isActive: true, companyId: true } },
+      },
     });
     if (!row || !row.isActive || !verifyPassword(parsed.data.password, row.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
@@ -68,7 +70,9 @@ export async function POST(request: Request) {
       row.employee?.isActive && row.employee.employeeImage?.trim()
         ? row.employee.employeeImage.trim()
         : null;
-    const user = toAppUser(row, { tenantUidByKey, avatarUrl });
+    const employeeCompanyKey =
+      row.employee?.isActive && row.employee.companyId > 0 ? row.employee.companyId : null;
+    const user = toAppUser(row, { tenantUidByKey, avatarUrl, employeeCompanyKey });
     return NextResponse.json(user);
   } catch (error) {
     return dbUnavailable(error);
