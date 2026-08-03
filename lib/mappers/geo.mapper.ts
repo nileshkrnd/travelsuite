@@ -35,14 +35,19 @@ export interface StateRow {
   isDeleted: boolean;
   createdDtTm: Date | string;
   country?: { countryCode: string } | null;
-  administrativeType?: { typeName: string } | null;
+  administrativeType?: { administrativeType: string } | null;
   capitalCity?: { cityName: string } | null;
 }
 
 export interface StateAdministrativeTypeRow {
   stateAdministrativeTypeId: number;
-  typeName: string;
+  administrativeType: string;
   isActive: boolean;
+  createdBy: number;
+  createdDtTm: Date | string;
+  modifiedBy: number | null;
+  modifiedDtTm: Date | string | null;
+  isDeleted: boolean;
 }
 
 export interface CurrencyRow {
@@ -108,7 +113,7 @@ export function toAppState(row: StateRow): State {
     name: row.stateName,
     nativeName: row.nativeName,
     administrativeTypeKey: row.stateAdministrativeTypeId,
-    administrativeTypeName: row.administrativeType?.typeName,
+    administrativeTypeName: row.administrativeType?.administrativeType,
     capitalCityKey: row.capitalCityId,
     capitalCityName: row.capitalCity?.cityName,
     latitude: toNumberOrNull(row.latitude),
@@ -124,8 +129,13 @@ export function toAppStateAdministrativeType(row: StateAdministrativeTypeRow): S
   return {
     id: `sat_${row.stateAdministrativeTypeId}`,
     typeKey: row.stateAdministrativeTypeId,
-    name: row.typeName,
+    name: row.administrativeType,
     isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdBy: row.createdBy,
+    createdAt: toIso(row.createdDtTm),
+    modifiedBy: row.modifiedBy,
+    modifiedDtTm: row.modifiedDtTm == null ? null : toIso(row.modifiedDtTm),
   };
 }
 

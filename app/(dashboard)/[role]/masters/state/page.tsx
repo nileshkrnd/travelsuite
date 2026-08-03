@@ -27,11 +27,11 @@ import {
   createState,
   deleteState,
   listStates,
-  listStateAdministrativeTypes,
   setStateActive,
   updateState,
   StatesApiError,
 } from "@/lib/services/states.service";
+import { listStateAdministrativeTypes } from "@/lib/services/state-administrative-types.service";
 import { listCountries } from "@/lib/services/countries.service";
 import { listCities } from "@/lib/services/cities.service";
 import { useReferenceStore } from "@/lib/store/reference.store";

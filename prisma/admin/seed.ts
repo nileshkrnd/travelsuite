@@ -78,10 +78,10 @@ async function seedReferenceMasters() {
 
 async function seedStateAdministrativeTypes() {
   const names = ["State", "Province", "Emirate", "Governorate", "Region"];
-  for (const typeName of names) {
+  for (const administrativeType of names) {
     await prisma.stateAdministrativeType.upsert({
-      where: { typeName },
-      create: { typeName, isActive: true, createdBy: CREATED_BY },
+      where: { administrativeType },
+      create: { administrativeType, isActive: true, createdBy: CREATED_BY },
       update: { isActive: true },
     });
   }
@@ -127,7 +127,7 @@ async function seedStates() {
     const country = await prisma.country.findUnique({ where: { countryCode: group.countryCode } });
     if (!country) continue;
     const adminType = await prisma.stateAdministrativeType.findUnique({
-      where: { typeName: group.administrativeType },
+      where: { administrativeType: group.administrativeType },
     });
 
     for (const [i, state] of group.states.entries()) {

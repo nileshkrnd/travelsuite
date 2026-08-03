@@ -40,6 +40,7 @@ export type ModuleKey =
   | "globalTenantSettings"
   | "country"
   | "state"
+  | "stateAdministrativeType"
   | "city"
   | "region"
   | "currency"
@@ -311,6 +312,7 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "tenantProfile",
   "country",
   "state",
+  "stateAdministrativeType",
   "city",
   "region",
   "currency",
@@ -345,6 +347,12 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
       { key: "country", labelKey: "sidebar.country", icon: "Globe", path: "masters/country" },
       { key: "state", labelKey: "sidebar.state", icon: "MapPin", path: "masters/state" },
+      {
+        key: "stateAdministrativeType",
+        labelKey: "sidebar.stateAdministrativeType",
+        icon: "ListTree",
+        path: "masters/state-administrative-type",
+      },
       { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
       { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },

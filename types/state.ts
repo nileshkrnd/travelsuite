@@ -20,10 +20,15 @@ export interface State {
   createdAt: string;
 }
 
-/** State administrative type lookup (State, Province, Emirate, Governorate, Region). */
+/** State administrative type master (State, Province, Emirate, Governorate, Region). */
 export interface StateAdministrativeType {
   id: string;
   typeKey: number;
   name: string;
   isActive: boolean;
+  isDeleted: boolean;
+  createdBy: number;
+  createdAt: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
 }

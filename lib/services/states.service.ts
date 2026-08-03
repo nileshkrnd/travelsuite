@@ -1,10 +1,5 @@
-import type { State, StateAdministrativeType } from "@/types";
-import {
-  toAppState,
-  toAppStateAdministrativeType,
-  type StateRow,
-  type StateAdministrativeTypeRow,
-} from "@/lib/mappers/geo.mapper";
+import type { State } from "@/types";
+import { toAppState, type StateRow } from "@/lib/mappers/geo.mapper";
 
 export class StatesApiError extends Error {
   constructor(
@@ -92,16 +87,4 @@ export async function setStateActive(stateId: number, isActive: boolean, modifie
 export async function deleteState(stateId: number, modifiedBy: number): Promise<void> {
   const res = await fetch(`/api/states/${stateId}?modifiedBy=${modifiedBy}`, { method: "DELETE" });
   if (!res.ok) throw new StatesApiError(await parseError(res), res.status);
-}
-
-export async function listStateAdministrativeTypes(options?: {
-  activeOnly?: boolean;
-}): Promise<StateAdministrativeType[]> {
-  const params = new URLSearchParams();
-  if (options?.activeOnly) params.set("activeOnly", "true");
-  const qs = params.toString();
-  const res = await fetch(`/api/state-administrative-types${qs ? `?${qs}` : ""}`, { cache: "no-store" });
-  if (!res.ok) throw new StatesApiError(await parseError(res), res.status);
-  const data = (await res.json()) as StateAdministrativeTypeRow[];
-  return data.map(toAppStateAdministrativeType);
 }

@@ -33,7 +33,7 @@ const createSchema = z.object({
 
 const includeArgs = {
   country: { select: { countryCode: true } },
-  administrativeType: { select: { typeName: true } },
+  administrativeType: { select: { administrativeType: true } },
   capitalCity: { select: { cityName: true } },
 } as const;
 

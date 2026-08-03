@@ -120,6 +120,7 @@
     "globalTenantSettings": "Tenant Configuration",
     "country": "Country",
     "state": "State",
+    "stateAdministrativeType": "State Administrative Type",
     "city": "City",
     "region": "Region",
     "currency": "Currency",
