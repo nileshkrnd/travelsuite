@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const tenantIdParam = searchParams.get("tenantId");
     const companyIdParam = searchParams.get("companyId");
     const activeOnly = searchParams.get("activeOnly") === "true";
+    const propertyTypeIdParam = searchParams.get("propertyTypeId");
 
     const where: Prisma.PropertyWhereInput = {};
     if (tenantIdParam != null && tenantIdParam !== "") {
@@ -33,11 +34,14 @@ export async function GET(request: Request) {
       where.companyId = Number(companyIdParam);
     }
     if (activeOnly) where.isActive = true;
+    if (propertyTypeIdParam != null && propertyTypeIdParam !== "") {
+      where.typeLinks = { some: { propertyTypeId: Number(propertyTypeIdParam) } };
+    }
 
     const rows = await prisma.property.findMany({
       where,
       include: propertyInclude,
-      orderBy: [{ propertyCode: "asc" }],
+      orderBy: [{ createdDtTm: "desc" }, { propertyCode: "asc" }],
     });
     return NextResponse.json(await withCompanyName(rows));
   } catch (error) {

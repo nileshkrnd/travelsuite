@@ -119,6 +119,7 @@
     "tenantProfile": "Tenant registration",
     "globalTenantSettings": "Tenant Configuration",
     "country": "Country",
+    "state": "State",
     "city": "City",
     "region": "Region",
     "currency": "Currency",

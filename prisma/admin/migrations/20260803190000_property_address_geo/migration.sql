@@ -1,0 +1,54 @@
+-- Address / geo fields for Property
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "AddressLine1" VARCHAR(255);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "AddressLine2" VARCHAR(255);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "BuildingName" VARCHAR(150);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "BuildingNumber" VARCHAR(50);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "StreetName" VARCHAR(150);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "StreetNumber" VARCHAR(20);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "ZoneNumber" VARCHAR(20);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "CountryID" INTEGER;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "StateID" INTEGER;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "CityID" INTEGER;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "AreaID" INTEGER;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "LocationID" INTEGER;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "PostalCode" VARCHAR(20);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "POBox" VARCHAR(50);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "Landmark" VARCHAR(255);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "Latitude" DECIMAL(9,6);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "Longitude" DECIMAL(9,6);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "GooglePlaceID" VARCHAR(255);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "GoogleMapURL" TEXT;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "PlusCode" VARCHAR(50);
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "TimeZoneID" INTEGER;
+
+-- Backfill CountryID from Qatar (or first country) so NOT NULL can be applied
+UPDATE "Property" p
+SET "CountryID" = COALESCE(
+  (SELECT c."CountryID" FROM "Country" c WHERE c."CountryCode" = 'QA' LIMIT 1),
+  (SELECT c."CountryID" FROM "Country" c ORDER BY c."CountryID" ASC LIMIT 1)
+)
+WHERE p."CountryID" IS NULL;
+
+-- Prefer Doha city when available
+UPDATE "Property" p
+SET "CityID" = (
+  SELECT ci."CityID" FROM "City" ci
+  INNER JOIN "Country" c ON c."CountryID" = ci."CountryID"
+  WHERE c."CountryCode" = 'QA' AND ci."CityCode" ILIKE 'DOH%'
+  LIMIT 1
+)
+WHERE p."CityID" IS NULL;
+
+ALTER TABLE "Property" ALTER COLUMN "CountryID" SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "Property_CountryID_idx" ON "Property"("CountryID");
+CREATE INDEX IF NOT EXISTS "Property_CityID_idx" ON "Property"("CityID");
+
+ALTER TABLE "Property" DROP CONSTRAINT IF EXISTS "Property_CountryID_fkey";
+ALTER TABLE "Property" DROP CONSTRAINT IF EXISTS "Property_CityID_fkey";
+ALTER TABLE "Property"
+  ADD CONSTRAINT "Property_CountryID_fkey"
+  FOREIGN KEY ("CountryID") REFERENCES "Country"("CountryID") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Property"
+  ADD CONSTRAINT "Property_CityID_fkey"
+  FOREIGN KEY ("CityID") REFERENCES "City"("CityID") ON DELETE SET NULL ON UPDATE CASCADE;

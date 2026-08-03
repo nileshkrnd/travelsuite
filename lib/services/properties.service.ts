@@ -24,12 +24,38 @@ export type PropertyWriteInput = {
   tenantId: number;
   companyId: number;
   propertyCode: string;
-  propertyTypeId: number;
-  propertyCategoryId?: number | null;
+  propertyName?: string | null;
+  propertyDisplayName?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
+  internalRemarks?: string | null;
+  propertyTypeIds: number[];
+  propertyCategoryIds?: number[];
   propertyUsageId?: number | null;
   ownershipTypeId?: number | null;
   propertyBrandId?: number | null;
   supplierId?: number | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  buildingName?: string | null;
+  buildingNumber?: string | null;
+  streetName?: string | null;
+  streetNumber?: string | null;
+  zoneNumber?: string | null;
+  countryId: number;
+  stateId?: number | null;
+  cityId?: number | null;
+  areaId?: number | null;
+  locationId?: number | null;
+  postalCode?: string | null;
+  poBox?: string | null;
+  landmark?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  googlePlaceId?: string | null;
+  googleMapUrl?: string | null;
+  plusCode?: string | null;
+  timeZoneId?: number | null;
   openingDate?: string | null;
   closingDate?: string | null;
   rating?: number | null;
@@ -39,15 +65,25 @@ export type PropertyWriteInput = {
   isActive?: boolean;
 };
 
+export async function getProperty(propertyId: number): Promise<Property> {
+  const res = await fetch(`/api/properties/${propertyId}`, { cache: "no-store" });
+  if (!res.ok) throw new PropertiesApiError(await parseError(res), res.status);
+  return toAppProperty(await res.json());
+}
+
 export async function listProperties(options?: {
   tenantId?: number;
   companyId?: number;
   activeOnly?: boolean;
+  propertyTypeId?: number;
 }): Promise<Property[]> {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
   if (options?.activeOnly) params.set("activeOnly", "true");
+  if (options?.propertyTypeId !== undefined) {
+    params.set("propertyTypeId", String(options.propertyTypeId));
+  }
   const qs = params.toString();
   const res = await fetch(`/api/properties${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new PropertiesApiError(await parseError(res), res.status);

@@ -4,12 +4,38 @@ export interface Property {
   tenantId: number;
   companyId: number;
   propertyCode: string;
-  propertyTypeId: number;
-  propertyCategoryId: number | null;
+  propertyName: string | null;
+  propertyDisplayName: string | null;
+  shortDescription: string | null;
+  description: string | null;
+  internalRemarks: string | null;
+  propertyTypeIds: number[];
+  propertyCategoryIds: number[];
   propertyUsageId: number | null;
   ownershipTypeId: number | null;
   propertyBrandId: number | null;
   supplierId: number | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  buildingName: string | null;
+  buildingNumber: string | null;
+  streetName: string | null;
+  streetNumber: string | null;
+  zoneNumber: string | null;
+  countryId: number;
+  stateId: number | null;
+  cityId: number | null;
+  areaId: number | null;
+  locationId: number | null;
+  postalCode: string | null;
+  poBox: string | null;
+  landmark: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googlePlaceId: string | null;
+  googleMapUrl: string | null;
+  plusCode: string | null;
+  timeZoneId: number | null;
   /** YYYY-MM-DD */
   openingDate: string | null;
   /** YYYY-MM-DD */
@@ -24,9 +50,11 @@ export interface Property {
   modifiedBy: number | null;
   modifiedDtTm: string | null;
   companyName?: string;
-  propertyTypeName?: string;
-  propertyCategoryName?: string;
+  propertyTypeNames: string[];
+  propertyCategoryNames: string[];
   propertyUsageName?: string;
   ownershipTypeName?: string;
   propertyBrandName?: string;
+  countryName?: string;
+  cityName?: string;
 }

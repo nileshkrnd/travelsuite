@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { dbUnavailable } from "@/lib/api/db-error";
 
 const optionalPositiveInt = z
   .union([z.number().int().positive(), z.null()])
@@ -14,17 +13,59 @@ const optionalDate = z
   .optional()
   .transform((v) => (v === undefined ? undefined : v));
 
+const optionalText = (max: number) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === null || v === "" ? null : v));
+
+const optionalLatitude = z
+  .union([z.number().min(-90).max(90), z.null()])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v));
+
+const optionalLongitude = z
+  .union([z.number().min(-180).max(180), z.null()])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v));
+
 export const propertyWriteSchema = z
   .object({
     tenantId: z.number().int().positive(),
     companyId: z.number().int().positive(),
     propertyCode: z.string().trim().min(1).max(50),
-    propertyTypeId: z.number().int().positive(),
-    propertyCategoryId: optionalPositiveInt,
+    propertyName: optionalText(250),
+    propertyDisplayName: optionalText(250),
+    shortDescription: optionalText(20000),
+    description: optionalText(20000),
+    internalRemarks: optionalText(20000),
+    propertyTypeIds: z.array(z.number().int().positive()).min(1, "Select at least one property type"),
+    propertyCategoryIds: z.array(z.number().int().positive()).optional().default([]),
     propertyUsageId: optionalPositiveInt,
     ownershipTypeId: optionalPositiveInt,
     propertyBrandId: optionalPositiveInt,
     supplierId: optionalPositiveInt,
+    addressLine1: optionalText(255),
+    addressLine2: optionalText(255),
+    buildingName: optionalText(150),
+    buildingNumber: optionalText(50),
+    streetName: optionalText(150),
+    streetNumber: optionalText(20),
+    zoneNumber: optionalText(20),
+    countryId: z.number().int().positive("Country is required"),
+    stateId: optionalPositiveInt,
+    cityId: optionalPositiveInt,
+    areaId: optionalPositiveInt,
+    locationId: optionalPositiveInt,
+    postalCode: optionalText(20),
+    poBox: optionalText(50),
+    landmark: optionalText(255),
+    latitude: optionalLatitude,
+    longitude: optionalLongitude,
+    googlePlaceId: optionalText(255),
+    googleMapUrl: optionalText(20000),
+    plusCode: optionalText(50),
+    timeZoneId: optionalPositiveInt,
     openingDate: optionalDate,
     closingDate: optionalDate,
     rating: z
@@ -50,11 +91,17 @@ export const propertyWriteSchema = z
   });
 
 export const propertyInclude = {
-  propertyType: { select: { propertyTypeName: true } },
-  propertyCategory: { select: { propertyCategoryName: true } },
+  typeLinks: {
+    include: { propertyType: { select: { propertyTypeName: true } } },
+  },
+  categoryLinks: {
+    include: { propertyCategory: { select: { propertyCategoryName: true } } },
+  },
   propertyUsage: { select: { propertyUsageName: true } },
   ownershipType: { select: { ownershipTypeName: true } },
   propertyBrand: { select: { propertyBrandName: true } },
+  country: { select: { countryName: true } },
+  city: { select: { cityName: true } },
 } as const;
 
 export async function withCompanyName<T extends { companyId: number }>(rows: T[]) {
@@ -74,14 +121,23 @@ function parseDateOnly(value: string | null | undefined): Date | null | undefine
   return new Date(`${value}T00:00:00.000Z`);
 }
 
+function trimOrNull(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value == null) return null;
+  const t = value.trim();
+  return t || null;
+}
+
 export async function validatePropertyLookups(data: {
   tenantId: number;
   companyId: number;
-  propertyTypeId: number;
-  propertyCategoryId?: number | null;
+  propertyTypeIds: number[];
+  propertyCategoryIds?: number[];
   propertyUsageId?: number | null;
   ownershipTypeId?: number | null;
   propertyBrandId?: number | null;
+  countryId: number;
+  cityId?: number | null;
 }): Promise<NextResponse | null> {
   const company = await prisma.company.findFirst({
     where: { companyId: data.companyId, tenantId: data.tenantId },
@@ -90,18 +146,33 @@ export async function validatePropertyLookups(data: {
     return NextResponse.json({ error: "Company not found for this tenant" }, { status: 400 });
   }
 
-  const type = await prisma.propertyType.findUnique({ where: { propertyTypeId: data.propertyTypeId } });
-  if (!type) return NextResponse.json({ error: "Property type not found" }, { status: 400 });
-  if (type.tenantId !== data.tenantId || type.companyId !== data.companyId) {
+  const uniqueTypeIds = [...new Set(data.propertyTypeIds)];
+  if (uniqueTypeIds.length === 0) {
+    return NextResponse.json({ error: "Select at least one property type" }, { status: 400 });
+  }
+  const types = await prisma.propertyType.findMany({
+    where: { propertyTypeId: { in: uniqueTypeIds } },
+  });
+  if (types.length !== uniqueTypeIds.length) {
+    return NextResponse.json({ error: "One or more property types were not found" }, { status: 400 });
+  }
+  if (types.some((t) => t.tenantId !== data.tenantId || t.companyId !== data.companyId)) {
     return NextResponse.json({ error: "Property type does not belong to this company" }, { status: 400 });
   }
 
-  if (data.propertyCategoryId != null) {
-    const row = await prisma.propertyCategory.findUnique({
-      where: { propertyCategoryId: data.propertyCategoryId },
+  const uniqueCategoryIds = [...new Set(data.propertyCategoryIds ?? [])];
+  if (uniqueCategoryIds.length > 0) {
+    const cats = await prisma.propertyCategory.findMany({
+      where: { propertyCategoryId: { in: uniqueCategoryIds } },
     });
-    if (!row || row.tenantId !== data.tenantId || row.companyId !== data.companyId) {
-      return NextResponse.json({ error: "Property category does not belong to this company" }, { status: 400 });
+    if (cats.length !== uniqueCategoryIds.length) {
+      return NextResponse.json({ error: "One or more property categories were not found" }, { status: 400 });
+    }
+    if (cats.some((c) => c.tenantId !== data.tenantId || c.companyId !== data.companyId)) {
+      return NextResponse.json(
+        { error: "Property category does not belong to this company" },
+        { status: 400 }
+      );
     }
   }
 
@@ -126,22 +197,66 @@ export async function validatePropertyLookups(data: {
     }
   }
 
+  const country = await prisma.country.findUnique({ where: { countryId: data.countryId } });
+  if (!country) return NextResponse.json({ error: "Country not found" }, { status: 400 });
+
+  if (data.cityId != null) {
+    const city = await prisma.city.findUnique({ where: { cityId: data.cityId } });
+    if (!city || city.countryId !== data.countryId) {
+      return NextResponse.json({ error: "City does not belong to the selected country" }, { status: 400 });
+    }
+  }
+
   return null;
 }
 
+type WriteData = z.infer<typeof propertyWriteSchema>;
+
+function addressScalars(data: WriteData) {
+  return {
+    addressLine1: trimOrNull(data.addressLine1) ?? null,
+    addressLine2: trimOrNull(data.addressLine2) ?? null,
+    buildingName: trimOrNull(data.buildingName) ?? null,
+    buildingNumber: trimOrNull(data.buildingNumber) ?? null,
+    streetName: trimOrNull(data.streetName) ?? null,
+    streetNumber: trimOrNull(data.streetNumber) ?? null,
+    zoneNumber: trimOrNull(data.zoneNumber) ?? null,
+    countryId: data.countryId,
+    stateId: data.stateId ?? null,
+    cityId: data.cityId ?? null,
+    areaId: data.areaId ?? null,
+    locationId: data.locationId ?? null,
+    postalCode: trimOrNull(data.postalCode) ?? null,
+    poBox: trimOrNull(data.poBox) ?? null,
+    landmark: trimOrNull(data.landmark) ?? null,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
+    googlePlaceId: trimOrNull(data.googlePlaceId) ?? null,
+    googleMapUrl: trimOrNull(data.googleMapUrl) ?? null,
+    plusCode: trimOrNull(data.plusCode) ?? null,
+    timeZoneId: data.timeZoneId ?? null,
+  };
+}
+
 export function toPropertyCreateData(
-  data: z.infer<typeof propertyWriteSchema> & { createdBy: number }
+  data: WriteData & { createdBy: number }
 ): Prisma.PropertyUncheckedCreateInput {
+  const typeIds = [...new Set(data.propertyTypeIds)];
+  const categoryIds = [...new Set(data.propertyCategoryIds ?? [])];
   return {
     tenantId: data.tenantId,
     companyId: data.companyId,
     propertyCode: data.propertyCode.trim(),
-    propertyTypeId: data.propertyTypeId,
-    propertyCategoryId: data.propertyCategoryId ?? null,
+    propertyName: trimOrNull(data.propertyName) ?? null,
+    propertyDisplayName: trimOrNull(data.propertyDisplayName) ?? null,
+    shortDescription: trimOrNull(data.shortDescription) ?? null,
+    description: trimOrNull(data.description) ?? null,
+    internalRemarks: trimOrNull(data.internalRemarks) ?? null,
     propertyUsageId: data.propertyUsageId ?? null,
     ownershipTypeId: data.ownershipTypeId ?? null,
     propertyBrandId: data.propertyBrandId ?? null,
     supplierId: data.supplierId ?? null,
+    ...addressScalars(data),
     openingDate: parseDateOnly(data.openingDate) ?? null,
     closingDate: parseDateOnly(data.closingDate) ?? null,
     rating: data.rating ?? null,
@@ -150,22 +265,28 @@ export function toPropertyCreateData(
     isPublished: data.isPublished ?? false,
     isActive: data.isActive ?? true,
     createdBy: data.createdBy,
+    typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId })) },
+    categoryLinks: { create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId })) },
   };
 }
 
-export function toPropertyUpdateData(
-  data: z.infer<typeof propertyWriteSchema> & { modifiedBy: number }
+export function toPropertyUpdateScalars(
+  data: WriteData & { modifiedBy: number }
 ): Prisma.PropertyUncheckedUpdateInput {
   return {
     tenantId: data.tenantId,
     companyId: data.companyId,
     propertyCode: data.propertyCode.trim(),
-    propertyTypeId: data.propertyTypeId,
-    propertyCategoryId: data.propertyCategoryId ?? null,
+    propertyName: trimOrNull(data.propertyName) ?? null,
+    propertyDisplayName: trimOrNull(data.propertyDisplayName) ?? null,
+    shortDescription: trimOrNull(data.shortDescription) ?? null,
+    description: trimOrNull(data.description) ?? null,
+    internalRemarks: trimOrNull(data.internalRemarks) ?? null,
     propertyUsageId: data.propertyUsageId ?? null,
     ownershipTypeId: data.ownershipTypeId ?? null,
     propertyBrandId: data.propertyBrandId ?? null,
     supplierId: data.supplierId ?? null,
+    ...addressScalars(data),
     openingDate: parseDateOnly(data.openingDate) ?? null,
     closingDate: parseDateOnly(data.closingDate) ?? null,
     rating: data.rating ?? null,

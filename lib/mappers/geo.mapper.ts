@@ -1,4 +1,4 @@
-import type { City, Country, Currency, CurrencyStatus, ReferenceStatus } from "@/types";
+import type { City, Country, Currency, CurrencyStatus, ReferenceStatus, State, StateAdministrativeType } from "@/types";
 
 export interface CountryRow {
   countryId: number;
@@ -17,6 +17,32 @@ export interface CityRow {
   status: string;
   createdDtTm: Date | string;
   country?: { countryCode: string } | null;
+}
+
+export interface StateRow {
+  stateId: number;
+  countryId: number;
+  stateCode: string;
+  isoCode: string | null;
+  stateName: string;
+  nativeName: string | null;
+  stateAdministrativeTypeId: number | null;
+  capitalCityId: number | null;
+  latitude: unknown;
+  longitude: unknown;
+  displayOrder: number;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdDtTm: Date | string;
+  country?: { countryCode: string } | null;
+  administrativeType?: { typeName: string } | null;
+  capitalCity?: { cityName: string } | null;
+}
+
+export interface StateAdministrativeTypeRow {
+  stateAdministrativeTypeId: number;
+  typeName: string;
+  isActive: boolean;
 }
 
 export interface CurrencyRow {
@@ -61,6 +87,45 @@ export function toAppCity(row: CityRow): City {
     name: row.cityName,
     status: toStatus(row.status),
     createdAt: toIso(row.createdDtTm),
+  };
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  if (value == null) return null;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+export function toAppState(row: StateRow): State {
+  const countryCode = row.country?.countryCode ?? "";
+  return {
+    id: `state_${row.stateId}`,
+    stateKey: row.stateId,
+    countryKey: row.countryId,
+    countryCode,
+    code: row.stateCode,
+    isoCode: row.isoCode,
+    name: row.stateName,
+    nativeName: row.nativeName,
+    administrativeTypeKey: row.stateAdministrativeTypeId,
+    administrativeTypeName: row.administrativeType?.typeName,
+    capitalCityKey: row.capitalCityId,
+    capitalCityName: row.capitalCity?.cityName,
+    latitude: toNumberOrNull(row.latitude),
+    longitude: toNumberOrNull(row.longitude),
+    displayOrder: row.displayOrder,
+    isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdAt: toIso(row.createdDtTm),
+  };
+}
+
+export function toAppStateAdministrativeType(row: StateAdministrativeTypeRow): StateAdministrativeType {
+  return {
+    id: `sat_${row.stateAdministrativeTypeId}`,
+    typeKey: row.stateAdministrativeTypeId,
+    name: row.typeName,
+    isActive: row.isActive,
   };
 }
 

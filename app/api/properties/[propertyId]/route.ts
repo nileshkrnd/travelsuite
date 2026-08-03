@@ -6,7 +6,7 @@ import { dbUnavailable } from "@/lib/api/db-error";
 import {
   propertyInclude,
   propertyWriteSchema,
-  toPropertyUpdateData,
+  toPropertyUpdateScalars,
   validatePropertyLookups,
   withCompanyName,
 } from "@/lib/api/property-helpers";
@@ -63,11 +63,25 @@ export async function PUT(request: Request, context: RouteContext) {
     const lookupError = await validatePropertyLookups(data);
     if (lookupError) return lookupError;
 
-    const updated = await prisma.property.update({
-      where: { propertyId: id.data },
-      data: toPropertyUpdateData(data),
-      include: propertyInclude,
+    const typeIds = [...new Set(data.propertyTypeIds)];
+    const categoryIds = [...new Set(data.propertyCategoryIds ?? [])];
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.propertyTypeLink.deleteMany({ where: { propertyId: id.data } });
+      await tx.propertyCategoryLink.deleteMany({ where: { propertyId: id.data } });
+      return tx.property.update({
+        where: { propertyId: id.data },
+        data: {
+          ...toPropertyUpdateScalars(data),
+          typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId })) },
+          categoryLinks: {
+            create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId })),
+          },
+        },
+        include: propertyInclude,
+      });
     });
+
     const [withName] = await withCompanyName([updated]);
     return NextResponse.json(withName);
   } catch (error) {

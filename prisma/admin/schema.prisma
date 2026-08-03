@@ -37,7 +37,7 @@ model Tenant {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  moduleAccess  SubscriptionModuleAccess[]
+  moduleAccess   SubscriptionModuleAccess[]
   tenantCultures TenantCulture[]
 
   @@map("Tenant")
@@ -93,11 +93,13 @@ model Country {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  cities    City[]
-  airports  Airport[]
-  companies Company[]
-  branches  Branch[]
-  employees Employee[]
+  cities     City[]
+  states     State[]
+  airports   Airport[]
+  companies  Company[]
+  branches   Branch[]
+  employees  Employee[]
+  properties Property[]
 
   @@map("Country")
 }
@@ -114,15 +116,62 @@ model City {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  country   Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  airports  Airport[]
-  companies Company[]
-  branches  Branch[]
-  employees Employee[]
+  country         Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  airports        Airport[]
+  companies       Company[]
+  branches        Branch[]
+  employees       Employee[]
+  properties      Property[]
+  capitalOfStates State[]    @relation("StateCapitalCity")
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
   @@map("City")
+}
+
+/// State/Province administrative type lookup (State, Province, Emirate, Governorate, Region). Global.
+model StateAdministrativeType {
+  stateAdministrativeTypeId Int       @id @default(autoincrement()) @map("StateAdministrativeTypeID")
+  administrativeType        String    @unique @map("AdministrativeType") @db.VarChar(150)
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted                 Boolean   @default(false) @map("IsDeleted")
+
+  states State[]
+
+  @@map("StateAdministrativeType")
+}
+
+/// Global State/Province master — belongs to a Country only (no Tenant / Company).
+model State {
+  stateId                   Int       @id @default(autoincrement()) @map("StateID")
+  countryId                 Int       @map("CountryID")
+  stateCode                 String    @map("StateCode") @db.VarChar(20)
+  isoCode                   String?   @unique @map("ISOCode") @db.VarChar(20)
+  stateName                 String    @map("StateName") @db.VarChar(150)
+  nativeName                String?   @map("NativeName") @db.VarChar(150)
+  stateAdministrativeTypeId Int?      @map("StateAdministrativeTypeID")
+  capitalCityId             Int?      @map("CapitalCityID")
+  latitude                  Decimal?  @map("Latitude") @db.Decimal(9, 6)
+  longitude                 Decimal?  @map("Longitude") @db.Decimal(9, 6)
+  displayOrder              Int       @default(0) @map("DisplayOrder")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted                 Boolean   @default(false) @map("IsDeleted")
+
+  country            Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  administrativeType StateAdministrativeType? @relation(fields: [stateAdministrativeTypeId], references: [stateAdministrativeTypeId], onDelete: SetNull)
+  capitalCity        City?                    @relation("StateCapitalCity", fields: [capitalCityId], references: [cityId], onDelete: SetNull)
+
+  @@unique([countryId, stateCode], map: "State_Country_Code_key")
+  @@index([countryId], map: "State_CountryID_idx")
+  @@map("State")
 }
 
 /// Global Currency master — not scoped to Tenant or Company.
@@ -199,8 +248,8 @@ model AccessRole {
   tenantId       Int       @map("TenantID")
   companyId      Int       @map("CompanyID")
 
-  employees            Employee[]
-  menuPermissions      TenantAccessRoleMenuPermission[]
+  employees       Employee[]
+  menuPermissions TenantAccessRoleMenuPermission[]
 
   @@unique([tenantId, companyId, accessRoleName], map: "AccessRole_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "AccessRole_TenantID_CompanyID_idx")
@@ -326,7 +375,7 @@ model PropertyType {
   tenantId         Int       @map("TenantID")
   companyId        Int       @map("CompanyID")
 
-  properties Property[]
+  typeLinks PropertyTypeLink[]
 
   @@unique([tenantId, companyId, propertyTypeName], map: "PropertyType_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyType_TenantID_CompanyID_idx")
@@ -345,7 +394,7 @@ model PropertyCategory {
   tenantId             Int       @map("TenantID")
   companyId            Int       @map("CompanyID")
 
-  properties Property[]
+  categoryLinks PropertyCategoryLink[]
 
   @@unique([tenantId, companyId, propertyCategoryName], map: "PropertyCategory_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyCategory_TenantID_CompanyID_idx")
@@ -411,43 +460,100 @@ model PropertyBrand {
 
 /// Property master — scoped by TenantID + CompanyID.
 model Property {
-  propertyId         Int       @id @default(autoincrement()) @map("PropertyID")
-  tenantId           Int       @map("TenantID")
-  companyId          Int       @map("CompanyID")
-  propertyCode       String    @map("PropertyCode") @db.VarChar(50)
-  propertyTypeId     Int       @map("PropertyTypeID")
-  propertyCategoryId Int?      @map("PropertyCategoryID")
-  propertyUsageId    Int?      @map("PropertyUsageID")
-  ownershipTypeId    Int?      @map("OwnershipTypeID")
-  propertyBrandId    Int?      @map("PropertyBrandID")
+  propertyId          Int       @id @default(autoincrement()) @map("PropertyID")
+  tenantId            Int       @map("TenantID")
+  companyId           Int       @map("CompanyID")
+  propertyCode        String    @map("PropertyCode") @db.VarChar(50)
+  propertyName        String?   @map("PropertyName") @db.VarChar(250)
+  propertyDisplayName String?   @map("PropertyDisplayName") @db.VarChar(250)
+  shortDescription    String?   @map("ShortDescription") @db.Text
+  description         String?   @map("Description") @db.Text
+  internalRemarks     String?   @map("InternalRemarks") @db.Text
+  propertyUsageId     Int?      @map("PropertyUsageID")
+  ownershipTypeId     Int?      @map("OwnershipTypeID")
+  propertyBrandId     Int?      @map("PropertyBrandID")
   /// Optional supplier reference (no DB FK yet — supplier master is still app-store based).
-  supplierId         Int?      @map("SupplierID")
-  openingDate        DateTime? @map("OpeningDate") @db.Date
-  closingDate        DateTime? @map("ClosingDate") @db.Date
-  rating             Decimal?  @map("Rating") @db.Decimal(3, 2)
-  starRating         Int?      @map("StarRating") @db.SmallInt
-  isFeatured         Boolean   @default(false) @map("IsFeatured")
-  isPublished        Boolean   @default(false) @map("IsPublished")
-  isActive           Boolean   @default(true) @map("IsActive")
-  createdBy          Int?      @map("CreatedBy")
-  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy         Int?      @map("ModifiedBy")
-  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  supplierId          Int?      @map("SupplierID")
+  addressLine1        String?   @map("AddressLine1") @db.VarChar(255)
+  addressLine2        String?   @map("AddressLine2") @db.VarChar(255)
+  buildingName        String?   @map("BuildingName") @db.VarChar(150)
+  buildingNumber      String?   @map("BuildingNumber") @db.VarChar(50)
+  streetName          String?   @map("StreetName") @db.VarChar(150)
+  streetNumber        String?   @map("StreetNumber") @db.VarChar(20)
+  zoneNumber          String?   @map("ZoneNumber") @db.VarChar(20)
+  countryId           Int       @map("CountryID")
+  /// Optional until State master is wired (no DB FK yet).
+  stateId             Int?      @map("StateID")
+  cityId              Int?      @map("CityID")
+  /// Optional until Area master is wired (no DB FK yet).
+  areaId              Int?      @map("AreaID")
+  /// Optional until Location master is wired (no DB FK yet).
+  locationId          Int?      @map("LocationID")
+  postalCode          String?   @map("PostalCode") @db.VarChar(20)
+  poBox               String?   @map("POBox") @db.VarChar(50)
+  landmark            String?   @map("Landmark") @db.VarChar(255)
+  latitude            Decimal?  @map("Latitude") @db.Decimal(9, 6)
+  longitude           Decimal?  @map("Longitude") @db.Decimal(9, 6)
+  googlePlaceId       String?   @map("GooglePlaceID") @db.VarChar(255)
+  googleMapUrl        String?   @map("GoogleMapURL") @db.Text
+  plusCode            String?   @map("PlusCode") @db.VarChar(50)
+  /// Optional until TimeZone master is wired (no DB FK yet).
+  timeZoneId          Int?      @map("TimeZoneID")
+  openingDate         DateTime? @map("OpeningDate") @db.Date
+  closingDate         DateTime? @map("ClosingDate") @db.Date
+  rating              Decimal?  @map("Rating") @db.Decimal(3, 2)
+  starRating          Int?      @map("StarRating") @db.SmallInt
+  isFeatured          Boolean   @default(false) @map("IsFeatured")
+  isPublished         Boolean   @default(false) @map("IsPublished")
+  isActive            Boolean   @default(true) @map("IsActive")
+  createdBy           Int?      @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("ModifiedBy")
+  modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyType     PropertyType      @relation(fields: [propertyTypeId], references: [propertyTypeId], onDelete: Restrict)
-  propertyCategory PropertyCategory? @relation(fields: [propertyCategoryId], references: [propertyCategoryId], onDelete: SetNull)
-  propertyUsage    PropertyUsage?    @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
-  ownershipType    OwnershipType?    @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
-  propertyBrand    PropertyBrand?    @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
+  typeLinks     PropertyTypeLink[]
+  categoryLinks PropertyCategoryLink[]
+  propertyUsage PropertyUsage?         @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
+  ownershipType OwnershipType?         @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
+  propertyBrand PropertyBrand?         @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
+  country       Country                @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city          City?                  @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
-  @@index([propertyTypeId], map: "Property_PropertyTypeID_idx")
-  @@index([propertyCategoryId], map: "Property_PropertyCategoryID_idx")
   @@index([propertyUsageId], map: "Property_PropertyUsageID_idx")
   @@index([ownershipTypeId], map: "Property_OwnershipTypeID_idx")
   @@index([propertyBrandId], map: "Property_PropertyBrandID_idx")
+  @@index([countryId], map: "Property_CountryID_idx")
+  @@index([cityId], map: "Property_CityID_idx")
+  @@index([createdDtTm], map: "Property_CreatedDtTm_idx")
   @@map("Property")
+}
+
+/// Many-to-many: Property ↔ PropertyType.
+model PropertyTypeLink {
+  propertyId     Int @map("PropertyID")
+  propertyTypeId Int @map("PropertyTypeID")
+
+  property     Property     @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  propertyType PropertyType @relation(fields: [propertyTypeId], references: [propertyTypeId], onDelete: Restrict)
+
+  @@id([propertyId, propertyTypeId], map: "PropertyTypeLink_pkey")
+  @@index([propertyTypeId], map: "PropertyTypeLink_PropertyTypeID_idx")
+  @@map("PropertyTypeLink")
+}
+
+/// Many-to-many: Property ↔ PropertyCategory.
+model PropertyCategoryLink {
+  propertyId         Int @map("PropertyID")
+  propertyCategoryId Int @map("PropertyCategoryID")
+
+  property         Property         @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  propertyCategory PropertyCategory @relation(fields: [propertyCategoryId], references: [propertyCategoryId], onDelete: Restrict)
+
+  @@id([propertyId, propertyCategoryId], map: "PropertyCategoryLink_pkey")
+  @@index([propertyCategoryId], map: "PropertyCategoryLink_PropertyCategoryID_idx")
+  @@map("PropertyCategoryLink")
 }
 
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).
@@ -616,8 +722,8 @@ model SubscriptionProduct {
   modifiedBy              Int?      @map("ModifiedBy")
   modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  modules    SubscriptionModule[]
-  menuLinks  SubscriptionModuleMenuProduct[]
+  modules   SubscriptionModule[]
+  menuLinks SubscriptionModuleMenuProduct[]
 
   @@map("SubscriptionProduct")
 }
@@ -637,7 +743,7 @@ model SubscriptionModule {
   modifiedBy             Int?      @map("ModifiedBy")
   modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  product SubscriptionProduct @relation(fields: [subscriptionProductId], references: [subscriptionProductId], onDelete: Restrict)
+  product SubscriptionProduct        @relation(fields: [subscriptionProductId], references: [subscriptionProductId], onDelete: Restrict)
   access  SubscriptionModuleAccess[]
   menus   SubscriptionModuleMenu[]
 
@@ -682,11 +788,11 @@ model SubscriptionModuleMenu {
   modifiedBy               Int?      @map("ModifiedBy")
   modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  module   SubscriptionModule       @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
-  parent   SubscriptionModuleMenu?  @relation("MenuHierarchy", fields: [parentMenuId], references: [subscriptionModuleMenuId], onDelete: Cascade)
-  children SubscriptionModuleMenu[] @relation("MenuHierarchy")
+  module              SubscriptionModule               @relation(fields: [subscriptionModuleId], references: [subscriptionModuleId], onDelete: Restrict)
+  parent              SubscriptionModuleMenu?          @relation("MenuHierarchy", fields: [parentMenuId], references: [subscriptionModuleMenuId], onDelete: Cascade)
+  children            SubscriptionModuleMenu[]         @relation("MenuHierarchy")
   /// Products that unlock this menu when it belongs to the shared Administration module.
-  productLinks SubscriptionModuleMenuProduct[]
+  productLinks        SubscriptionModuleMenuProduct[]
   roleMenuPermissions TenantAccessRoleMenuPermission[]
 
   @@unique([subscriptionModuleId, menuUrl], map: "SubscriptionModuleMenu_Module_URL_key")

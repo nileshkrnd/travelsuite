@@ -76,6 +76,96 @@ async function seedReferenceMasters() {
   }
 }
 
+async function seedStateAdministrativeTypes() {
+  const names = ["State", "Province", "Emirate", "Governorate", "Region"];
+  for (const typeName of names) {
+    await prisma.stateAdministrativeType.upsert({
+      where: { typeName },
+      create: { typeName, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+}
+
+const STATE_SEEDS: Array<{
+  countryCode: string;
+  administrativeType: string;
+  states: Array<{ stateCode: string; isoCode: string; stateName: string; capitalCityCode?: string }>;
+}> = [
+  {
+    countryCode: "US",
+    administrativeType: "State",
+    states: [
+      { stateCode: "CA", isoCode: "US-CA", stateName: "California" },
+      { stateCode: "TX", isoCode: "US-TX", stateName: "Texas" },
+      { stateCode: "NY", isoCode: "US-NY", stateName: "New York" },
+    ],
+  },
+  {
+    countryCode: "IN",
+    administrativeType: "State",
+    states: [
+      { stateCode: "MH", isoCode: "IN-MH", stateName: "Maharashtra", capitalCityCode: "MUMBAI" },
+      { stateCode: "DL", isoCode: "IN-DL", stateName: "Delhi", capitalCityCode: "DELHI" },
+      { stateCode: "KA", isoCode: "IN-KA", stateName: "Karnataka", capitalCityCode: "BENGALURU" },
+      { stateCode: "TG", isoCode: "IN-TG", stateName: "Telangana", capitalCityCode: "HYDERABAD" },
+    ],
+  },
+  {
+    countryCode: "AE",
+    administrativeType: "Emirate",
+    states: [
+      { stateCode: "DU", isoCode: "AE-DU", stateName: "Dubai", capitalCityCode: "DUBAI" },
+      { stateCode: "AZ", isoCode: "AE-AZ", stateName: "Abu Dhabi", capitalCityCode: "ABU_DHABI" },
+      { stateCode: "SH", isoCode: "AE-SH", stateName: "Sharjah", capitalCityCode: "SHARJAH" },
+    ],
+  },
+];
+
+async function seedStates() {
+  for (const group of STATE_SEEDS) {
+    const country = await prisma.country.findUnique({ where: { countryCode: group.countryCode } });
+    if (!country) continue;
+    const adminType = await prisma.stateAdministrativeType.findUnique({
+      where: { typeName: group.administrativeType },
+    });
+
+    for (const [i, state] of group.states.entries()) {
+      const capitalCity = state.capitalCityCode
+        ? await prisma.city.findFirst({
+            where: { countryId: country.countryId, cityCode: state.capitalCityCode },
+          })
+        : null;
+
+      await prisma.state.upsert({
+        where: { countryId_stateCode: { countryId: country.countryId, stateCode: state.stateCode } },
+        create: {
+          countryId: country.countryId,
+          stateCode: state.stateCode,
+          isoCode: state.isoCode,
+          stateName: state.stateName,
+          stateAdministrativeTypeId: adminType?.stateAdministrativeTypeId,
+          capitalCityId: capitalCity?.cityId,
+          displayOrder: i,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: {
+          isoCode: state.isoCode,
+          stateName: state.stateName,
+          stateAdministrativeTypeId: adminType?.stateAdministrativeTypeId,
+          capitalCityId: capitalCity?.cityId,
+          isActive: true,
+        },
+      });
+    }
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"State"', 'StateID'), (SELECT COALESCE(MAX("StateID"), 1) FROM "State"))`
+  );
+}
+
 const TENANT_SEEDS = [
   {
     tenantId: 1,
@@ -1396,13 +1486,25 @@ async function seedProperties() {
   const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
   if (!leisure) return;
 
+  const qa = await prisma.country.findUnique({ where: { countryCode: "QA" } });
+  if (!qa) return;
+  const doha = await prisma.city.findFirst({
+    where: { countryId: qa.countryId, cityCode: "DOHA" },
+  });
+
   const hotelType = await prisma.propertyType.findFirst({
     where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyTypeName: "Hotel" },
   });
   if (!hotelType) return;
 
+  const apartmentType = await prisma.propertyType.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyTypeName: "Apartment" },
+  });
   const luxury = await prisma.propertyCategory.findFirst({
     where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyCategoryName: "Luxury" },
+  });
+  const midscale = await prisma.propertyCategory.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyCategoryName: "Midscale" },
   });
   const rental = await prisma.propertyUsage.findFirst({
     where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyUsageName: "Rental" },
@@ -1420,17 +1522,77 @@ async function seedProperties() {
 
   const samples: {
     propertyCode: string;
+    propertyName: string;
+    propertyDisplayName: string;
+    shortDescription: string;
+    addressLine1: string;
+    streetName: string;
+    zoneNumber: string;
+    landmark: string;
+    latitude: number;
+    longitude: number;
     starRating: number;
     rating: number;
     isFeatured: boolean;
     isPublished: boolean;
+    typeIds: number[];
+    categoryIds: number[];
   }[] = [
-    { propertyCode: "HTL-DOH-001", starRating: 5, rating: 4.75, isFeatured: true, isPublished: true },
-    { propertyCode: "HTL-DOH-002", starRating: 4, rating: 4.2, isFeatured: false, isPublished: true },
+    {
+      propertyCode: "HTL-DOH-001",
+      propertyName: "Hilton Doha Corniche",
+      propertyDisplayName: "Hilton Doha Corniche",
+      shortDescription: "Waterfront luxury hotel on the Corniche.",
+      addressLine1: "Corniche Road",
+      streetName: "Corniche Road",
+      zoneNumber: "60",
+      landmark: "Near Museum of Islamic Art",
+      latitude: 25.2867,
+      longitude: 51.5333,
+      starRating: 5,
+      rating: 4.75,
+      isFeatured: true,
+      isPublished: true,
+      typeIds: [hotelType.propertyTypeId],
+      categoryIds: luxury ? [luxury.propertyCategoryId] : [],
+    },
+    {
+      propertyCode: "HTL-DOH-002",
+      propertyName: "Hilton Garden Inn West Bay",
+      propertyDisplayName: "Hilton Garden Inn West Bay",
+      shortDescription: "Business-friendly stay in West Bay.",
+      addressLine1: "Diplomatic Street",
+      streetName: "Diplomatic Street",
+      zoneNumber: "61",
+      landmark: "West Bay business district",
+      latitude: 25.325,
+      longitude: 51.531,
+      starRating: 4,
+      rating: 4.2,
+      isFeatured: false,
+      isPublished: true,
+      typeIds: [hotelType.propertyTypeId, ...(apartmentType ? [apartmentType.propertyTypeId] : [])],
+      categoryIds: [
+        ...(luxury ? [luxury.propertyCategoryId] : []),
+        ...(midscale ? [midscale.propertyCategoryId] : []),
+      ],
+    },
   ];
 
   for (const sample of samples) {
-    await prisma.property.upsert({
+    const addressFields = {
+      addressLine1: sample.addressLine1,
+      streetName: sample.streetName,
+      zoneNumber: sample.zoneNumber,
+      countryId: qa.countryId,
+      cityId: doha?.cityId ?? null,
+      landmark: sample.landmark,
+      latitude: sample.latitude,
+      longitude: sample.longitude,
+      googleMapUrl: `https://www.google.com/maps?q=${sample.latitude},${sample.longitude}`,
+    };
+
+    const row = await prisma.property.upsert({
       where: {
         tenantId_companyId_propertyCode: {
           tenantId: leisure.tenantId,
@@ -1442,11 +1604,13 @@ async function seedProperties() {
         tenantId: leisure.tenantId,
         companyId: leisure.companyId,
         propertyCode: sample.propertyCode,
-        propertyTypeId: hotelType.propertyTypeId,
-        propertyCategoryId: luxury?.propertyCategoryId ?? null,
+        propertyName: sample.propertyName,
+        propertyDisplayName: sample.propertyDisplayName,
+        shortDescription: sample.shortDescription,
         propertyUsageId: rental?.propertyUsageId ?? null,
         ownershipTypeId: companyOwned?.ownershipTypeId ?? null,
         propertyBrandId: hilton?.propertyBrandId ?? null,
+        ...addressFields,
         openingDate: new Date("2018-01-15"),
         rating: sample.rating,
         starRating: sample.starRating,
@@ -1454,13 +1618,19 @@ async function seedProperties() {
         isPublished: sample.isPublished,
         isActive: true,
         createdBy: CREATED_BY,
+        typeLinks: { create: sample.typeIds.map((propertyTypeId) => ({ propertyTypeId })) },
+        categoryLinks: {
+          create: sample.categoryIds.map((propertyCategoryId) => ({ propertyCategoryId })),
+        },
       },
       update: {
-        propertyTypeId: hotelType.propertyTypeId,
-        propertyCategoryId: luxury?.propertyCategoryId ?? null,
+        propertyName: sample.propertyName,
+        propertyDisplayName: sample.propertyDisplayName,
+        shortDescription: sample.shortDescription,
         propertyUsageId: rental?.propertyUsageId ?? null,
         ownershipTypeId: companyOwned?.ownershipTypeId ?? null,
         propertyBrandId: hilton?.propertyBrandId ?? null,
+        ...addressFields,
         rating: sample.rating,
         starRating: sample.starRating,
         isFeatured: sample.isFeatured,
@@ -1468,6 +1638,27 @@ async function seedProperties() {
         isActive: true,
       },
     });
+
+    await prisma.propertyTypeLink.deleteMany({ where: { propertyId: row.propertyId } });
+    await prisma.propertyCategoryLink.deleteMany({ where: { propertyId: row.propertyId } });
+    if (sample.typeIds.length) {
+      await prisma.propertyTypeLink.createMany({
+        data: sample.typeIds.map((propertyTypeId) => ({
+          propertyId: row.propertyId,
+          propertyTypeId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+    if (sample.categoryIds.length) {
+      await prisma.propertyCategoryLink.createMany({
+        data: sample.categoryIds.map((propertyCategoryId) => ({
+          propertyId: row.propertyId,
+          propertyCategoryId,
+        })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   await prisma.$executeRawUnsafe(
@@ -1786,6 +1977,8 @@ async function seedEmployees() {
 
 async function main() {
   await seedReferenceMasters();
+  await seedStateAdministrativeTypes();
+  await seedStates();
   await seedCultures();
   await seedTenants();
   await seedTenantCultures();
