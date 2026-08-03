@@ -38,15 +38,19 @@ export type ModuleKey =
   | "mastersHub"
   | "tenantProfile"
   | "globalTenantSettings"
+  | "geography"
   | "country"
   | "state"
   | "stateAdministrativeType"
   | "city"
   | "area"
   | "areaType"
+  | "location"
+  | "locationType"
   | "region"
   | "currency"
   | "culture"
+  | "aviation"
   | "airlineType"
   | "airline"
   | "airport"
@@ -312,15 +316,19 @@ export interface MenuItem {
  */
 export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "tenantProfile",
+  "geography",
   "country",
   "state",
   "stateAdministrativeType",
   "city",
   "area",
   "areaType",
+  "location",
+  "locationType",
   "region",
   "currency",
   "culture",
+  "aviation",
   "airlineType",
   "airline",
   "airport",
@@ -349,23 +357,46 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "global-tenant-settings",
     children: [
       { key: "tenantProfile", labelKey: "sidebar.tenantProfile", icon: "Building", path: "masters/tenant" },
-      { key: "country", labelKey: "sidebar.country", icon: "Globe", path: "masters/country" },
-      { key: "state", labelKey: "sidebar.state", icon: "MapPin", path: "masters/state" },
       {
-        key: "stateAdministrativeType",
-        labelKey: "sidebar.stateAdministrativeType",
-        icon: "ListTree",
-        path: "masters/state-administrative-type",
+        key: "geography",
+        labelKey: "sidebar.geography",
+        icon: "Globe",
+        path: "masters/geography",
+        children: [
+          { key: "country", labelKey: "sidebar.country", icon: "Globe", path: "masters/country" },
+          { key: "state", labelKey: "sidebar.state", icon: "MapPin", path: "masters/state" },
+          {
+            key: "stateAdministrativeType",
+            labelKey: "sidebar.stateAdministrativeType",
+            icon: "ListTree",
+            path: "masters/state-administrative-type",
+          },
+          { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
+          { key: "area", labelKey: "sidebar.area", icon: "LandPlot", path: "masters/area" },
+          { key: "areaType", labelKey: "sidebar.areaType", icon: "LandPlot", path: "masters/area-type" },
+          { key: "location", labelKey: "sidebar.location", icon: "Pin", path: "masters/location" },
+          {
+            key: "locationType",
+            labelKey: "sidebar.locationType",
+            icon: "Pin",
+            path: "masters/location-type",
+          },
+          { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
+        ],
       },
-      { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
-      { key: "area", labelKey: "sidebar.area", icon: "LandPlot", path: "masters/area" },
-      { key: "areaType", labelKey: "sidebar.areaType", icon: "LandPlot", path: "masters/area-type" },
-      { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
       { key: "culture", labelKey: "sidebar.culture", icon: "Globe2", path: "masters/culture" },
-      { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
-      { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
-      { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },
+      {
+        key: "aviation",
+        labelKey: "sidebar.aviation",
+        icon: "Plane",
+        path: "masters/aviation",
+        children: [
+          { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
+          { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
+          { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },
+        ],
+      },
       {
         key: "subscription",
         labelKey: "sidebar.subscription",

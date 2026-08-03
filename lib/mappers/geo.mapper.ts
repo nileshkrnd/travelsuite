@@ -5,6 +5,8 @@ import type {
   Country,
   Currency,
   CurrencyStatus,
+  Location,
+  LocationType,
   ReferenceStatus,
   State,
   StateAdministrativeType,
@@ -90,6 +92,43 @@ export interface AreaRow {
   country?: { countryCode: string } | null;
   city?: { cityName: string } | null;
   areaType?: { areaTypeName: string } | null;
+}
+
+export interface LocationTypeRow {
+  locationTypeId: number;
+  locationTypeName: string;
+  isActive: boolean;
+  createdBy: number;
+  createdDtTm: Date | string;
+  modifiedBy: number | null;
+  modifiedDtTm: Date | string | null;
+  isDeleted: boolean;
+}
+
+export interface LocationRow {
+  locationId: number;
+  countryId: number;
+  stateId: number | null;
+  cityId: number;
+  areaId: number;
+  locationCode: string;
+  locationName: string;
+  nativeName: string | null;
+  locationTypeId: number | null;
+  zoneNumber: string | null;
+  latitude: unknown;
+  longitude: unknown;
+  googlePlaceId: string | null;
+  displayOrder: number;
+  isPopular: boolean;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdDtTm: Date | string;
+  country?: { countryCode: string } | null;
+  state?: { stateName: string } | null;
+  city?: { cityName: string } | null;
+  area?: { areaName: string } | null;
+  locationType?: { locationTypeName: string } | null;
 }
 
 export interface CurrencyRow {
@@ -209,6 +248,50 @@ export function toAppArea(row: AreaRow): Area {
     nativeName: row.nativeName,
     areaTypeKey: row.areaTypeId,
     areaTypeName: row.areaType?.areaTypeName,
+    latitude: toNumberOrNull(row.latitude),
+    longitude: toNumberOrNull(row.longitude),
+    googlePlaceId: row.googlePlaceId,
+    displayOrder: row.displayOrder,
+    isPopular: row.isPopular,
+    isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdAt: toIso(row.createdDtTm),
+  };
+}
+
+export function toAppLocationType(row: LocationTypeRow): LocationType {
+  return {
+    id: `lt_${row.locationTypeId}`,
+    typeKey: row.locationTypeId,
+    name: row.locationTypeName,
+    isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdBy: row.createdBy,
+    createdAt: toIso(row.createdDtTm),
+    modifiedBy: row.modifiedBy,
+    modifiedDtTm: row.modifiedDtTm == null ? null : toIso(row.modifiedDtTm),
+  };
+}
+
+export function toAppLocation(row: LocationRow): Location {
+  const countryCode = row.country?.countryCode ?? "";
+  return {
+    id: `loc_${row.locationId}`,
+    locationKey: row.locationId,
+    countryKey: row.countryId,
+    countryCode,
+    stateKey: row.stateId,
+    stateName: row.state?.stateName,
+    cityKey: row.cityId,
+    cityName: row.city?.cityName ?? "",
+    areaKey: row.areaId,
+    areaName: row.area?.areaName ?? "",
+    code: row.locationCode,
+    name: row.locationName,
+    nativeName: row.nativeName,
+    locationTypeKey: row.locationTypeId,
+    locationTypeName: row.locationType?.locationTypeName,
+    zoneNumber: row.zoneNumber,
     latitude: toNumberOrNull(row.latitude),
     longitude: toNumberOrNull(row.longitude),
     googlePlaceId: row.googlePlaceId,

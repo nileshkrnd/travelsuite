@@ -252,6 +252,116 @@ async function seedAreas() {
   );
 }
 
+async function seedLocationTypes() {
+  const names = ["Neighborhood", "Street", "District"];
+  for (const locationTypeName of names) {
+    await prisma.locationType.upsert({
+      where: { locationTypeName },
+      create: { locationTypeName, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+}
+
+const LOCATION_SEEDS: Array<{
+  countryCode: string;
+  cityCode: string;
+  areaCode: string;
+  stateCode?: string;
+  locations: Array<{ locationCode: string; locationName: string; locationType: string }>;
+}> = [
+  {
+    countryCode: "AE",
+    cityCode: "DUBAI",
+    areaCode: "MARINA",
+    stateCode: "DU",
+    locations: [
+      { locationCode: "MARINAWALK", locationName: "Marina Walk", locationType: "Neighborhood" },
+      { locationCode: "MARINAPROM", locationName: "Marina Promenade", locationType: "Street" },
+    ],
+  },
+  {
+    countryCode: "AE",
+    cityCode: "DUBAI",
+    areaCode: "DOWNTOWN",
+    stateCode: "DU",
+    locations: [
+      { locationCode: "BURJDISTRICT", locationName: "Burj Khalifa District", locationType: "District" },
+    ],
+  },
+  {
+    countryCode: "IN",
+    cityCode: "MUMBAI",
+    areaCode: "BANDRA",
+    stateCode: "MH",
+    locations: [
+      { locationCode: "BANDRAWEST", locationName: "Bandra West", locationType: "Neighborhood" },
+      { locationCode: "LINKINGRD", locationName: "Linking Road", locationType: "Street" },
+    ],
+  },
+  {
+    countryCode: "IN",
+    cityCode: "MUMBAI",
+    areaCode: "NARIMAN",
+    stateCode: "MH",
+    locations: [
+      { locationCode: "NARIMANHUB", locationName: "Nariman Point Business Hub", locationType: "District" },
+    ],
+  },
+];
+
+async function seedLocations() {
+  for (const group of LOCATION_SEEDS) {
+    const country = await prisma.country.findUnique({ where: { countryCode: group.countryCode } });
+    if (!country) continue;
+    const city = await prisma.city.findFirst({
+      where: { countryId: country.countryId, cityCode: group.cityCode },
+    });
+    if (!city) continue;
+    const area = await prisma.area.findFirst({
+      where: { cityId: city.cityId, areaCode: group.areaCode },
+    });
+    if (!area) continue;
+    const state = group.stateCode
+      ? await prisma.state.findFirst({
+          where: { countryId: country.countryId, stateCode: group.stateCode },
+        })
+      : null;
+
+    for (const [i, location] of group.locations.entries()) {
+      const locationType = await prisma.locationType.findUnique({
+        where: { locationTypeName: location.locationType },
+      });
+
+      await prisma.location.upsert({
+        where: { areaId_locationCode: { areaId: area.areaId, locationCode: location.locationCode } },
+        create: {
+          countryId: country.countryId,
+          stateId: state?.stateId,
+          cityId: city.cityId,
+          areaId: area.areaId,
+          locationCode: location.locationCode,
+          locationName: location.locationName,
+          locationTypeId: locationType?.locationTypeId,
+          displayOrder: i,
+          isPopular: i === 0,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: {
+          locationName: location.locationName,
+          locationTypeId: locationType?.locationTypeId,
+          isActive: true,
+        },
+      });
+    }
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Location"', 'LocationID'), (SELECT COALESCE(MAX("LocationID"), 1) FROM "Location"))`
+  );
+}
+
 const TENANT_SEEDS = [
   {
     tenantId: 1,
@@ -2067,6 +2177,8 @@ async function main() {
   await seedStates();
   await seedAreaTypes();
   await seedAreas();
+  await seedLocationTypes();
+  await seedLocations();
   await seedCultures();
   await seedTenants();
   await seedTenantCultures();

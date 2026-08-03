@@ -96,6 +96,7 @@ model Country {
   cities     City[]
   states     State[]
   areas      Area[]
+  locations  Location[]
   airports   Airport[]
   companies  Company[]
   branches   Branch[]
@@ -125,6 +126,7 @@ model City {
   properties      Property[]
   capitalOfStates State[]    @relation("StateCapitalCity")
   areas           Area[]
+  locations       Location[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -170,6 +172,7 @@ model State {
   country            Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
   administrativeType StateAdministrativeType? @relation(fields: [stateAdministrativeTypeId], references: [stateAdministrativeTypeId], onDelete: SetNull)
   capitalCity        City?                    @relation("StateCapitalCity", fields: [capitalCityId], references: [cityId], onDelete: SetNull)
+  locations          Location[]
 
   @@unique([countryId, stateCode], map: "State_Country_Code_key")
   @@index([countryId], map: "State_CountryID_idx")
@@ -217,10 +220,66 @@ model Area {
   city     City      @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
   areaType AreaType? @relation(fields: [areaTypeId], references: [areaTypeId], onDelete: SetNull)
 
+  locations Location[]
+
   @@unique([cityId, areaCode], map: "Area_City_Code_key")
   @@index([countryId], map: "Area_CountryID_idx")
   @@index([cityId], map: "Area_CityID_idx")
   @@map("Area")
+}
+
+/// Location type lookup (Neighborhood, Street, District, …). Global.
+model LocationType {
+  locationTypeId   Int       @id @default(autoincrement()) @map("LocationTypeID")
+  locationTypeName String    @unique @map("LocationTypeName") @db.VarChar(150)
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted        Boolean   @default(false) @map("IsDeleted")
+
+  locations Location[]
+
+  @@map("LocationType")
+}
+
+/// Global Location master — a subdivision of an Area (belongs to Country / optional State / City / Area).
+model Location {
+  locationId     Int       @id @default(autoincrement()) @map("LocationID")
+  countryId      Int       @map("CountryID")
+  stateId        Int?      @map("StateID")
+  cityId         Int       @map("CityID")
+  areaId         Int       @map("AreaID")
+  locationCode   String    @map("LocationCode") @db.VarChar(30)
+  locationName   String    @map("LocationName") @db.VarChar(150)
+  nativeName     String?   @map("NativeName") @db.VarChar(150)
+  locationTypeId Int?      @map("LocationTypeID")
+  zoneNumber     String?   @map("ZoneNumber") @db.VarChar(20)
+  latitude       Decimal?  @map("Latitude") @db.Decimal(9, 6)
+  longitude      Decimal?  @map("Longitude") @db.Decimal(9, 6)
+  googlePlaceId  String?   @map("GooglePlaceID") @db.VarChar(255)
+  displayOrder   Int       @default(0) @map("DisplayOrder")
+  isPopular      Boolean   @default(false) @map("IsPopular")
+  isActive       Boolean   @default(true) @map("IsActive")
+  createdBy      Int       @map("CreatedBy")
+  createdDtTm    DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy     Int?      @map("ModifiedBy")
+  modifiedDtTm   DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted      Boolean   @default(false) @map("IsDeleted")
+
+  country      Country       @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  state        State?        @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
+  city         City          @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  area         Area          @relation(fields: [areaId], references: [areaId], onDelete: Restrict)
+  locationType LocationType? @relation(fields: [locationTypeId], references: [locationTypeId], onDelete: SetNull)
+
+  @@unique([areaId, locationCode], map: "Location_Area_Code_key")
+  @@index([countryId], map: "Location_CountryID_idx")
+  @@index([stateId], map: "Location_StateID_idx")
+  @@index([cityId], map: "Location_CityID_idx")
+  @@index([areaId], map: "Location_AreaID_idx")
+  @@map("Location")
 }
 
 /// Global Currency master — not scoped to Tenant or Company.
