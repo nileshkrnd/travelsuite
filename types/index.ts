@@ -18,6 +18,7 @@ export * from "./region";
 export * from "./country";
 export * from "./city";
 export * from "./state";
+export * from "./area";
 export * from "./currency";
 export * from "./culture";
 export * from "./airline-type";

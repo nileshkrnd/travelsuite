@@ -95,6 +95,7 @@ model Country {
 
   cities     City[]
   states     State[]
+  areas      Area[]
   airports   Airport[]
   companies  Company[]
   branches   Branch[]
@@ -123,6 +124,7 @@ model City {
   employees       Employee[]
   properties      Property[]
   capitalOfStates State[]    @relation("StateCapitalCity")
+  areas           Area[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -172,6 +174,53 @@ model State {
   @@unique([countryId, stateCode], map: "State_Country_Code_key")
   @@index([countryId], map: "State_CountryID_idx")
   @@map("State")
+}
+
+/// Area type lookup (Residential, Commercial, Industrial, …). Global.
+model AreaType {
+  areaTypeId   Int       @id @default(autoincrement()) @map("AreaTypeID")
+  areaTypeName String    @unique @map("AreaTypeName") @db.VarChar(150)
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted    Boolean   @default(false) @map("IsDeleted")
+
+  areas Area[]
+
+  @@map("AreaType")
+}
+
+/// Global Area/Locality master — belongs to a City within a Country.
+model Area {
+  areaId        Int       @id @default(autoincrement()) @map("AreaID")
+  countryId     Int       @map("CountryID")
+  cityId        Int       @map("CityID")
+  areaCode      String    @map("AreaCode") @db.VarChar(30)
+  areaName      String    @map("AreaName") @db.VarChar(150)
+  nativeName    String?   @map("NativeName") @db.VarChar(150)
+  areaTypeId    Int?      @map("AreaTypeID")
+  latitude      Decimal?  @map("Latitude") @db.Decimal(9, 6)
+  longitude     Decimal?  @map("Longitude") @db.Decimal(9, 6)
+  googlePlaceId String?   @map("GooglePlaceID") @db.VarChar(255)
+  displayOrder  Int       @default(0) @map("DisplayOrder")
+  isPopular     Boolean   @default(false) @map("IsPopular")
+  isActive      Boolean   @default(true) @map("IsActive")
+  createdBy     Int       @map("CreatedBy")
+  createdDtTm   DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy    Int?      @map("ModifiedBy")
+  modifiedDtTm  DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted     Boolean   @default(false) @map("IsDeleted")
+
+  country  Country   @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city     City      @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  areaType AreaType? @relation(fields: [areaTypeId], references: [areaTypeId], onDelete: SetNull)
+
+  @@unique([cityId, areaCode], map: "Area_City_Code_key")
+  @@index([countryId], map: "Area_CountryID_idx")
+  @@index([cityId], map: "Area_CityID_idx")
+  @@map("Area")
 }
 
 /// Global Currency master — not scoped to Tenant or Company.

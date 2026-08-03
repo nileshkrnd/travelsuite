@@ -42,6 +42,8 @@ export type ModuleKey =
   | "state"
   | "stateAdministrativeType"
   | "city"
+  | "area"
+  | "areaType"
   | "region"
   | "currency"
   | "culture"
@@ -314,6 +316,8 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "state",
   "stateAdministrativeType",
   "city",
+  "area",
+  "areaType",
   "region",
   "currency",
   "culture",
@@ -354,6 +358,8 @@ export const MENU_ITEMS: MenuItem[] = [
         path: "masters/state-administrative-type",
       },
       { key: "city", labelKey: "sidebar.city", icon: "MapPinned", path: "masters/city" },
+      { key: "area", labelKey: "sidebar.area", icon: "LandPlot", path: "masters/area" },
+      { key: "areaType", labelKey: "sidebar.areaType", icon: "LandPlot", path: "masters/area-type" },
       { key: "region", labelKey: "sidebar.region", icon: "Landmark", path: "masters/region" },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
       { key: "culture", labelKey: "sidebar.culture", icon: "Globe2", path: "masters/culture" },

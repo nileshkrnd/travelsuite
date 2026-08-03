@@ -1,4 +1,14 @@
-import type { City, Country, Currency, CurrencyStatus, ReferenceStatus, State, StateAdministrativeType } from "@/types";
+import type {
+  Area,
+  AreaType,
+  City,
+  Country,
+  Currency,
+  CurrencyStatus,
+  ReferenceStatus,
+  State,
+  StateAdministrativeType,
+} from "@/types";
 
 export interface CountryRow {
   countryId: number;
@@ -48,6 +58,38 @@ export interface StateAdministrativeTypeRow {
   modifiedBy: number | null;
   modifiedDtTm: Date | string | null;
   isDeleted: boolean;
+}
+
+export interface AreaTypeRow {
+  areaTypeId: number;
+  areaTypeName: string;
+  isActive: boolean;
+  createdBy: number;
+  createdDtTm: Date | string;
+  modifiedBy: number | null;
+  modifiedDtTm: Date | string | null;
+  isDeleted: boolean;
+}
+
+export interface AreaRow {
+  areaId: number;
+  countryId: number;
+  cityId: number;
+  areaCode: string;
+  areaName: string;
+  nativeName: string | null;
+  areaTypeId: number | null;
+  latitude: unknown;
+  longitude: unknown;
+  googlePlaceId: string | null;
+  displayOrder: number;
+  isPopular: boolean;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdDtTm: Date | string;
+  country?: { countryCode: string } | null;
+  city?: { cityName: string } | null;
+  areaType?: { areaTypeName: string } | null;
 }
 
 export interface CurrencyRow {
@@ -136,6 +178,45 @@ export function toAppStateAdministrativeType(row: StateAdministrativeTypeRow): S
     createdAt: toIso(row.createdDtTm),
     modifiedBy: row.modifiedBy,
     modifiedDtTm: row.modifiedDtTm == null ? null : toIso(row.modifiedDtTm),
+  };
+}
+
+export function toAppAreaType(row: AreaTypeRow): AreaType {
+  return {
+    id: `at_${row.areaTypeId}`,
+    typeKey: row.areaTypeId,
+    name: row.areaTypeName,
+    isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdBy: row.createdBy,
+    createdAt: toIso(row.createdDtTm),
+    modifiedBy: row.modifiedBy,
+    modifiedDtTm: row.modifiedDtTm == null ? null : toIso(row.modifiedDtTm),
+  };
+}
+
+export function toAppArea(row: AreaRow): Area {
+  const countryCode = row.country?.countryCode ?? "";
+  return {
+    id: `area_${row.areaId}`,
+    areaKey: row.areaId,
+    countryKey: row.countryId,
+    countryCode,
+    cityKey: row.cityId,
+    cityName: row.city?.cityName ?? "",
+    code: row.areaCode,
+    name: row.areaName,
+    nativeName: row.nativeName,
+    areaTypeKey: row.areaTypeId,
+    areaTypeName: row.areaType?.areaTypeName,
+    latitude: toNumberOrNull(row.latitude),
+    longitude: toNumberOrNull(row.longitude),
+    googlePlaceId: row.googlePlaceId,
+    displayOrder: row.displayOrder,
+    isPopular: row.isPopular,
+    isActive: row.isActive,
+    isDeleted: row.isDeleted,
+    createdAt: toIso(row.createdDtTm),
   };
 }
 

@@ -122,6 +122,8 @@
     "state": "State",
     "stateAdministrativeType": "State Administrative Type",
     "city": "City",
+    "area": "Area",
+    "areaType": "Area Type",
     "region": "Region",
     "currency": "Currency",
     "culture": "Culture",

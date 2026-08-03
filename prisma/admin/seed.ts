@@ -166,6 +166,92 @@ async function seedStates() {
   );
 }
 
+async function seedAreaTypes() {
+  const names = [
+    "Residential",
+    "Commercial",
+    "Industrial",
+    "Mixed Use",
+    "Tourist Area",
+    "Business District",
+    "Free Zone",
+    "Waterfront",
+  ];
+  for (const areaTypeName of names) {
+    await prisma.areaType.upsert({
+      where: { areaTypeName },
+      create: { areaTypeName, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+}
+
+const AREA_SEEDS: Array<{
+  countryCode: string;
+  cityCode: string;
+  areas: Array<{ areaCode: string; areaName: string; areaType: string }>;
+}> = [
+  {
+    countryCode: "AE",
+    cityCode: "DUBAI",
+    areas: [
+      { areaCode: "MARINA", areaName: "Dubai Marina", areaType: "Waterfront" },
+      { areaCode: "DOWNTOWN", areaName: "Downtown Dubai", areaType: "Mixed Use" },
+      { areaCode: "JAFZA", areaName: "Jebel Ali Free Zone", areaType: "Free Zone" },
+      { areaCode: "DEIRA", areaName: "Deira", areaType: "Commercial" },
+    ],
+  },
+  {
+    countryCode: "IN",
+    cityCode: "MUMBAI",
+    areas: [
+      { areaCode: "BANDRA", areaName: "Bandra", areaType: "Residential" },
+      { areaCode: "ANDHERI", areaName: "Andheri", areaType: "Mixed Use" },
+      { areaCode: "NARIMAN", areaName: "Nariman Point", areaType: "Business District" },
+      { areaCode: "WORLI", areaName: "Worli", areaType: "Waterfront" },
+    ],
+  },
+];
+
+async function seedAreas() {
+  for (const group of AREA_SEEDS) {
+    const country = await prisma.country.findUnique({ where: { countryCode: group.countryCode } });
+    if (!country) continue;
+    const city = await prisma.city.findFirst({
+      where: { countryId: country.countryId, cityCode: group.cityCode },
+    });
+    if (!city) continue;
+
+    for (const [i, area] of group.areas.entries()) {
+      const areaType = await prisma.areaType.findUnique({ where: { areaTypeName: area.areaType } });
+
+      await prisma.area.upsert({
+        where: { cityId_areaCode: { cityId: city.cityId, areaCode: area.areaCode } },
+        create: {
+          countryId: country.countryId,
+          cityId: city.cityId,
+          areaCode: area.areaCode,
+          areaName: area.areaName,
+          areaTypeId: areaType?.areaTypeId,
+          displayOrder: i,
+          isPopular: i === 0,
+          isActive: true,
+          createdBy: CREATED_BY,
+        },
+        update: {
+          areaName: area.areaName,
+          areaTypeId: areaType?.areaTypeId,
+          isActive: true,
+        },
+      });
+    }
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Area"', 'AreaID'), (SELECT COALESCE(MAX("AreaID"), 1) FROM "Area"))`
+  );
+}
+
 const TENANT_SEEDS = [
   {
     tenantId: 1,
@@ -1979,6 +2065,8 @@ async function main() {
   await seedReferenceMasters();
   await seedStateAdministrativeTypes();
   await seedStates();
+  await seedAreaTypes();
+  await seedAreas();
   await seedCultures();
   await seedTenants();
   await seedTenantCultures();
