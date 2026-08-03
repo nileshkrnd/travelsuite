@@ -17,6 +17,7 @@ export type ModuleKey =
   | "propertyUsage"
   | "ownershipType"
   | "propertyBrand"
+  | "property"
   | "adminMasters"
   | "department"
   | "designation"
@@ -530,6 +531,12 @@ export const MENU_ITEMS: MenuItem[] = [
         icon: "Package",
         path: "administration/product",
         children: [
+          {
+            key: "property",
+            labelKey: "sidebar.property",
+            icon: "Building",
+            path: "masters/property",
+          },
           {
             key: "propertyType",
             labelKey: "sidebar.propertyType",

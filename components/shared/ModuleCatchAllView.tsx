@@ -50,6 +50,7 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "propertyUsage",
   "ownershipType",
   "propertyBrand",
+  "property",
   "agency",
   "subAgency",
   "corporateAccounts",

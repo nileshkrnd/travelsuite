@@ -326,6 +326,8 @@ model PropertyType {
   tenantId         Int       @map("TenantID")
   companyId        Int       @map("CompanyID")
 
+  properties Property[]
+
   @@unique([tenantId, companyId, propertyTypeName], map: "PropertyType_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyType_TenantID_CompanyID_idx")
   @@map("PropertyType")
@@ -342,6 +344,8 @@ model PropertyCategory {
   modifiedDtTm         DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
   tenantId             Int       @map("TenantID")
   companyId            Int       @map("CompanyID")
+
+  properties Property[]
 
   @@unique([tenantId, companyId, propertyCategoryName], map: "PropertyCategory_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyCategory_TenantID_CompanyID_idx")
@@ -360,6 +364,8 @@ model PropertyUsage {
   tenantId          Int       @map("TenantID")
   companyId         Int       @map("CompanyID")
 
+  properties Property[]
+
   @@unique([tenantId, companyId, propertyUsageName], map: "PropertyUsage_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyUsage_TenantID_CompanyID_idx")
   @@map("PropertyUsage")
@@ -376,6 +382,8 @@ model OwnershipType {
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
   tenantId          Int       @map("TenantID")
   companyId         Int       @map("CompanyID")
+
+  properties Property[]
 
   @@unique([tenantId, companyId, ownershipTypeName], map: "OwnershipType_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "OwnershipType_TenantID_CompanyID_idx")
@@ -394,9 +402,52 @@ model PropertyBrand {
   tenantId          Int       @map("TenantID")
   companyId         Int       @map("CompanyID")
 
+  properties Property[]
+
   @@unique([tenantId, companyId, propertyBrandName], map: "PropertyBrand_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "PropertyBrand_TenantID_CompanyID_idx")
   @@map("PropertyBrand")
+}
+
+/// Property master — scoped by TenantID + CompanyID.
+model Property {
+  propertyId         Int       @id @default(autoincrement()) @map("PropertyID")
+  tenantId           Int       @map("TenantID")
+  companyId          Int       @map("CompanyID")
+  propertyCode       String    @map("PropertyCode") @db.VarChar(50)
+  propertyTypeId     Int       @map("PropertyTypeID")
+  propertyCategoryId Int?      @map("PropertyCategoryID")
+  propertyUsageId    Int?      @map("PropertyUsageID")
+  ownershipTypeId    Int?      @map("OwnershipTypeID")
+  propertyBrandId    Int?      @map("PropertyBrandID")
+  /// Optional supplier reference (no DB FK yet — supplier master is still app-store based).
+  supplierId         Int?      @map("SupplierID")
+  openingDate        DateTime? @map("OpeningDate") @db.Date
+  closingDate        DateTime? @map("ClosingDate") @db.Date
+  rating             Decimal?  @map("Rating") @db.Decimal(3, 2)
+  starRating         Int?      @map("StarRating") @db.SmallInt
+  isFeatured         Boolean   @default(false) @map("IsFeatured")
+  isPublished        Boolean   @default(false) @map("IsPublished")
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int?      @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyType     PropertyType      @relation(fields: [propertyTypeId], references: [propertyTypeId], onDelete: Restrict)
+  propertyCategory PropertyCategory? @relation(fields: [propertyCategoryId], references: [propertyCategoryId], onDelete: SetNull)
+  propertyUsage    PropertyUsage?    @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
+  ownershipType    OwnershipType?    @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
+  propertyBrand    PropertyBrand?    @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
+
+  @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
+  @@index([propertyTypeId], map: "Property_PropertyTypeID_idx")
+  @@index([propertyCategoryId], map: "Property_PropertyCategoryID_idx")
+  @@index([propertyUsageId], map: "Property_PropertyUsageID_idx")
+  @@index([ownershipTypeId], map: "Property_OwnershipTypeID_idx")
+  @@index([propertyBrandId], map: "Property_PropertyBrandID_idx")
+  @@map("Property")
 }
 
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).

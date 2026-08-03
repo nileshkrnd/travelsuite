@@ -103,6 +103,7 @@
     "adminSuppliers": "Suppliers",
     "creditControl": "Credit Control",
     "adminProduct": "Product",
+    "property": "Property",
     "propertyType": "Property Type",
     "propertyCategory": "Property Category",
     "propertyUsage": "Property Usage",

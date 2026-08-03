@@ -1392,6 +1392,89 @@ async function seedNamedPropertyMasters() {
   }
 }
 
+async function seedProperties() {
+  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
+  if (!leisure) return;
+
+  const hotelType = await prisma.propertyType.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyTypeName: "Hotel" },
+  });
+  if (!hotelType) return;
+
+  const luxury = await prisma.propertyCategory.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyCategoryName: "Luxury" },
+  });
+  const rental = await prisma.propertyUsage.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyUsageName: "Rental" },
+  });
+  const companyOwned = await prisma.ownershipType.findFirst({
+    where: {
+      tenantId: leisure.tenantId,
+      companyId: leisure.companyId,
+      ownershipTypeName: "Company Owned",
+    },
+  });
+  const hilton = await prisma.propertyBrand.findFirst({
+    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyBrandName: "Hilton" },
+  });
+
+  const samples: {
+    propertyCode: string;
+    starRating: number;
+    rating: number;
+    isFeatured: boolean;
+    isPublished: boolean;
+  }[] = [
+    { propertyCode: "HTL-DOH-001", starRating: 5, rating: 4.75, isFeatured: true, isPublished: true },
+    { propertyCode: "HTL-DOH-002", starRating: 4, rating: 4.2, isFeatured: false, isPublished: true },
+  ];
+
+  for (const sample of samples) {
+    await prisma.property.upsert({
+      where: {
+        tenantId_companyId_propertyCode: {
+          tenantId: leisure.tenantId,
+          companyId: leisure.companyId,
+          propertyCode: sample.propertyCode,
+        },
+      },
+      create: {
+        tenantId: leisure.tenantId,
+        companyId: leisure.companyId,
+        propertyCode: sample.propertyCode,
+        propertyTypeId: hotelType.propertyTypeId,
+        propertyCategoryId: luxury?.propertyCategoryId ?? null,
+        propertyUsageId: rental?.propertyUsageId ?? null,
+        ownershipTypeId: companyOwned?.ownershipTypeId ?? null,
+        propertyBrandId: hilton?.propertyBrandId ?? null,
+        openingDate: new Date("2018-01-15"),
+        rating: sample.rating,
+        starRating: sample.starRating,
+        isFeatured: sample.isFeatured,
+        isPublished: sample.isPublished,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        propertyTypeId: hotelType.propertyTypeId,
+        propertyCategoryId: luxury?.propertyCategoryId ?? null,
+        propertyUsageId: rental?.propertyUsageId ?? null,
+        ownershipTypeId: companyOwned?.ownershipTypeId ?? null,
+        propertyBrandId: hilton?.propertyBrandId ?? null,
+        rating: sample.rating,
+        starRating: sample.starRating,
+        isFeatured: sample.isFeatured,
+        isPublished: sample.isPublished,
+        isActive: true,
+      },
+    });
+  }
+
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Property"', 'PropertyID'), (SELECT COALESCE(MAX("PropertyID"), 1) FROM "Property"))`
+  );
+}
+
 async function seedBranches() {
   const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
   const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
@@ -1717,6 +1800,7 @@ async function main() {
   await seedBranchTypes();
   await seedPropertyTypes();
   await seedNamedPropertyMasters();
+  await seedProperties();
   await seedBranches();
   await seedEmployees();
 }

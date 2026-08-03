@@ -54,6 +54,7 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "masters/supplier": ["Travel"],
   "administration/credit-control": ["Travel"],
   "administration/product": ["Travel", "Real Estate"],
+  "masters/property": ["Travel", "Real Estate"],
   "masters/property-type": ["Travel", "Real Estate"],
   "masters/property-category": ["Travel", "Real Estate"],
   "masters/property-usage": ["Travel", "Real Estate"],
@@ -165,6 +166,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           url: "administration/product",
           icon: "Package",
           children: [
+            { name: "Property", url: "masters/property", icon: "Building" },
             { name: "Property Type", url: "masters/property-type", icon: "Building2" },
             { name: "Property Category", url: "masters/property-category", icon: "Tags" },
             { name: "Property Usage", url: "masters/property-usage", icon: "KeyRound" },

@@ -13,6 +13,7 @@ export * from "./employee";
 export * from "./branch";
 export * from "./branch-type";
 export * from "./property-type";
+export * from "./property";
 export * from "./region";
 export * from "./country";
 export * from "./city";
