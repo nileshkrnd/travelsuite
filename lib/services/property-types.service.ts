@@ -1,5 +1,5 @@
-import { toAppPropertyType, type PropertyTypeRow } from "@/lib/mappers/property-type.mapper";
 import type { PropertyType } from "@/types";
+import { toAppPropertyType, type PropertyLookupRow } from "@/lib/mappers/property.mapper";
 
 export class PropertyTypesApiError extends Error {
   constructor(
@@ -20,25 +20,17 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-export async function listPropertyTypes(options?: {
-  tenantId?: number;
-  companyId?: number;
-  activeOnly?: boolean;
-}): Promise<PropertyType[]> {
+export async function listPropertyTypes(options?: { activeOnly?: boolean }): Promise<PropertyType[]> {
   const params = new URLSearchParams();
-  if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
-  if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
   if (options?.activeOnly) params.set("activeOnly", "true");
   const qs = params.toString();
   const res = await fetch(`/api/property-types${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new PropertyTypesApiError(await parseError(res), res.status);
-  return ((await res.json()) as PropertyTypeRow[]).map(toAppPropertyType);
+  return ((await res.json()) as PropertyLookupRow[]).map(toAppPropertyType);
 }
 
 export async function createPropertyType(input: {
   propertyTypeName: string;
-  tenantId: number;
-  companyId: number;
   isActive?: boolean;
   createdBy: number;
 }): Promise<PropertyType> {
@@ -53,13 +45,7 @@ export async function createPropertyType(input: {
 
 export async function updatePropertyType(
   propertyTypeId: number,
-  input: {
-    propertyTypeName: string;
-    tenantId: number;
-    companyId: number;
-    isActive?: boolean;
-    modifiedBy: number;
-  }
+  input: { propertyTypeName: string; isActive?: boolean; modifiedBy: number }
 ): Promise<PropertyType> {
   const res = await fetch(`/api/property-types/${propertyTypeId}`, {
     method: "PUT",

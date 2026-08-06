@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -173,6 +175,7 @@ function SupplierDialog({
 }
 
 function SupplierList({ roleDef }: { roleDef: RoleDef }) {
+  const { role } = useParams<{ role: string }>();
   const suppliers = useSuppliersStore((s) => s.suppliers);
   const updateSupplier = useSuppliersStore((s) => s.updateSupplier);
   const supplierTypes = useSupplierTypesStore((s) => s.supplierTypes);
@@ -184,10 +187,6 @@ function SupplierList({ roleDef }: { roleDef: RoleDef }) {
 
   const typeName = (id: string) => supplierTypes.find((t) => t.id === id)?.name ?? "—";
 
-  function openAdd() {
-    setEditing(undefined);
-    setDialogOpen(true);
-  }
   function openEdit(supplier: Supplier) {
     setEditing(supplier);
     setDialogOpen(true);
@@ -205,7 +204,7 @@ function SupplierList({ roleDef }: { roleDef: RoleDef }) {
               Manage types
             </Button>
             {canCreate && (
-              <Button onClick={openAdd}>
+              <Button nativeButton={false} render={<Link href={`/${role}/masters/supplier/new`} />}>
                 <Plus className="h-4 w-4" />
                 Add supplier
               </Button>

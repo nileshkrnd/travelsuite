@@ -12,11 +12,6 @@ export type ModuleKey =
   | "branch"
   | "branchType"
   | "adminProduct"
-  | "propertyType"
-  | "propertyCategory"
-  | "propertyUsage"
-  | "ownershipType"
-  | "propertyBrand"
   | "property"
   | "adminMasters"
   | "department"
@@ -54,6 +49,13 @@ export type ModuleKey =
   | "airlineType"
   | "airline"
   | "airport"
+  | "propertyMasters"
+  | "propertyType"
+  | "propertyCategory"
+  | "propertyUsage"
+  | "ownershipType"
+  | "propertyBrand"
+  | "supplierType"
   | "subscription"
   | "subscriptionProduct"
   | "subscriptionModule"
@@ -332,6 +334,13 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "airlineType",
   "airline",
   "airport",
+  "propertyMasters",
+  "propertyType",
+  "propertyCategory",
+  "propertyUsage",
+  "ownershipType",
+  "propertyBrand",
+  "supplierType",
   "subscription",
   "subscriptionProduct",
   "subscriptionModule",
@@ -386,6 +395,7 @@ export const MENU_ITEMS: MenuItem[] = [
       },
       { key: "currency", labelKey: "sidebar.currency", icon: "Coins", path: "masters/currency" },
       { key: "culture", labelKey: "sidebar.culture", icon: "Globe2", path: "masters/culture" },
+      { key: "supplierType", labelKey: "sidebar.supplierType", icon: "Store", path: "masters/supplier-type" },
       {
         key: "aviation",
         labelKey: "sidebar.aviation",
@@ -395,6 +405,44 @@ export const MENU_ITEMS: MenuItem[] = [
           { key: "airlineType", labelKey: "sidebar.airlineType", icon: "Tags", path: "masters/airline-type" },
           { key: "airline", labelKey: "sidebar.airline", icon: "Plane", path: "masters/airline" },
           { key: "airport", labelKey: "sidebar.airport", icon: "MapPinned", path: "masters/airport" },
+        ],
+      },
+      {
+        key: "propertyMasters",
+        labelKey: "sidebar.propertyMasters",
+        icon: "Tags",
+        path: "masters/property-masters",
+        children: [
+          {
+            key: "propertyType",
+            labelKey: "sidebar.propertyType",
+            icon: "Building2",
+            path: "masters/property-type",
+          },
+          {
+            key: "propertyCategory",
+            labelKey: "sidebar.propertyCategory",
+            icon: "Tags",
+            path: "masters/property-category",
+          },
+          {
+            key: "propertyUsage",
+            labelKey: "sidebar.propertyUsage",
+            icon: "KeyRound",
+            path: "masters/property-usage",
+          },
+          {
+            key: "ownershipType",
+            labelKey: "sidebar.ownershipType",
+            icon: "Landmark",
+            path: "masters/ownership-type",
+          },
+          {
+            key: "propertyBrand",
+            labelKey: "sidebar.propertyBrand",
+            icon: "Award",
+            path: "masters/property-brand",
+          },
         ],
       },
       {
@@ -584,36 +632,6 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.property",
             icon: "Building",
             path: "masters/property",
-          },
-          {
-            key: "propertyType",
-            labelKey: "sidebar.propertyType",
-            icon: "Building2",
-            path: "masters/property-type",
-          },
-          {
-            key: "propertyCategory",
-            labelKey: "sidebar.propertyCategory",
-            icon: "Tags",
-            path: "masters/property-category",
-          },
-          {
-            key: "propertyUsage",
-            labelKey: "sidebar.propertyUsage",
-            icon: "KeyRound",
-            path: "masters/property-usage",
-          },
-          {
-            key: "ownershipType",
-            labelKey: "sidebar.ownershipType",
-            icon: "Landmark",
-            path: "masters/ownership-type",
-          },
-          {
-            key: "propertyBrand",
-            labelKey: "sidebar.propertyBrand",
-            icon: "Award",
-            path: "masters/property-brand",
           },
         ],
       },

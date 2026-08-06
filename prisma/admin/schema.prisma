@@ -426,6 +426,20 @@ model Airport {
   @@map("Airport")
 }
 
+/// Supplier Type lookup (DMC, Hotelier, Tour Operator, Transport, Activity Provider, …). Global.
+model SupplierType {
+  supplierTypeId   BigInt    @id @default(autoincrement()) @map("SupplierTypeID")
+  supplierTypeName String    @unique @map("SupplierTypeName") @db.VarChar(150)
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted        Boolean   @default(false) @map("IsDeleted")
+
+  @@map("SupplierType")
+}
+
 /// Company master — scoped by TenantID (tenant workspace Administration).
 model Company {
   companyId                  Int       @id @default(autoincrement()) @map("CompanyID")
@@ -471,98 +485,78 @@ model Company {
   @@map("Company")
 }
 
-/// Property Type master — scoped by TenantID + CompanyID (e.g. Hotel, Apartment, Villa).
+/// Property Type master — global (e.g. Hotel, Apartment, Villa).
 model PropertyType {
-  propertyTypeId   Int       @id @default(autoincrement()) @map("PropertyTypeID")
-  propertyTypeName String    @map("PropertyTypeName") @db.VarChar(100)
+  propertyTypeId   BigInt    @id @default(autoincrement()) @map("PropertyTypeID")
+  propertyTypeName String    @unique(map: "PropertyType_Name_key") @map("PropertyTypeName") @db.VarChar(100)
   isActive         Boolean   @default(true) @map("IsActive")
   createdBy        Int       @map("CreatedBy")
   createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
-  tenantId         Int       @map("TenantID")
-  companyId        Int       @map("CompanyID")
 
   typeLinks PropertyTypeLink[]
 
-  @@unique([tenantId, companyId, propertyTypeName], map: "PropertyType_Tenant_Company_Name_key")
-  @@index([tenantId, companyId], map: "PropertyType_TenantID_CompanyID_idx")
   @@map("PropertyType")
 }
 
-/// Property Category master — scoped by TenantID + CompanyID (e.g. Luxury, Budget).
+/// Property Category master — global (e.g. Luxury, Budget).
 model PropertyCategory {
-  propertyCategoryId   Int       @id @default(autoincrement()) @map("PropertyCategoryID")
-  propertyCategoryName String    @map("PropertyCategoryName") @db.VarChar(100)
+  propertyCategoryId   BigInt    @id @default(autoincrement()) @map("PropertyCategoryID")
+  propertyCategoryName String    @unique(map: "PropertyCategory_Name_key") @map("PropertyCategoryName") @db.VarChar(100)
   isActive             Boolean   @default(true) @map("IsActive")
   createdBy            Int       @map("CreatedBy")
   createdDtTm          DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy           Int?      @map("ModifiedBy")
   modifiedDtTm         DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
-  tenantId             Int       @map("TenantID")
-  companyId            Int       @map("CompanyID")
 
   categoryLinks PropertyCategoryLink[]
 
-  @@unique([tenantId, companyId, propertyCategoryName], map: "PropertyCategory_Tenant_Company_Name_key")
-  @@index([tenantId, companyId], map: "PropertyCategory_TenantID_CompanyID_idx")
   @@map("PropertyCategory")
 }
 
-/// Property Usage master — scoped by TenantID + CompanyID (e.g. Rental, Owned, Leasing).
+/// Property Usage master — global (e.g. Rental, Owned, Leasing).
 model PropertyUsage {
-  propertyUsageId   Int       @id @default(autoincrement()) @map("PropertyUsageID")
-  propertyUsageName String    @map("PropertyUsageName") @db.VarChar(100)
+  propertyUsageId   BigInt    @id @default(autoincrement()) @map("PropertyUsageID")
+  propertyUsageName String    @unique(map: "PropertyUsage_Name_key") @map("PropertyUsageName") @db.VarChar(100)
   isActive          Boolean   @default(true) @map("IsActive")
   createdBy         Int       @map("CreatedBy")
   createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy        Int?      @map("ModifiedBy")
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
-  tenantId          Int       @map("TenantID")
-  companyId         Int       @map("CompanyID")
 
   properties Property[]
 
-  @@unique([tenantId, companyId, propertyUsageName], map: "PropertyUsage_Tenant_Company_Name_key")
-  @@index([tenantId, companyId], map: "PropertyUsage_TenantID_CompanyID_idx")
   @@map("PropertyUsage")
 }
 
-/// Ownership Type master — scoped by TenantID + CompanyID (e.g. Company Owned, Third Party).
+/// Ownership Type master — global (e.g. Company Owned, Third Party).
 model OwnershipType {
-  ownershipTypeId   Int       @id @default(autoincrement()) @map("OwnershipTypeID")
-  ownershipTypeName String    @map("OwnershipTypeName") @db.VarChar(100)
+  ownershipTypeId   BigInt    @id @default(autoincrement()) @map("OwnershipTypeID")
+  ownershipTypeName String    @unique(map: "OwnershipType_Name_key") @map("OwnershipTypeName") @db.VarChar(100)
   isActive          Boolean   @default(true) @map("IsActive")
   createdBy         Int       @map("CreatedBy")
   createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy        Int?      @map("ModifiedBy")
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
-  tenantId          Int       @map("TenantID")
-  companyId         Int       @map("CompanyID")
 
   properties Property[]
 
-  @@unique([tenantId, companyId, ownershipTypeName], map: "OwnershipType_Tenant_Company_Name_key")
-  @@index([tenantId, companyId], map: "OwnershipType_TenantID_CompanyID_idx")
   @@map("OwnershipType")
 }
 
-/// Property Brand master — scoped by TenantID + CompanyID (e.g. Hilton, Accor).
+/// Property Brand master — global (e.g. Hilton, Accor).
 model PropertyBrand {
-  propertyBrandId   Int       @id @default(autoincrement()) @map("PropertyBrandID")
-  propertyBrandName String    @map("PropertyBrandName") @db.VarChar(100)
+  propertyBrandId   BigInt    @id @default(autoincrement()) @map("PropertyBrandID")
+  propertyBrandName String    @unique(map: "PropertyBrand_Name_key") @map("PropertyBrandName") @db.VarChar(100)
   isActive          Boolean   @default(true) @map("IsActive")
   createdBy         Int       @map("CreatedBy")
   createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy        Int?      @map("ModifiedBy")
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
-  tenantId          Int       @map("TenantID")
-  companyId         Int       @map("CompanyID")
 
   properties Property[]
 
-  @@unique([tenantId, companyId, propertyBrandName], map: "PropertyBrand_Tenant_Company_Name_key")
-  @@index([tenantId, companyId], map: "PropertyBrand_TenantID_CompanyID_idx")
   @@map("PropertyBrand")
 }
 
@@ -577,9 +571,9 @@ model Property {
   shortDescription    String?   @map("ShortDescription") @db.Text
   description         String?   @map("Description") @db.Text
   internalRemarks     String?   @map("InternalRemarks") @db.Text
-  propertyUsageId     Int?      @map("PropertyUsageID")
-  ownershipTypeId     Int?      @map("OwnershipTypeID")
-  propertyBrandId     Int?      @map("PropertyBrandID")
+  propertyUsageId     BigInt?   @map("PropertyUsageID")
+  ownershipTypeId     BigInt?   @map("OwnershipTypeID")
+  propertyBrandId     BigInt?   @map("PropertyBrandID")
   /// Optional supplier reference (no DB FK yet — supplier master is still app-store based).
   supplierId          Int?      @map("SupplierID")
   addressLine1        String?   @map("AddressLine1") @db.VarChar(255)
@@ -640,8 +634,8 @@ model Property {
 
 /// Many-to-many: Property ↔ PropertyType.
 model PropertyTypeLink {
-  propertyId     Int @map("PropertyID")
-  propertyTypeId Int @map("PropertyTypeID")
+  propertyId     Int    @map("PropertyID")
+  propertyTypeId BigInt @map("PropertyTypeID")
 
   property     Property     @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
   propertyType PropertyType @relation(fields: [propertyTypeId], references: [propertyTypeId], onDelete: Restrict)
@@ -653,8 +647,8 @@ model PropertyTypeLink {
 
 /// Many-to-many: Property ↔ PropertyCategory.
 model PropertyCategoryLink {
-  propertyId         Int @map("PropertyID")
-  propertyCategoryId Int @map("PropertyCategoryID")
+  propertyId         Int    @map("PropertyID")
+  propertyCategoryId BigInt @map("PropertyCategoryID")
 
   property         Property         @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
   propertyCategory PropertyCategory @relation(fields: [propertyCategoryId], references: [propertyCategoryId], onDelete: Restrict)

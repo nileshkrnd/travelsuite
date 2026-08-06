@@ -1,6 +1,6 @@
-import { createTenantCompanyNameItemHandlers } from "@/lib/api/tenant-company-name-crud";
+import { createGlobalNameItemHandlers } from "@/lib/api/global-name-crud";
 
-const handlers = createTenantCompanyNameItemHandlers({
+const handlers = createGlobalNameItemHandlers({
   model: "propertyBrand",
   idField: "propertyBrandId",
   nameField: "propertyBrandName",

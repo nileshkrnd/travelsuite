@@ -6,6 +6,7 @@ import { dbUnavailable } from "@/lib/api/db-error";
 import {
   propertyInclude,
   propertyWriteSchema,
+  serializePropertyRow,
   toPropertyUpdateScalars,
   validatePropertyLookups,
   withCompanyName,
@@ -38,7 +39,7 @@ export async function GET(_request: Request, context: RouteContext) {
     });
     if (!row) return NextResponse.json({ error: "Property not found" }, { status: 404 });
     const [withName] = await withCompanyName([row]);
-    return NextResponse.json(withName);
+    return NextResponse.json(serializePropertyRow(withName));
   } catch (error) {
     return dbUnavailable(error);
   }
@@ -73,9 +74,9 @@ export async function PUT(request: Request, context: RouteContext) {
         where: { propertyId: id.data },
         data: {
           ...toPropertyUpdateScalars(data),
-          typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId })) },
+          typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId: BigInt(propertyTypeId) })) },
           categoryLinks: {
-            create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId })),
+            create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId: BigInt(propertyCategoryId) })),
           },
         },
         include: propertyInclude,
@@ -83,7 +84,7 @@ export async function PUT(request: Request, context: RouteContext) {
     });
 
     const [withName] = await withCompanyName([updated]);
-    return NextResponse.json(withName);
+    return NextResponse.json(serializePropertyRow(withName));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025") return NextResponse.json({ error: "Property not found" }, { status: 404 });
@@ -123,7 +124,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       include: propertyInclude,
     });
     const [withName] = await withCompanyName([updated]);
-    return NextResponse.json(withName);
+    return NextResponse.json(serializePropertyRow(withName));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });

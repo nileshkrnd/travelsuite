@@ -186,6 +186,20 @@ async function seedAreaTypes() {
   }
 }
 
+async function seedSupplierTypes() {
+  const names = ["DMC", "Hotelier", "Tour Operator", "Transport", "Activity Provider"];
+  for (const supplierTypeName of names) {
+    await prisma.supplierType.upsert({
+      where: { supplierTypeName },
+      create: { supplierTypeName, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"SupplierType"', 'SupplierTypeID'), (SELECT COALESCE(MAX("SupplierTypeID"), 1) FROM "SupplierType"))`
+  );
+}
+
 const AREA_SEEDS: Array<{
   countryCode: string;
   cityCode: string;
@@ -1515,10 +1529,6 @@ async function seedBranchTypes() {
 }
 
 async function seedPropertyTypes() {
-  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
-  const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
-  if (!leisure || !corporate) return;
-
   const names = [
     "Hotel",
     "Apartment",
@@ -1538,36 +1548,16 @@ async function seedPropertyTypes() {
     "Mixed Use Building",
   ];
 
-  for (const company of [leisure, corporate]) {
-    for (const propertyTypeName of names) {
-      await prisma.propertyType.upsert({
-        where: {
-          tenantId_companyId_propertyTypeName: {
-            tenantId: company.tenantId,
-            companyId: company.companyId,
-            propertyTypeName,
-          },
-        },
-        create: {
-          propertyTypeName,
-          tenantId: company.tenantId,
-          companyId: company.companyId,
-          isActive: true,
-          createdBy: CREATED_BY,
-        },
-        update: { isActive: true },
-      });
-    }
-
-    // Drop short-lived seed alias replaced by "Commercial Property".
-    await prisma.propertyType.deleteMany({
-      where: {
-        tenantId: company.tenantId,
-        companyId: company.companyId,
-        propertyTypeName: "Commercial",
-      },
+  for (const propertyTypeName of names) {
+    await prisma.propertyType.upsert({
+      where: { propertyTypeName },
+      create: { propertyTypeName, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
     });
   }
+
+  // Drop short-lived seed alias replaced by "Commercial Property".
+  await prisma.propertyType.deleteMany({ where: { propertyTypeName: "Commercial" } });
 
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('"PropertyType"', 'PropertyTypeID'), (SELECT COALESCE(MAX("PropertyTypeID"), 1) FROM "PropertyType"))`
@@ -1575,30 +1565,18 @@ async function seedPropertyTypes() {
 }
 
 async function seedNamedPropertyMasters() {
-  const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
-  const corporate = await prisma.company.findUnique({ where: { companyUid: "company_corporate" } });
-  if (!leisure || !corporate) return;
-
   const catalogs: {
     names: string[];
-    upsert: (companyId: number, tenantId: number, name: string) => Promise<unknown>;
+    upsert: (name: string) => Promise<unknown>;
     table: string;
     idColumn: string;
   }[] = [
     {
       names: ["Luxury", "Budget", "Midscale", "Upscale", "Economy"],
-      upsert: (companyId, tenantId, propertyCategoryName) =>
+      upsert: (propertyCategoryName) =>
         prisma.propertyCategory.upsert({
-          where: {
-            tenantId_companyId_propertyCategoryName: { tenantId, companyId, propertyCategoryName },
-          },
-          create: {
-            propertyCategoryName,
-            tenantId,
-            companyId,
-            isActive: true,
-            createdBy: CREATED_BY,
-          },
+          where: { propertyCategoryName },
+          create: { propertyCategoryName, isActive: true, createdBy: CREATED_BY },
           update: { isActive: true },
         }),
       table: "PropertyCategory",
@@ -1606,18 +1584,10 @@ async function seedNamedPropertyMasters() {
     },
     {
       names: ["Rental", "Owned", "Leasing"],
-      upsert: (companyId, tenantId, propertyUsageName) =>
+      upsert: (propertyUsageName) =>
         prisma.propertyUsage.upsert({
-          where: {
-            tenantId_companyId_propertyUsageName: { tenantId, companyId, propertyUsageName },
-          },
-          create: {
-            propertyUsageName,
-            tenantId,
-            companyId,
-            isActive: true,
-            createdBy: CREATED_BY,
-          },
+          where: { propertyUsageName },
+          create: { propertyUsageName, isActive: true, createdBy: CREATED_BY },
           update: { isActive: true },
         }),
       table: "PropertyUsage",
@@ -1625,18 +1595,10 @@ async function seedNamedPropertyMasters() {
     },
     {
       names: ["Company Owned", "Third Party"],
-      upsert: (companyId, tenantId, ownershipTypeName) =>
+      upsert: (ownershipTypeName) =>
         prisma.ownershipType.upsert({
-          where: {
-            tenantId_companyId_ownershipTypeName: { tenantId, companyId, ownershipTypeName },
-          },
-          create: {
-            ownershipTypeName,
-            tenantId,
-            companyId,
-            isActive: true,
-            createdBy: CREATED_BY,
-          },
+          where: { ownershipTypeName },
+          create: { ownershipTypeName, isActive: true, createdBy: CREATED_BY },
           update: { isActive: true },
         }),
       table: "OwnershipType",
@@ -1644,18 +1606,10 @@ async function seedNamedPropertyMasters() {
     },
     {
       names: ["Hilton", "Accor", "Marriott", "IHG", "Independent"],
-      upsert: (companyId, tenantId, propertyBrandName) =>
+      upsert: (propertyBrandName) =>
         prisma.propertyBrand.upsert({
-          where: {
-            tenantId_companyId_propertyBrandName: { tenantId, companyId, propertyBrandName },
-          },
-          create: {
-            propertyBrandName,
-            tenantId,
-            companyId,
-            isActive: true,
-            createdBy: CREATED_BY,
-          },
+          where: { propertyBrandName },
+          create: { propertyBrandName, isActive: true, createdBy: CREATED_BY },
           update: { isActive: true },
         }),
       table: "PropertyBrand",
@@ -1663,15 +1617,10 @@ async function seedNamedPropertyMasters() {
     },
   ];
 
-  for (const company of [leisure, corporate]) {
-    for (const catalog of catalogs) {
-      for (const name of catalog.names) {
-        await catalog.upsert(company.companyId, company.tenantId, name);
-      }
-    }
-  }
-
   for (const catalog of catalogs) {
+    for (const name of catalog.names) {
+      await catalog.upsert(name);
+    }
     await prisma.$executeRawUnsafe(
       `SELECT setval(pg_get_serial_sequence('"${catalog.table}"', '${catalog.idColumn}'), (SELECT COALESCE(MAX("${catalog.idColumn}"), 1) FROM "${catalog.table}"))`
     );
@@ -1688,33 +1637,17 @@ async function seedProperties() {
     where: { countryId: qa.countryId, cityCode: "DOHA" },
   });
 
-  const hotelType = await prisma.propertyType.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyTypeName: "Hotel" },
-  });
+  const hotelType = await prisma.propertyType.findUnique({ where: { propertyTypeName: "Hotel" } });
   if (!hotelType) return;
 
-  const apartmentType = await prisma.propertyType.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyTypeName: "Apartment" },
+  const apartmentType = await prisma.propertyType.findUnique({ where: { propertyTypeName: "Apartment" } });
+  const luxury = await prisma.propertyCategory.findUnique({ where: { propertyCategoryName: "Luxury" } });
+  const midscale = await prisma.propertyCategory.findUnique({ where: { propertyCategoryName: "Midscale" } });
+  const rental = await prisma.propertyUsage.findUnique({ where: { propertyUsageName: "Rental" } });
+  const companyOwned = await prisma.ownershipType.findUnique({
+    where: { ownershipTypeName: "Company Owned" },
   });
-  const luxury = await prisma.propertyCategory.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyCategoryName: "Luxury" },
-  });
-  const midscale = await prisma.propertyCategory.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyCategoryName: "Midscale" },
-  });
-  const rental = await prisma.propertyUsage.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyUsageName: "Rental" },
-  });
-  const companyOwned = await prisma.ownershipType.findFirst({
-    where: {
-      tenantId: leisure.tenantId,
-      companyId: leisure.companyId,
-      ownershipTypeName: "Company Owned",
-    },
-  });
-  const hilton = await prisma.propertyBrand.findFirst({
-    where: { tenantId: leisure.tenantId, companyId: leisure.companyId, propertyBrandName: "Hilton" },
-  });
+  const hilton = await prisma.propertyBrand.findUnique({ where: { propertyBrandName: "Hilton" } });
 
   const samples: {
     propertyCode: string;
@@ -1731,8 +1664,8 @@ async function seedProperties() {
     rating: number;
     isFeatured: boolean;
     isPublished: boolean;
-    typeIds: number[];
-    categoryIds: number[];
+    typeIds: bigint[];
+    categoryIds: bigint[];
   }[] = [
     {
       propertyCode: "HTL-DOH-001",
@@ -2179,6 +2112,7 @@ async function main() {
   await seedAreas();
   await seedLocationTypes();
   await seedLocations();
+  await seedSupplierTypes();
   await seedCultures();
   await seedTenants();
   await seedTenantCultures();

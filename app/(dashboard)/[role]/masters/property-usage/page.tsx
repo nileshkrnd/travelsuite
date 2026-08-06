@@ -1,22 +1,45 @@
 "use client";
 
 import { KeyRound } from "lucide-react";
-import { TenantCompanyNameMasterPage } from "@/components/masters/TenantCompanyNameMasterPage";
+import { GlobalNameMasterPage, type GlobalNameMasterService } from "@/components/masters/GlobalNameMasterPage";
+import {
+  listPropertyUsages,
+  createPropertyUsage,
+  updatePropertyUsage,
+  setPropertyUsageActive,
+  deletePropertyUsage,
+  PropertyUsagesApiError,
+} from "@/lib/services/property-usages.service";
+import type { PropertyUsage } from "@/types";
+
+const service: GlobalNameMasterService<PropertyUsage> = {
+  list: (options) => listPropertyUsages(options),
+  create: (input) =>
+    createPropertyUsage({ propertyUsageName: input.name, isActive: input.isActive, createdBy: input.createdBy }),
+  update: (key, input) =>
+    updatePropertyUsage(key, {
+      propertyUsageName: input.name,
+      isActive: input.isActive,
+      modifiedBy: input.modifiedBy,
+    }),
+  setActive: setPropertyUsageActive,
+  remove: deletePropertyUsage,
+  ApiError: PropertyUsagesApiError,
+};
 
 export default function PropertyUsageMasterPage() {
   return (
-    <TenantCompanyNameMasterPage
+    <GlobalNameMasterPage
       config={{
         moduleKey: "propertyUsage",
         title: "Property Usage",
-        description: "Usage modes such as Rental, Owned, and Leasing — scoped to the current company.",
+        description: "Usage modes such as Rental, Owned, and Leasing — global across all companies.",
         entityLabel: "Property usage",
         nameLabel: "Property usage name",
-        idField: "propertyUsageId",
-        nameField: "propertyUsageName",
-        apiPath: "/api/property-usages",
+        namePlaceholder: "e.g. Rental, Owned, Leasing",
         icon: KeyRound,
         addButtonLabel: "Add property usage",
+        service,
       }}
     />
   );

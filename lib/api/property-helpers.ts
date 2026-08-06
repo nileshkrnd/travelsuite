@@ -104,6 +104,27 @@ export const propertyInclude = {
   city: { select: { cityName: true } },
 } as const;
 
+type SerializableProperty = {
+  propertyUsageId?: bigint | null;
+  ownershipTypeId?: bigint | null;
+  propertyBrandId?: bigint | null;
+  typeLinks?: Array<{ propertyTypeId: bigint; [key: string]: unknown }>;
+  categoryLinks?: Array<{ propertyCategoryId: bigint; [key: string]: unknown }>;
+  [key: string]: unknown;
+};
+
+/** Property's BigInt lookup FKs can't pass through NextResponse.json() (JSON.stringify throws on bigint) — convert to number first. */
+export function serializePropertyRow<T extends SerializableProperty>(row: T) {
+  return {
+    ...row,
+    propertyUsageId: row.propertyUsageId != null ? Number(row.propertyUsageId) : null,
+    ownershipTypeId: row.ownershipTypeId != null ? Number(row.ownershipTypeId) : null,
+    propertyBrandId: row.propertyBrandId != null ? Number(row.propertyBrandId) : null,
+    typeLinks: row.typeLinks?.map((l) => ({ ...l, propertyTypeId: Number(l.propertyTypeId) })),
+    categoryLinks: row.categoryLinks?.map((l) => ({ ...l, propertyCategoryId: Number(l.propertyCategoryId) })),
+  };
+}
+
 export async function withCompanyName<T extends { companyId: number }>(rows: T[]) {
   const companyIds = [...new Set(rows.map((r) => r.companyId))];
   if (companyIds.length === 0) return rows.map((r) => ({ ...r, companyName: null as string | null }));
@@ -151,50 +172,41 @@ export async function validatePropertyLookups(data: {
     return NextResponse.json({ error: "Select at least one property type" }, { status: 400 });
   }
   const types = await prisma.propertyType.findMany({
-    where: { propertyTypeId: { in: uniqueTypeIds } },
+    where: { propertyTypeId: { in: uniqueTypeIds.map(BigInt) } },
   });
   if (types.length !== uniqueTypeIds.length) {
     return NextResponse.json({ error: "One or more property types were not found" }, { status: 400 });
-  }
-  if (types.some((t) => t.tenantId !== data.tenantId || t.companyId !== data.companyId)) {
-    return NextResponse.json({ error: "Property type does not belong to this company" }, { status: 400 });
   }
 
   const uniqueCategoryIds = [...new Set(data.propertyCategoryIds ?? [])];
   if (uniqueCategoryIds.length > 0) {
     const cats = await prisma.propertyCategory.findMany({
-      where: { propertyCategoryId: { in: uniqueCategoryIds } },
+      where: { propertyCategoryId: { in: uniqueCategoryIds.map(BigInt) } },
     });
     if (cats.length !== uniqueCategoryIds.length) {
       return NextResponse.json({ error: "One or more property categories were not found" }, { status: 400 });
     }
-    if (cats.some((c) => c.tenantId !== data.tenantId || c.companyId !== data.companyId)) {
-      return NextResponse.json(
-        { error: "Property category does not belong to this company" },
-        { status: 400 }
-      );
-    }
   }
 
   if (data.propertyUsageId != null) {
-    const row = await prisma.propertyUsage.findUnique({ where: { propertyUsageId: data.propertyUsageId } });
-    if (!row || row.tenantId !== data.tenantId || row.companyId !== data.companyId) {
-      return NextResponse.json({ error: "Property usage does not belong to this company" }, { status: 400 });
-    }
+    const row = await prisma.propertyUsage.findUnique({
+      where: { propertyUsageId: BigInt(data.propertyUsageId) },
+    });
+    if (!row) return NextResponse.json({ error: "Property usage not found" }, { status: 400 });
   }
 
   if (data.ownershipTypeId != null) {
-    const row = await prisma.ownershipType.findUnique({ where: { ownershipTypeId: data.ownershipTypeId } });
-    if (!row || row.tenantId !== data.tenantId || row.companyId !== data.companyId) {
-      return NextResponse.json({ error: "Ownership type does not belong to this company" }, { status: 400 });
-    }
+    const row = await prisma.ownershipType.findUnique({
+      where: { ownershipTypeId: BigInt(data.ownershipTypeId) },
+    });
+    if (!row) return NextResponse.json({ error: "Ownership type not found" }, { status: 400 });
   }
 
   if (data.propertyBrandId != null) {
-    const row = await prisma.propertyBrand.findUnique({ where: { propertyBrandId: data.propertyBrandId } });
-    if (!row || row.tenantId !== data.tenantId || row.companyId !== data.companyId) {
-      return NextResponse.json({ error: "Property brand does not belong to this company" }, { status: 400 });
-    }
+    const row = await prisma.propertyBrand.findUnique({
+      where: { propertyBrandId: BigInt(data.propertyBrandId) },
+    });
+    if (!row) return NextResponse.json({ error: "Property brand not found" }, { status: 400 });
   }
 
   const country = await prisma.country.findUnique({ where: { countryId: data.countryId } });
@@ -252,9 +264,9 @@ export function toPropertyCreateData(
     shortDescription: trimOrNull(data.shortDescription) ?? null,
     description: trimOrNull(data.description) ?? null,
     internalRemarks: trimOrNull(data.internalRemarks) ?? null,
-    propertyUsageId: data.propertyUsageId ?? null,
-    ownershipTypeId: data.ownershipTypeId ?? null,
-    propertyBrandId: data.propertyBrandId ?? null,
+    propertyUsageId: data.propertyUsageId != null ? BigInt(data.propertyUsageId) : null,
+    ownershipTypeId: data.ownershipTypeId != null ? BigInt(data.ownershipTypeId) : null,
+    propertyBrandId: data.propertyBrandId != null ? BigInt(data.propertyBrandId) : null,
     supplierId: data.supplierId ?? null,
     ...addressScalars(data),
     openingDate: parseDateOnly(data.openingDate) ?? null,
@@ -265,8 +277,10 @@ export function toPropertyCreateData(
     isPublished: data.isPublished ?? false,
     isActive: data.isActive ?? true,
     createdBy: data.createdBy,
-    typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId })) },
-    categoryLinks: { create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId })) },
+    typeLinks: { create: typeIds.map((propertyTypeId) => ({ propertyTypeId: BigInt(propertyTypeId) })) },
+    categoryLinks: {
+      create: categoryIds.map((propertyCategoryId) => ({ propertyCategoryId: BigInt(propertyCategoryId) })),
+    },
   };
 }
 
@@ -282,9 +296,9 @@ export function toPropertyUpdateScalars(
     shortDescription: trimOrNull(data.shortDescription) ?? null,
     description: trimOrNull(data.description) ?? null,
     internalRemarks: trimOrNull(data.internalRemarks) ?? null,
-    propertyUsageId: data.propertyUsageId ?? null,
-    ownershipTypeId: data.ownershipTypeId ?? null,
-    propertyBrandId: data.propertyBrandId ?? null,
+    propertyUsageId: data.propertyUsageId != null ? BigInt(data.propertyUsageId) : null,
+    ownershipTypeId: data.ownershipTypeId != null ? BigInt(data.ownershipTypeId) : null,
+    propertyBrandId: data.propertyBrandId != null ? BigInt(data.propertyBrandId) : null,
     supplierId: data.supplierId ?? null,
     ...addressScalars(data),
     openingDate: parseDateOnly(data.openingDate) ?? null,

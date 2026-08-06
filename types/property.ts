@@ -1,3 +1,30 @@
+/** Shape shared by all global name-only lookup masters (Property Type/Category/Usage, Ownership Type, Property Brand). */
+export interface GlobalNameLookup {
+  id: string;
+  key: number;
+  name: string;
+  isActive: boolean;
+  createdBy: number;
+  createdAt: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
+}
+
+/** Property Type lookup — global (Hotel, Apartment, Villa, …). */
+export type PropertyType = GlobalNameLookup;
+
+/** Property Category lookup — global (Luxury, Budget, Midscale, …). */
+export type PropertyCategory = GlobalNameLookup;
+
+/** Property Usage lookup — global (Rental, Owned, Leasing). */
+export type PropertyUsage = GlobalNameLookup;
+
+/** Ownership Type lookup — global (Company Owned, Third Party). */
+export type OwnershipType = GlobalNameLookup;
+
+/** Property Brand lookup — global (Hilton, Accor, Marriott, …). */
+export type PropertyBrand = GlobalNameLookup;
+
 /** Property master — scoped by TenantID + CompanyID. */
 export interface Property {
   propertyId: number;

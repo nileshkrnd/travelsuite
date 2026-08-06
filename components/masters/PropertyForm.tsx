@@ -18,6 +18,7 @@ import {
   Info,
   Tags,
   Navigation,
+  Lock,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Section } from "@/components/masters/PropertyFormSection";
+import {
+  MediaTab,
+  AmenitiesTab,
+  FacilitiesTab,
+  SupportedCardPaymentTab,
+  NearByAreaTab,
+  NearByActivitiesTab,
+  PoliciesTab,
+  FrequentlyAskedQuestionsTab,
+} from "@/components/masters/PropertyExtrasTabs";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -34,7 +47,10 @@ import { listCompanies } from "@/lib/services/db-companies.service";
 import { listCountries } from "@/lib/services/countries.service";
 import { listCities } from "@/lib/services/cities.service";
 import { listPropertyTypes } from "@/lib/services/property-types.service";
-import { createTenantCompanyNameService } from "@/lib/services/tenant-company-name-master.service";
+import { listPropertyCategories } from "@/lib/services/property-categories.service";
+import { listPropertyUsages } from "@/lib/services/property-usages.service";
+import { listOwnershipTypes } from "@/lib/services/ownership-types.service";
+import { listPropertyBrands } from "@/lib/services/property-brands.service";
 import {
   createProperty,
   updateProperty,
@@ -43,31 +59,18 @@ import {
 } from "@/lib/services/properties.service";
 import { resolveSessionCompanyKey, shouldLockSessionCompany } from "@/lib/session-company";
 import { cn } from "@/lib/utils";
-import type { City, Country, Property, PropertyType } from "@/types";
-import type { TenantCompanyNameEntity } from "@/lib/services/tenant-company-name-master.service";
+import type {
+  City,
+  Country,
+  OwnershipType,
+  Property,
+  PropertyBrand,
+  PropertyCategory,
+  PropertyType,
+  PropertyUsage,
+} from "@/types";
 
 const NONE = "__none__";
-
-const categoriesApi = createTenantCompanyNameService({
-  apiPath: "/api/property-categories",
-  idField: "propertyCategoryId",
-  nameField: "propertyCategoryName",
-});
-const usagesApi = createTenantCompanyNameService({
-  apiPath: "/api/property-usages",
-  idField: "propertyUsageId",
-  nameField: "propertyUsageName",
-});
-const ownershipApi = createTenantCompanyNameService({
-  apiPath: "/api/ownership-types",
-  idField: "ownershipTypeId",
-  nameField: "ownershipTypeName",
-});
-const brandsApi = createTenantCompanyNameService({
-  apiPath: "/api/property-brands",
-  idField: "propertyBrandId",
-  nameField: "propertyBrandName",
-});
 
 function optionalId() {
   return z.preprocess(
@@ -234,35 +237,6 @@ function valuesFromProperty(p: Property): FormValues {
   };
 }
 
-function Section({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardContent className="space-y-5 pt-6">
-        <div className="flex items-start gap-3 border-b border-border pb-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold">{title}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-          </div>
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
 function MultiCheckGroup({
   label,
   required,
@@ -329,14 +303,15 @@ export function PropertyForm({ property }: { property?: Property }) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [types, setTypes] = useState<PropertyType[]>([]);
-  const [categories, setCategories] = useState<TenantCompanyNameEntity[]>([]);
-  const [usages, setUsages] = useState<TenantCompanyNameEntity[]>([]);
-  const [ownerships, setOwnerships] = useState<TenantCompanyNameEntity[]>([]);
-  const [brands, setBrands] = useState<TenantCompanyNameEntity[]>([]);
+  const [categories, setCategories] = useState<PropertyCategory[]>([]);
+  const [usages, setUsages] = useState<PropertyUsage[]>([]);
+  const [ownerships, setOwnerships] = useState<OwnershipType[]>([]);
+  const [brands, setBrands] = useState<PropertyBrand[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [bootLoading, setBootLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [companyIdResolved, setCompanyIdResolved] = useState(0);
+  const [activeTab, setActiveTab] = useState("details");
 
   const {
     register,
@@ -403,17 +378,15 @@ export function PropertyForm({ property }: { property?: Property }) {
   }, [tenantKey, sessionUser, property, setValue]);
 
   useEffect(() => {
-    const companyId = companyIdResolved || getValues("companyId");
-    if (!companyId || tenantKey <= 0) return;
     let cancelled = false;
     void (async () => {
       try {
         const [typeRows, catRows, usageRows, ownRows, brandRows] = await Promise.all([
-          listPropertyTypes({ tenantId: tenantKey, companyId, activeOnly: true }),
-          categoriesApi.list({ tenantId: tenantKey, companyId, activeOnly: true }),
-          usagesApi.list({ tenantId: tenantKey, companyId, activeOnly: true }),
-          ownershipApi.list({ tenantId: tenantKey, companyId, activeOnly: true }),
-          brandsApi.list({ tenantId: tenantKey, companyId, activeOnly: true }),
+          listPropertyTypes({ activeOnly: true }),
+          listPropertyCategories({ activeOnly: true }),
+          listPropertyUsages({ activeOnly: true }),
+          listOwnershipTypes({ activeOnly: true }),
+          listPropertyBrands({ activeOnly: true }),
         ]);
         if (cancelled) return;
         setTypes(typeRows);
@@ -428,7 +401,7 @@ export function PropertyForm({ property }: { property?: Property }) {
     return () => {
       cancelled = true;
     };
-  }, [companyIdResolved, tenantKey, getValues]);
+  }, []);
 
   useEffect(() => {
     if (!countryId) {
@@ -463,10 +436,7 @@ export function PropertyForm({ property }: { property?: Property }) {
     [displayWatch, nameWatch, codeWatch]
   );
   const previewTypes = useMemo(
-    () =>
-      types
-        .filter((t) => (typeIdsWatch ?? []).includes(t.propertyTypeId))
-        .map((t) => t.propertyTypeName),
+    () => types.filter((t) => (typeIdsWatch ?? []).includes(t.key)).map((t) => t.name),
     [types, typeIdsWatch]
   );
 
@@ -544,8 +514,8 @@ export function PropertyForm({ property }: { property?: Property }) {
         router.push(`/${role}/masters/property/${saved.propertyId}`);
       } else {
         const saved = await createProperty({ ...payload, createdBy: actorKey });
-        toast.success("Property created");
-        router.push(`/${role}/masters/property/${saved.propertyId}`);
+        toast.success("Property created — add media, amenities, and other optional details next");
+        router.push(`/${role}/masters/property/${saved.propertyId}/edit`);
       }
     } catch (error) {
       toast.error(error instanceof PropertiesApiError ? error.message : "Could not save property");
@@ -582,6 +552,51 @@ export function PropertyForm({ property }: { property?: Property }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)] lg:items-start" noValidate>
       <div className="min-w-0 space-y-5">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v ?? "details")}>
+          <div className="overflow-x-auto">
+            <TabsList variant="line" className="w-max">
+              <TabsTrigger value="details">Property Details</TabsTrigger>
+              <TabsTrigger value="media" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Media
+              </TabsTrigger>
+              <TabsTrigger value="amenities" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Amenities
+              </TabsTrigger>
+              <TabsTrigger value="facilities" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Facilities
+              </TabsTrigger>
+              <TabsTrigger value="payment" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Card Payment
+              </TabsTrigger>
+              <TabsTrigger value="nearbyArea" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Near By Area
+              </TabsTrigger>
+              <TabsTrigger value="nearbyActivities" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Near By Activities
+              </TabsTrigger>
+              <TabsTrigger value="policies" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                Policies
+              </TabsTrigger>
+              <TabsTrigger value="faq" disabled={!isEdit}>
+                {!isEdit && <Lock className="h-3 w-3" />}
+                FAQs
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          {!isEdit && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Save the property details below to unlock Media, Amenities, and the other optional sections.
+            </p>
+          )}
+
+          <TabsContent value="details" className="mt-4 space-y-5">
         <Section icon={Hotel} title="Identity" description="Core property identifiers and publishing flags.">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -645,7 +660,7 @@ export function PropertyForm({ property }: { property?: Property }) {
                 <MultiCheckGroup
                   label="Property types"
                   required
-                  options={types.map((t) => ({ id: t.propertyTypeId, name: t.propertyTypeName }))}
+                  options={types.map((t) => ({ id: t.key, name: t.name }))}
                   value={field.value}
                   onChange={field.onChange}
                   error={errors.propertyTypeIds?.message}
@@ -658,10 +673,7 @@ export function PropertyForm({ property }: { property?: Property }) {
               render={({ field }) => (
                 <MultiCheckGroup
                   label="Categories"
-                  options={categories.map((c) => ({
-                    id: Number(c.propertyCategoryId),
-                    name: String(c.propertyCategoryName),
-                  }))}
+                  options={categories.map((c) => ({ id: c.key, name: c.name }))}
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -682,16 +694,16 @@ export function PropertyForm({ property }: { property?: Property }) {
                         <SelectValue>
                           {(value: string | null) => {
                             if (!value || value === NONE) return "None";
-                            const row = usages.find((u) => String(u.propertyUsageId) === value);
-                            return row ? String(row.propertyUsageName) : value;
+                            const row = usages.find((u) => String(u.key) === value);
+                            return row ? row.name : value;
                           }}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>None</SelectItem>
                         {usages.map((u) => (
-                          <SelectItem key={String(u.propertyUsageId)} value={String(u.propertyUsageId)}>
-                            {String(u.propertyUsageName)}
+                          <SelectItem key={u.id} value={String(u.key)}>
+                            {u.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -713,16 +725,16 @@ export function PropertyForm({ property }: { property?: Property }) {
                         <SelectValue>
                           {(value: string | null) => {
                             if (!value || value === NONE) return "None";
-                            const row = ownerships.find((o) => String(o.ownershipTypeId) === value);
-                            return row ? String(row.ownershipTypeName) : value;
+                            const row = ownerships.find((o) => String(o.key) === value);
+                            return row ? row.name : value;
                           }}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>None</SelectItem>
                         {ownerships.map((o) => (
-                          <SelectItem key={String(o.ownershipTypeId)} value={String(o.ownershipTypeId)}>
-                            {String(o.ownershipTypeName)}
+                          <SelectItem key={o.id} value={String(o.key)}>
+                            {o.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -744,16 +756,16 @@ export function PropertyForm({ property }: { property?: Property }) {
                         <SelectValue>
                           {(value: string | null) => {
                             if (!value || value === NONE) return "None";
-                            const row = brands.find((b) => String(b.propertyBrandId) === value);
-                            return row ? String(row.propertyBrandName) : value;
+                            const row = brands.find((b) => String(b.key) === value);
+                            return row ? row.name : value;
                           }}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>None</SelectItem>
                         {brands.map((b) => (
-                          <SelectItem key={String(b.propertyBrandId)} value={String(b.propertyBrandId)}>
-                            {String(b.propertyBrandName)}
+                          <SelectItem key={b.id} value={String(b.key)}>
+                            {b.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -956,6 +968,33 @@ export function PropertyForm({ property }: { property?: Property }) {
             Cancel
           </Button>
         </div>
+          </TabsContent>
+
+          <TabsContent value="media" className="mt-4">
+            <MediaTab />
+          </TabsContent>
+          <TabsContent value="amenities" className="mt-4">
+            <AmenitiesTab />
+          </TabsContent>
+          <TabsContent value="facilities" className="mt-4">
+            <FacilitiesTab />
+          </TabsContent>
+          <TabsContent value="payment" className="mt-4">
+            <SupportedCardPaymentTab />
+          </TabsContent>
+          <TabsContent value="nearbyArea" className="mt-4">
+            <NearByAreaTab />
+          </TabsContent>
+          <TabsContent value="nearbyActivities" className="mt-4">
+            <NearByActivitiesTab />
+          </TabsContent>
+          <TabsContent value="policies" className="mt-4">
+            <PoliciesTab />
+          </TabsContent>
+          <TabsContent value="faq" className="mt-4">
+            <FrequentlyAskedQuestionsTab />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-6">

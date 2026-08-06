@@ -6,6 +6,7 @@ import { dbUnavailable } from "@/lib/api/db-error";
 import {
   propertyInclude,
   propertyWriteSchema,
+  serializePropertyRow,
   toPropertyCreateData,
   validatePropertyLookups,
   withCompanyName,
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     }
     if (activeOnly) where.isActive = true;
     if (propertyTypeIdParam != null && propertyTypeIdParam !== "") {
-      where.typeLinks = { some: { propertyTypeId: Number(propertyTypeIdParam) } };
+      where.typeLinks = { some: { propertyTypeId: BigInt(propertyTypeIdParam) } };
     }
 
     const rows = await prisma.property.findMany({
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       include: propertyInclude,
       orderBy: [{ createdDtTm: "desc" }, { propertyCode: "asc" }],
     });
-    return NextResponse.json(await withCompanyName(rows));
+    return NextResponse.json((await withCompanyName(rows)).map(serializePropertyRow));
   } catch (error) {
     return dbUnavailable(error);
   }
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       include: propertyInclude,
     });
     const [withName] = await withCompanyName([created]);
-    return NextResponse.json(withName, { status: 201 });
+    return NextResponse.json(serializePropertyRow(withName), { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(

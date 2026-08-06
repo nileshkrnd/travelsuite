@@ -1,4 +1,20 @@
-import type { Property } from "@/types";
+import type {
+  OwnershipType,
+  Property,
+  PropertyBrand,
+  PropertyCategory,
+  PropertyType,
+  PropertyUsage,
+} from "@/types";
+
+export interface PropertyLookupRow {
+  isActive: boolean;
+  createdBy: number;
+  createdDtTm: Date | string;
+  modifiedBy: number | null;
+  modifiedDtTm: Date | string | null;
+  [key: string]: unknown;
+}
 
 export interface PropertyRow {
   propertyId: number;
@@ -144,3 +160,32 @@ export function toAppProperty(row: PropertyRow): Property {
     cityName: row.city?.cityName,
   };
 }
+
+function toGlobalNameLookup(row: PropertyLookupRow, idField: string, nameField: string): PropertyType {
+  const key = Number(row[idField]);
+  return {
+    id: String(key),
+    key,
+    name: String(row[nameField] ?? ""),
+    isActive: row.isActive,
+    createdBy: row.createdBy,
+    createdAt: toIso(row.createdDtTm) ?? new Date().toISOString(),
+    modifiedBy: row.modifiedBy,
+    modifiedDtTm: toIso(row.modifiedDtTm),
+  };
+}
+
+export const toAppPropertyType = (row: PropertyLookupRow): PropertyType =>
+  toGlobalNameLookup(row, "propertyTypeId", "propertyTypeName");
+
+export const toAppPropertyCategory = (row: PropertyLookupRow): PropertyCategory =>
+  toGlobalNameLookup(row, "propertyCategoryId", "propertyCategoryName");
+
+export const toAppPropertyUsage = (row: PropertyLookupRow): PropertyUsage =>
+  toGlobalNameLookup(row, "propertyUsageId", "propertyUsageName");
+
+export const toAppOwnershipType = (row: PropertyLookupRow): OwnershipType =>
+  toGlobalNameLookup(row, "ownershipTypeId", "ownershipTypeName");
+
+export const toAppPropertyBrand = (row: PropertyLookupRow): PropertyBrand =>
+  toGlobalNameLookup(row, "propertyBrandId", "propertyBrandName");
