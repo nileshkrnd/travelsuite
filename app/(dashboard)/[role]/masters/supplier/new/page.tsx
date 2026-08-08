@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
-import { SupplierCreateForm } from "@/components/masters/SupplierCreateForm";
+import { SupplierForm } from "@/components/masters/SupplierForm";
 
 function NewSupplier() {
   const { role } = useParams<{ role: string }>();
@@ -15,7 +15,7 @@ function NewSupplier() {
     <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
         title="Add supplier"
-        description="Standard fields for onboarding a hotelier, DMC, transport company, or activity provider."
+        description="Register a hotelier, DMC, transport company, or activity provider."
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/supplier`} />}>
             <ArrowLeft className="h-4 w-4" />
@@ -23,7 +23,7 @@ function NewSupplier() {
           </Button>
         }
       />
-      <SupplierCreateForm />
+      <SupplierForm />
     </div>
   );
 }

@@ -13,10 +13,12 @@ export type ModuleKey =
   | "branchType"
   | "adminProduct"
   | "property"
+  | "propertySupplier"
   | "adminMasters"
   | "department"
   | "designation"
   | "employee"
+  | "employeePropertyAccess"
   | "adminEmployees"
   | "employeeGdsSign"
   | "exchangeRate"
@@ -77,6 +79,8 @@ export type ModuleKey =
   | "subAgency"
   | "corporateAccounts"
   | "supplier"
+  | "supplierUser"
+  | "supplierPropertyAccess"
   // HRMS
   | "hrms"
   | "hrmsDashboard"
@@ -669,6 +673,12 @@ export const MENU_ITEMS: MenuItem[] = [
         children: [
           { key: "employee", labelKey: "sidebar.employee", icon: "UserCog", path: "masters/employee" },
           {
+            key: "employeePropertyAccess",
+            labelKey: "sidebar.employeePropertyAccess",
+            icon: "ShieldCheck",
+            path: "masters/employee-property-access",
+          },
+          {
             key: "employeeGdsSign",
             labelKey: "sidebar.employeeGdsSign",
             icon: "KeyRound",
@@ -709,6 +719,18 @@ export const MENU_ITEMS: MenuItem[] = [
         path: "administration/suppliers",
         children: [
           { key: "supplier", labelKey: "sidebar.supplier", icon: "Store", path: "masters/supplier" },
+          {
+            key: "supplierUser",
+            labelKey: "sidebar.supplierUser",
+            icon: "UserPlus",
+            path: "masters/supplier-user",
+          },
+          {
+            key: "supplierPropertyAccess",
+            labelKey: "sidebar.supplierPropertyAccess",
+            icon: "ShieldCheck",
+            path: "masters/supplier-property-access",
+          },
         ],
       },
       {
@@ -719,15 +741,21 @@ export const MENU_ITEMS: MenuItem[] = [
       },
       {
         key: "adminProduct",
-        labelKey: "sidebar.adminProduct",
-        icon: "Package",
-        path: "administration/product",
+        labelKey: "sidebar.propertyGroup",
+        icon: "Building",
+        path: "administration/property",
         children: [
           {
             key: "property",
             labelKey: "sidebar.property",
             icon: "Building",
             path: "masters/property",
+          },
+          {
+            key: "propertySupplier",
+            labelKey: "sidebar.propertySupplier",
+            icon: "Store",
+            path: "masters/property-supplier",
           },
         ],
       },

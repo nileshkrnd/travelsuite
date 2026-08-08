@@ -26,6 +26,7 @@ import {
 import { useProductsStore } from "@/lib/store/products.store";
 import { useSuppliersStore } from "@/lib/store/suppliers.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
+import { useSessionStore } from "@/lib/store/session.store";
 import { useHydrateReferenceMasters, useCitiesForCountry } from "@/lib/hooks/useReferenceMasters";
 import { useReferenceStore } from "@/lib/store/reference.store";
 import { getCountry } from "@/config/countries";
@@ -334,6 +335,9 @@ function ProductPanel({
 
 function ProductList({ roleDef }: { roleDef: RoleDef }) {
   const tenantId = useTenantStore((s) => s.tenantId);
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenant = useTenantStore((s) => s.tenant);
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
   const allProducts = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
   const allSuppliers = useSuppliersStore((s) => s.suppliers);
@@ -343,8 +347,8 @@ function ProductList({ roleDef }: { roleDef: RoleDef }) {
     [allProducts, tenantId]
   );
   const suppliers = useMemo(
-    () => allSuppliers.filter((s) => s.tenantId === tenantId && s.status === "active"),
-    [allSuppliers, tenantId]
+    () => allSuppliers.filter((s) => s.tenantKey === tenantKey && s.isActive),
+    [allSuppliers, tenantKey]
   );
   const supplierName = (id: string) => allSuppliers.find((s) => s.id === id)?.name ?? "—";
 

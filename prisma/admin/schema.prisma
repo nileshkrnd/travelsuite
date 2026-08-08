@@ -102,6 +102,7 @@ model Country {
   branches   Branch[]
   employees  Employee[]
   properties Property[]
+  suppliers  Supplier[]
 
   @@map("Country")
 }
@@ -127,6 +128,7 @@ model City {
   capitalOfStates State[]    @relation("StateCapitalCity")
   areas           Area[]
   locations       Location[]
+  suppliers       Supplier[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -173,6 +175,7 @@ model State {
   administrativeType StateAdministrativeType? @relation(fields: [stateAdministrativeTypeId], references: [stateAdministrativeTypeId], onDelete: SetNull)
   capitalCity        City?                    @relation("StateCapitalCity", fields: [capitalCityId], references: [cityId], onDelete: SetNull)
   locations          Location[]
+  suppliers          Supplier[]
 
   @@unique([countryId, stateCode], map: "State_Country_Code_key")
   @@index([countryId], map: "State_CountryID_idx")
@@ -298,6 +301,7 @@ model Currency {
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   companies Company[]
+  suppliers Supplier[]
 
   @@map("Currency")
 }
@@ -337,7 +341,9 @@ model User {
   modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
   isActive               Boolean   @default(true) @map("IsActive")
 
-  employee Employee?
+  employee               Employee?
+  supplierUser           SupplierUser?
+  supplierPropertyAccess SupplierPropertyAccess[]
 
   @@index([tenantId, companyId], map: "User_TenantID_CompanyID_idx")
   @@index([userTypeId], map: "User_UserTypeID_idx")
@@ -359,6 +365,7 @@ model AccessRole {
 
   employees       Employee[]
   menuPermissions TenantAccessRoleMenuPermission[]
+  supplierUsers   SupplierUser[]
 
   @@unique([tenantId, companyId, accessRoleName], map: "AccessRole_Tenant_Company_Name_key")
   @@index([tenantId, companyId], map: "AccessRole_TenantID_CompanyID_idx")
@@ -438,7 +445,128 @@ model SupplierType {
   modifiedDtTm     DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted        Boolean   @default(false) @map("IsDeleted")
 
+  suppliers Supplier[]
+
   @@map("SupplierType")
+}
+
+/// Supplier org master — travel supply-side partner (Hotelier, DMC, Transport, Activity Provider, …). Tenant + Company scoped.
+model Supplier {
+  supplierId             BigInt    @id @default(autoincrement()) @map("SupplierID")
+  tenantId               Int       @map("TenantID")
+  companyId              Int       @map("CompanyID")
+  supplierCode           String    @map("SupplierCode") @db.VarChar(50)
+  supplierName           String    @map("SupplierName") @db.VarChar(200)
+  supplierLegalName      String    @map("SupplierLegalName") @db.VarChar(250)
+  supplierTypeId         BigInt    @map("SupplierTypeID")
+  registrationNumber     String?   @map("RegistrationNumber") @db.VarChar(100)
+  taxVatNumber           String?   @map("TaxVATNumber") @db.VarChar(100)
+  countryId              Int       @map("CountryID")
+  stateId                Int?      @map("StateID")
+  cityId                 Int       @map("CityID")
+  address                String    @map("Address") @db.Text
+  postalCode             String?   @map("PostalCode") @db.VarChar(20)
+  website                String?   @map("Website") @db.VarChar(250)
+  currencyId             Int       @map("CurrencyID")
+  /// Static client-side list (see PropertyForm's TIME_ZONES) — no DB FK, matches the existing Property.timeZoneId convention.
+  timeZoneId             Int       @map("TimeZoneID")
+  requiresExtranetAccess Boolean   @default(false) @map("RequiresExtranetAccess")
+  isActive               Boolean   @default(true) @map("IsActive")
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("ModifiedBy")
+  modifiedDtTm           DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted              Boolean   @default(false) @map("IsDeleted")
+
+  supplierType  SupplierType       @relation(fields: [supplierTypeId], references: [supplierTypeId], onDelete: Restrict)
+  country       Country            @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  state         State?             @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
+  city          City               @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  currency      Currency           @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  propertyLinks PropertySupplier[]
+  supplierUsers SupplierUser[]
+
+  @@unique([tenantId, supplierCode], map: "Supplier_Tenant_Code_key")
+  @@index([tenantId, companyId], map: "Supplier_TenantID_CompanyID_idx")
+  @@index([supplierTypeId], map: "Supplier_SupplierTypeID_idx")
+  @@index([countryId], map: "Supplier_CountryID_idx")
+  @@index([cityId], map: "Supplier_CityID_idx")
+  @@map("Supplier")
+}
+
+/// Property ↔ Supplier link — which supplier(s) service a property, with one optional primary supplier.
+model PropertySupplier {
+  propertySupplierId BigInt    @id @default(autoincrement()) @map("PropertySupplierID")
+  propertyId         Int       @map("PropertyID")
+  supplierId         BigInt    @map("SupplierID")
+  isPrimary          Boolean   @default(false) @map("IsPrimary")
+  isActive           Boolean   @default(true) @map("IsActive")
+  validFrom          DateTime? @map("ValidFrom") @db.Date
+  validTo            DateTime? @map("ValidTo") @db.Date
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
+
+  supplierAccess SupplierPropertyAccess[]
+
+  @@unique([propertyId, supplierId], map: "PropertySupplier_Property_Supplier_key")
+  @@index([supplierId], map: "PropertySupplier_SupplierID_idx")
+  @@map("PropertySupplier")
+}
+
+/// Supplier's own contact/portal users — a real login User is created alongside every SupplierUser.
+model SupplierUser {
+  supplierUserId  BigInt    @id @default(autoincrement()) @map("SupplierUserID")
+  supplierId      BigInt    @map("SupplierID")
+  firstName       String    @map("FirstName") @db.VarChar(100)
+  lastName        String    @map("LastName") @db.VarChar(100)
+  email           String    @map("Email") @db.VarChar(200)
+  dialCountryCode String?   @map("DialCountryCode") @db.VarChar(10)
+  mobileNumber    String?   @map("MobileNumber") @db.VarChar(30)
+  accessRoleId    Int       @map("AccessRoleID")
+  userId          Int       @unique @map("UserID")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdDate     DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  createdBy       Int       @map("CreatedBy")
+  updatedDate     DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+  updatedBy       Int?      @map("UpdatedBy")
+
+  supplier   Supplier   @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
+  accessRole AccessRole @relation(fields: [accessRoleId], references: [accessRoleId], onDelete: Restrict)
+  user       User       @relation(fields: [userId], references: [userId], onDelete: Restrict)
+
+  @@unique([supplierId, email], map: "SupplierUser_Supplier_Email_key")
+  @@index([accessRoleId], map: "SupplierUser_AccessRoleID_idx")
+  @@map("SupplierUser")
+}
+
+/// Grants a Supplier's portal user rate-management access to one Property↔Supplier link.
+model SupplierPropertyAccess {
+  supplierPropertyAccessId BigInt    @id @default(autoincrement()) @map("SupplierPropertyAccessID")
+  tenantId                 Int       @map("TenantID")
+  companyId                Int       @map("CompanyID")
+  propertySupplierId       BigInt    @map("PropertySupplierID")
+  userId                   Int       @map("UserID")
+  canView                  Boolean   @default(true) @map("CanView")
+  canCreateRate            Boolean   @default(false) @map("CanCreateRate")
+  canEditRate              Boolean   @default(false) @map("CanEditRate")
+  canSubmitRate            Boolean   @default(false) @map("CanSubmitRate")
+  canApproveRate           Boolean   @default(false) @map("CanApproveRate")
+  isActive                 Boolean   @default(true) @map("IsActive")
+  validFrom                DateTime? @map("ValidFrom") @db.Date
+  validTo                  DateTime? @map("ValidTo") @db.Date
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+
+  propertySupplier PropertySupplier @relation(fields: [propertySupplierId], references: [propertySupplierId], onDelete: Cascade)
+  user             User             @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([propertySupplierId, userId], map: "SupplierPropertyAccess_PropertySupplier_User_key")
+  @@index([userId], map: "SupplierPropertyAccess_UserID_idx")
+  @@index([tenantId, companyId], map: "SupplierPropertyAccess_TenantID_CompanyID_idx")
+  @@map("SupplierPropertyAccess")
 }
 
 /// Amenity/Facility Category master — classifies amenities & facilities as Property, Room, or Both. Global.
@@ -777,16 +905,18 @@ model Property {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  typeLinks     PropertyTypeLink[]
-  categoryLinks PropertyCategoryLink[]
-  propertyUsage PropertyUsage?         @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
-  ownershipType OwnershipType?         @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
-  propertyBrand PropertyBrand?         @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
-  country       Country                @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  city          City?                  @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
-  media         PropertyMedia[]
-  amenityLinks  PropertyAmenity[]
-  facilityLinks PropertyFacility[]
+  typeLinks      PropertyTypeLink[]
+  categoryLinks  PropertyCategoryLink[]
+  propertyUsage  PropertyUsage?           @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
+  ownershipType  OwnershipType?           @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
+  propertyBrand  PropertyBrand?           @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
+  country        Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city           City?                    @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  media          PropertyMedia[]
+  amenityLinks   PropertyAmenity[]
+  facilityLinks  PropertyFacility[]
+  supplierLinks  PropertySupplier[]
+  employeeAccess EmployeePropertyAccess[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -1010,16 +1140,17 @@ model Employee {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  country           Country     @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  city              City        @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
-  designation       Designation @relation(fields: [designationId], references: [designationId], onDelete: Restrict)
-  accessRole        AccessRole  @relation(fields: [accessRoleId], references: [accessRoleId], onDelete: Restrict)
-  department        Department? @relation(fields: [departmentId], references: [departmentId], onDelete: SetNull)
-  reportingEmployee Employee?   @relation("EmployeeReportsTo", fields: [reportingEmployeeId], references: [employeeId], onDelete: SetNull)
-  directReports     Employee[]  @relation("EmployeeReportsTo")
-  company           Company     @relation(fields: [companyId], references: [companyId], onDelete: Restrict)
-  branch            Branch      @relation(fields: [branchId], references: [branchId], onDelete: Restrict)
-  user              User        @relation(fields: [userId], references: [userId], onDelete: Restrict)
+  country           Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city              City                     @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  designation       Designation              @relation(fields: [designationId], references: [designationId], onDelete: Restrict)
+  accessRole        AccessRole               @relation(fields: [accessRoleId], references: [accessRoleId], onDelete: Restrict)
+  department        Department?              @relation(fields: [departmentId], references: [departmentId], onDelete: SetNull)
+  reportingEmployee Employee?                @relation("EmployeeReportsTo", fields: [reportingEmployeeId], references: [employeeId], onDelete: SetNull)
+  directReports     Employee[]               @relation("EmployeeReportsTo")
+  company           Company                  @relation(fields: [companyId], references: [companyId], onDelete: Restrict)
+  branch            Branch                   @relation(fields: [branchId], references: [branchId], onDelete: Restrict)
+  user              User                     @relation(fields: [userId], references: [userId], onDelete: Restrict)
+  propertyAccess    EmployeePropertyAccess[]
 
   @@unique([tenantId, companyId, employeeNumber], map: "Employee_Tenant_Company_Number_key")
   @@index([tenantId, companyId], map: "Employee_TenantID_CompanyID_idx")
@@ -1030,6 +1161,33 @@ model Employee {
   @@index([countryId], map: "Employee_CountryID_idx")
   @@index([cityId], map: "Employee_CityID_idx")
   @@map("Employee")
+}
+
+/// Grants an Employee explicit access to a Property (view/create/edit/submit/approve).
+model EmployeePropertyAccess {
+  employeePropertyAccessId BigInt    @id @default(autoincrement()) @map("EmployeePropertyAccessID")
+  tenantId                 Int       @map("TenantID")
+  companyId                Int       @map("CompanyID")
+  employeeId               Int       @map("EmployeeID")
+  propertyId               Int       @map("PropertyID")
+  canView                  Boolean   @default(true) @map("CanView")
+  canCreate                Boolean   @default(false) @map("CanCreate")
+  canEdit                  Boolean   @default(false) @map("CanEdit")
+  canSubmit                Boolean   @default(false) @map("CanSubmit")
+  canApprove               Boolean   @default(false) @map("CanApprove")
+  isActive                 Boolean   @default(true) @map("IsActive")
+  validFrom                DateTime? @map("ValidFrom") @db.Date
+  validTo                  DateTime? @map("ValidTo") @db.Date
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+
+  @@unique([employeeId, propertyId], map: "EmployeePropertyAccess_Employee_Property_key")
+  @@index([propertyId], map: "EmployeePropertyAccess_PropertyID_idx")
+  @@index([tenantId, companyId], map: "EmployeePropertyAccess_TenantID_CompanyID_idx")
+  @@map("EmployeePropertyAccess")
 }
 
 /// Global Subscription Product master — Super Admin / Tenant Configuration only.
