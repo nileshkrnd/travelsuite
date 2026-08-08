@@ -87,11 +87,31 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
 
   async function refresh() {
+    if (platformMode) {
+      // Global properties (TenantID IS NULL) — Super Admin manages these directly, no tenant/company scoping needed.
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [rows, typeRows] = await Promise.all([
+          listProperties({ global: true }),
+          listPropertyTypes({ activeOnly: true }),
+        ]);
+        setProperties(rows);
+        setTypes(typeRows);
+      } catch (error) {
+        setLoadError(error instanceof PropertiesApiError ? error.message : "Failed to load properties");
+        setProperties([]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (scopeTenantId <= 0) {
       setProperties([]);
       setTypes([]);
       setLoading(false);
-      setLoadError(platformMode ? "Select a tenant workspace to manage properties." : "Missing tenant scope.");
+      setLoadError("Missing tenant scope.");
       return;
     }
     setLoading(true);
@@ -113,7 +133,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
       }
 
       const [rows, typeRows] = await Promise.all([
-        listProperties({ tenantId: scopeTenantId, companyId: effectiveCompany }),
+        listProperties({ tenantId: scopeTenantId, companyId: effectiveCompany, includeGlobal: true }),
         listPropertyTypes({ activeOnly: true }),
       ]);
       setProperties(rows);
@@ -129,7 +149,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeTenantId, user?.companyKey, user?.employeeCompanyKey]);
+  }, [scopeTenantId, platformMode, user?.companyKey, user?.employeeCompanyKey]);
 
   const typeStats = useMemo(() => {
     return types.map((t) => {
@@ -219,6 +239,10 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
   }
 
   function RowActions({ row }: { row: Property }) {
+    // Global properties (TenantID null) are Super-Admin-managed only, even when viewed read-only from a tenant workspace.
+    const isGlobalRow = row.tenantId == null;
+    const rowCanEdit = canEdit && (!isGlobalRow || isSuperAdmin);
+    const rowCanDelete = canDelete && (!isGlobalRow || isSuperAdmin);
     return (
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
@@ -228,7 +252,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
           <DropdownMenuItem nativeButton={false} render={<Link href={`/${role}/masters/property/${row.propertyId}`} />}>
             View details
           </DropdownMenuItem>
-          {canEdit && (
+          {rowCanEdit && (
             <>
               <DropdownMenuItem
                 nativeButton={false}
@@ -241,7 +265,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
               </DropdownMenuItem>
             </>
           )}
-          {canDelete && <DropdownMenuItem onClick={() => void removeRow(row)}>Delete</DropdownMenuItem>}
+          {rowCanDelete && <DropdownMenuItem onClick={() => void removeRow(row)}>Delete</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -253,7 +277,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
         title="Property"
         description="Browse inventory by type, then open a property for full details or modify."
         actions={
-          canCreate && scopeTenantId > 0 ? (
+          canCreate && (platformMode || scopeTenantId > 0) ? (
             <Button nativeButton={false} render={<Link href={`/${role}/masters/property/new`} />}>
               <Plus className="h-4 w-4" />
               Add property
@@ -265,7 +289,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
       {loadError && <p className="text-sm text-destructive">{loadError}</p>}
       {loading && <p className="text-sm text-muted-foreground">Loading properties…</p>}
 
-      {!loading && scopeTenantId > 0 && types.length > 0 && (
+      {!loading && (platformMode || scopeTenantId > 0) && types.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -407,12 +431,16 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
           </div>
         </div>
 
-        {!loading && properties.length === 0 && scopeTenantId > 0 ? (
+        {!loading && properties.length === 0 && (platformMode || scopeTenantId > 0) ? (
           <EmptyState
             icon={Building}
             tone="primary"
             heading="No properties yet"
-            description="Add your first hotel or property for this company."
+            description={
+              platformMode
+                ? "Add your first globally-managed property (e.g. a major hotel chain)."
+                : "Add your first hotel or property for this company."
+            }
             size="compact"
             action={
               canCreate ? (
@@ -423,7 +451,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
               ) : undefined
             }
           />
-        ) : visible.length === 0 && !loading && scopeTenantId > 0 ? (
+        ) : visible.length === 0 && !loading && (platformMode || scopeTenantId > 0) ? (
           <EmptyState
             icon={Search}
             tone="muted"
@@ -465,6 +493,11 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
                         >
                           {displayName(row)}
                         </Link>
+                        {!platformMode && row.tenantId == null && (
+                          <Badge variant="outline" className="ms-1.5">
+                            Global
+                          </Badge>
+                        )}
                         {row.isFeatured && (
                           <span className="ms-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Sparkles className="h-3 w-3" />
@@ -521,9 +554,14 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
               <Card key={row.propertyId} className="overflow-hidden p-0">
                 <Link
                   href={`/${role}/masters/property/${row.propertyId}`}
-                  className="flex h-28 items-end bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] p-4 text-white"
+                  className={cn(
+                    "relative flex h-28 items-end bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] bg-cover bg-center p-4 text-white",
+                    row.coverImageUrl && "bg-black/10 bg-blend-multiply"
+                  )}
+                  style={row.coverImageUrl ? { backgroundImage: `url(${row.coverImageUrl})` } : undefined}
                 >
-                  <div className="min-w-0">
+                  {row.coverImageUrl && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />}
+                  <div className="relative min-w-0">
                     <p className="truncate text-lg font-semibold">{displayName(row)}</p>
                     <p className="truncate text-sm text-white/75">
                       {row.propertyCode}
@@ -536,6 +574,7 @@ function PropertyList({ roleDef }: { roleDef: RoleDef }) {
                     <p className="line-clamp-2 text-sm text-muted-foreground">{row.shortDescription}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
+                    {!platformMode && row.tenantId == null && <Badge variant="outline">Global</Badge>}
                     {row.propertyTypeNames.map((name) => (
                       <Badge key={name} variant="secondary">
                         {name}

@@ -25,11 +25,11 @@ export type OwnershipType = GlobalNameLookup;
 /** Property Brand lookup — global (Hilton, Accor, Marriott, …). */
 export type PropertyBrand = GlobalNameLookup;
 
-/** Property master — scoped by TenantID + CompanyID. */
+/** Property master — global. TenantID/CompanyID = null means a globally-managed property (Super Admin); a real value means a property a tenant registered for itself. */
 export interface Property {
   propertyId: number;
-  tenantId: number;
-  companyId: number;
+  tenantId: number | null;
+  companyId: number | null;
   propertyCode: string;
   propertyName: string | null;
   propertyDisplayName: string | null;
@@ -84,4 +84,5 @@ export interface Property {
   propertyBrandName?: string;
   countryName?: string;
   cityName?: string;
+  coverImageUrl?: string | null;
 }

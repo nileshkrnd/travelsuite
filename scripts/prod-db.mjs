@@ -52,6 +52,7 @@ if (action === "migrate") {
   if (fileEnv.ADMINCNX_DIRECT_URL) env.ADMINCNX_URL = fileEnv.ADMINCNX_DIRECT_URL;
   if (fileEnv.BASECNX_DIRECT_URL) env.BASECNX_URL = fileEnv.BASECNX_DIRECT_URL;
   if (fileEnv.ACCOUNTSCNX_DIRECT_URL) env.ACCOUNTSCNX_URL = fileEnv.ACCOUNTSCNX_DIRECT_URL;
+  if (fileEnv.HELPDESKCNX_DIRECT_URL) env.HELPDESKCNX_URL = fileEnv.HELPDESKCNX_DIRECT_URL;
   if (fileEnv.ADMINCNX_DIRECT_URL) env.DATABASE_URL = fileEnv.ADMINCNX_DIRECT_URL;
 }
 
@@ -82,6 +83,7 @@ if (fileEnv.ADMINCNX_DIRECT_URL) {
 }
 if (fileEnv.BASECNX_DIRECT_URL) env.BASECNX_URL = fileEnv.BASECNX_DIRECT_URL;
 if (fileEnv.ACCOUNTSCNX_DIRECT_URL) env.ACCOUNTSCNX_URL = fileEnv.ACCOUNTSCNX_DIRECT_URL;
+if (fileEnv.HELPDESKCNX_DIRECT_URL) env.HELPDESKCNX_URL = fileEnv.HELPDESKCNX_DIRECT_URL;
 
 console.log(`[prod-db] Using .env.production (${action})`);
 console.log(`[prod-db] ADMIN host: ${safeHost(env.ADMINCNX_URL)}`);
@@ -105,6 +107,12 @@ if (action === "migrate") {
   code = await run([
     prismaBin,
     "migrate deploy --schema prisma/accounts/schema.prisma",
+  ]);
+  if (code !== 0) process.exit(code);
+
+  code = await run([
+    prismaBin,
+    "migrate deploy --schema prisma/helpdesk/schema.prisma",
   ]);
   process.exit(code);
 }

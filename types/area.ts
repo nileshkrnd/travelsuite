@@ -25,6 +25,7 @@ export interface Area {
 export interface AreaType {
   id: string;
   typeKey: number;
+  code: string;
   name: string;
   isActive: boolean;
   isDeleted: boolean;

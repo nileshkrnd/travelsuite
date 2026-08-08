@@ -557,6 +557,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       children: [
         { name: "Helpdesk Dashboard", url: "helpdesk/dashboard", icon: "LayoutDashboard" },
         { name: "Support Tickets", url: "helpdesk/tickets", icon: "Ticket" },
+        { name: "Support Mailboxes", url: "helpdesk/mailboxes", icon: "Inbox" },
       ],
     },
   ],

@@ -64,6 +64,9 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "reportTrialBalance",
   "permissions",
   "culture",
+  "helpdeskDashboard",
+  "helpdeskTickets",
+  "helpdeskMailboxes",
   ...GLOBAL_TENANT_SETTING_KEYS,
 ]);
 

@@ -64,6 +64,7 @@ export interface StateAdministrativeTypeRow {
 
 export interface AreaTypeRow {
   areaTypeId: number;
+  areaTypeCode: string;
   areaTypeName: string;
   isActive: boolean;
   createdBy: number;
@@ -224,6 +225,7 @@ export function toAppAreaType(row: AreaTypeRow): AreaType {
   return {
     id: `at_${row.areaTypeId}`,
     typeKey: row.areaTypeId,
+    code: row.areaTypeCode,
     name: row.areaTypeName,
     isActive: row.isActive,
     isDeleted: row.isDeleted,

@@ -21,8 +21,9 @@ async function parseError(res: Response): Promise<string> {
 }
 
 export type PropertyWriteInput = {
-  tenantId: number;
-  companyId: number;
+  /** null = a globally-managed property (Super Admin, no tenant). A real id = a tenant's own property. */
+  tenantId: number | null;
+  companyId: number | null;
   propertyCode: string;
   propertyName?: string | null;
   propertyDisplayName?: string | null;
@@ -72,10 +73,15 @@ export async function getProperty(propertyId: number): Promise<Property> {
 }
 
 export async function listProperties(options?: {
+  /** Pass 0 (or set `global: true`) to fetch only globally-managed properties. */
   tenantId?: number;
   companyId?: number;
   activeOnly?: boolean;
   propertyTypeId?: number;
+  /** Fetch only globally-managed properties (TenantID IS NULL). */
+  global?: boolean;
+  /** When set alongside tenantId, also merges in globally-managed properties. */
+  includeGlobal?: boolean;
 }): Promise<Property[]> {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
@@ -84,6 +90,8 @@ export async function listProperties(options?: {
   if (options?.propertyTypeId !== undefined) {
     params.set("propertyTypeId", String(options.propertyTypeId));
   }
+  if (options?.global) params.set("global", "true");
+  if (options?.includeGlobal) params.set("includeGlobal", "true");
   const qs = params.toString();
   const res = await fetch(`/api/properties${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new PropertiesApiError(await parseError(res), res.status);

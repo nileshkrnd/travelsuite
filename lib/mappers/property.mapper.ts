@@ -18,8 +18,8 @@ export interface PropertyLookupRow {
 
 export interface PropertyRow {
   propertyId: number;
-  tenantId: number;
-  companyId: number;
+  tenantId: number | null;
+  companyId: number | null;
   propertyCode: string;
   propertyName: string | null;
   propertyDisplayName: string | null;
@@ -76,6 +76,7 @@ export interface PropertyRow {
   propertyBrand?: { propertyBrandName: string } | null;
   country?: { countryName: string } | null;
   city?: { cityName: string } | null;
+  media?: Array<{ mediaUrl: string }>;
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -158,6 +159,7 @@ export function toAppProperty(row: PropertyRow): Property {
     propertyBrandName: row.propertyBrand?.propertyBrandName,
     countryName: row.country?.countryName,
     cityName: row.city?.cityName,
+    coverImageUrl: row.media?.[0]?.mediaUrl ?? null,
   };
 }
 

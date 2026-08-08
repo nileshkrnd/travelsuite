@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 const idSchema = z.coerce.number().int().positive();
 
 const updateSchema = z.object({
+  areaTypeCode: z.string().trim().min(1).max(50),
   areaTypeName: z.string().trim().min(1).max(150),
   isActive: z.boolean().optional(),
   modifiedBy: z.number().int().positive(),
@@ -45,6 +46,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const updated = await prisma.areaType.update({
       where: { areaTypeId: id.data },
       data: {
+        areaTypeCode: data.areaTypeCode,
         areaTypeName: data.areaTypeName,
         isActive: data.isActive,
         modifiedBy: data.modifiedBy,
@@ -56,7 +58,7 @@ export async function PUT(request: Request, context: RouteContext) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025") return NextResponse.json({ error: "Area type not found" }, { status: 404 });
       if (error.code === "P2002") {
-        return NextResponse.json({ error: "This area type already exists" }, { status: 409 });
+        return NextResponse.json({ error: "An area type with this code or name already exists" }, { status: 409 });
       }
     }
     return dbUnavailable(error);

@@ -1,0 +1,115 @@
+/// KlyraHelpdesk — support tickets & mailbox sync (Gmail / Microsoft 365).
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/helpdesk-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("HELPDESKCNX_URL")
+}
+
+/// Helpdesk mailbox connection — Tenant Admin configures one or more support inboxes.
+model HelpdeskMailbox {
+  mailboxId         Int       @id @default(autoincrement()) @map("MailboxID")
+  tenantId          Int       @map("TenantID")
+  companyId         Int?      @map("CompanyID")
+  mailboxAddress    String    @map("MailboxAddress") @db.VarChar(200)
+  displayName       String?   @map("DisplayName") @db.VarChar(200)
+  /// gmail | microsoft365
+  provider          String    @default("gmail") @map("Provider") @db.VarChar(50)
+  isShared          Boolean   @default(false) @map("IsShared")
+  isActive          Boolean   @default(true) @map("IsActive")
+  syncLookbackHours Int       @default(720) @map("SyncLookbackHours")
+  imapHost          String?   @map("ImapHost") @db.VarChar(200)
+  imapPort          Int?      @map("ImapPort")
+  smtpHost          String?   @map("SmtpHost") @db.VarChar(200)
+  smtpPort          Int?      @map("SmtpPort")
+  /// AES-GCM encrypted JSON credentials (never returned to the client).
+  credentialsEnc    String?   @map("CredentialsEnc") @db.Text
+  lastSyncAt        DateTime? @map("LastSyncAt") @db.Timestamptz(6)
+  /// Graph delta link for incremental mail sync (optional).
+  lastDeltaLink     String?   @map("LastDeltaLink") @db.Text
+  createdBy         Int?      @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  tickets HelpdeskTicket[]
+
+  @@unique([tenantId, mailboxAddress], map: "HelpdeskMailbox_Tenant_Address_key")
+  @@index([tenantId], map: "HelpdeskMailbox_TenantID_idx")
+  @@index([tenantId, isActive], map: "HelpdeskMailbox_Tenant_Active_idx")
+  @@map("HelpdeskMailbox")
+}
+
+/// Helpdesk support ticket — Freshdesk-style properties + email thread.
+model HelpdeskTicket {
+  ticketId         Int       @id @default(autoincrement()) @map("TicketID")
+  tenantId         Int       @map("TenantID")
+  companyId        Int?      @map("CompanyID")
+  mailboxId        Int?      @map("MailboxID")
+  ticketNumber     String    @map("TicketNumber") @db.VarChar(40)
+  subject          String    @map("Subject") @db.VarChar(500)
+  /// open | pending | resolved | closed
+  status           String    @default("open") @map("Status") @db.VarChar(30)
+  /// low | normal | high | urgent
+  priority         String    @default("normal") @map("Priority") @db.VarChar(20)
+  channel          String    @default("email") @map("Channel") @db.VarChar(30)
+  requesterName    String?   @map("RequesterName") @db.VarChar(200)
+  requesterEmail   String?   @map("RequesterEmail") @db.VarChar(200)
+  /// Admin DepartmentID (cross-DB, no FK) + denormalized name.
+  departmentId     Int?      @map("DepartmentID")
+  departmentName   String?   @map("DepartmentName") @db.VarChar(200)
+  /// Admin UserID (cross-DB, no FK) + denormalized display name.
+  assigneeUserId   Int?      @map("AssigneeUserID")
+  assigneeName     String?   @map("AssigneeName") @db.VarChar(200)
+  /// Provider conversation / thread id — used to merge replies into this ticket.
+  conversationId   String?   @map("ConversationID") @db.VarChar(255)
+  lastMessageAt    DateTime? @map("LastMessageAt") @db.Timestamptz(6)
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int?      @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  mailbox  HelpdeskMailbox?        @relation(fields: [mailboxId], references: [mailboxId], onDelete: SetNull)
+  messages HelpdeskTicketMessage[]
+
+  @@unique([tenantId, ticketNumber], map: "HelpdeskTicket_Tenant_Number_key")
+  @@unique([mailboxId, conversationId], map: "HelpdeskTicket_Mailbox_Conversation_key")
+  @@index([tenantId, status], map: "HelpdeskTicket_Tenant_Status_idx")
+  @@index([departmentId], map: "HelpdeskTicket_DepartmentID_idx")
+  @@index([assigneeUserId], map: "HelpdeskTicket_AssigneeUserID_idx")
+  @@index([lastMessageAt], map: "HelpdeskTicket_LastMessageAt_idx")
+  @@map("HelpdeskTicket")
+}
+
+/// Email (or note) message on a helpdesk ticket.
+model HelpdeskTicketMessage {
+  ticketMessageId   Int       @id @default(autoincrement()) @map("TicketMessageID")
+  ticketId          Int       @map("TicketID")
+  /// Provider message id (idempotency).
+  graphMessageId    String?   @unique @map("GraphMessageID") @db.VarChar(255)
+  internetMessageId String?   @map("InternetMessageID") @db.VarChar(500)
+  /// inbound | outbound | note
+  direction         String    @default("inbound") @map("Direction") @db.VarChar(20)
+  /// True for internal notes (not emailed to requester).
+  isInternal        Boolean   @default(false) @map("IsInternal")
+  /// Agent userKey who created outbound/note messages.
+  createdBy         Int?      @map("CreatedBy")
+  fromName          String?   @map("FromName") @db.VarChar(200)
+  fromEmail         String?   @map("FromEmail") @db.VarChar(200)
+  toEmails          String?   @map("ToEmails") @db.VarChar(1000)
+  subject           String?   @map("Subject") @db.VarChar(500)
+  bodyPreview       String?   @map("BodyPreview") @db.VarChar(1000)
+  bodyHtml          String?   @map("BodyHtml") @db.Text
+  bodyText          String?   @map("BodyText") @db.Text
+  receivedAt        DateTime? @map("ReceivedAt") @db.Timestamptz(6)
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+
+  ticket HelpdeskTicket @relation(fields: [ticketId], references: [ticketId], onDelete: Cascade)
+
+  @@index([ticketId, receivedAt], map: "HelpdeskTicketMessage_Ticket_Received_idx")
+  @@map("HelpdeskTicketMessage")
+}

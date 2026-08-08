@@ -56,6 +56,16 @@ export type ModuleKey =
   | "ownershipType"
   | "propertyBrand"
   | "supplierType"
+  | "amenityMasters"
+  | "amenityFacilityCategory"
+  | "amenity"
+  | "facility"
+  | "roomMasters"
+  | "roomCategory"
+  | "roomType"
+  | "bedType"
+  | "smokingType"
+  | "viewType"
   | "subscription"
   | "subscriptionProduct"
   | "subscriptionModule"
@@ -269,6 +279,11 @@ export type ModuleKey =
   | "crmCustomers"
   | "campaigns"
   | "supportTickets"
+  // Helpdesk
+  | "helpdesk"
+  | "helpdeskDashboard"
+  | "helpdeskTickets"
+  | "helpdeskMailboxes"
   // B2B Portal
   | "b2b"
   | "b2bDashboard"
@@ -341,6 +356,16 @@ export const GLOBAL_TENANT_SETTING_KEYS: ModuleKey[] = [
   "ownershipType",
   "propertyBrand",
   "supplierType",
+  "amenityMasters",
+  "amenityFacilityCategory",
+  "amenity",
+  "facility",
+  "roomMasters",
+  "roomCategory",
+  "roomType",
+  "bedType",
+  "smokingType",
+  "viewType",
   "subscription",
   "subscriptionProduct",
   "subscriptionModule",
@@ -355,6 +380,7 @@ const PLATFORM_MODE_MENU_KEYS = new Set<ModuleKey>([
   "globalTenantSettings",
   ...GLOBAL_TENANT_SETTING_KEYS,
   "accessRole",
+  "property",
 ]);
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -397,6 +423,70 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "culture", labelKey: "sidebar.culture", icon: "Globe2", path: "masters/culture" },
       { key: "supplierType", labelKey: "sidebar.supplierType", icon: "Store", path: "masters/supplier-type" },
       {
+        key: "amenityMasters",
+        labelKey: "sidebar.amenityMasters",
+        icon: "Sparkles",
+        path: "masters/amenities",
+        children: [
+          {
+            key: "amenityFacilityCategory",
+            labelKey: "sidebar.amenityFacilityCategory",
+            icon: "Tags",
+            path: "masters/amenity-facility-category",
+          },
+          {
+            key: "amenity",
+            labelKey: "sidebar.amenity",
+            icon: "Sparkles",
+            path: "masters/amenity",
+          },
+          {
+            key: "facility",
+            labelKey: "sidebar.facility",
+            icon: "Wrench",
+            path: "masters/facility",
+          },
+        ],
+      },
+      {
+        key: "roomMasters",
+        labelKey: "sidebar.roomMasters",
+        icon: "BedDouble",
+        path: "masters/rooms",
+        children: [
+          {
+            key: "roomCategory",
+            labelKey: "sidebar.roomCategory",
+            icon: "Layers",
+            path: "masters/room-category",
+          },
+          {
+            key: "roomType",
+            labelKey: "sidebar.roomType",
+            icon: "Home",
+            path: "masters/room-type",
+          },
+          {
+            key: "bedType",
+            labelKey: "sidebar.bedType",
+            icon: "BedDouble",
+            path: "masters/bed-type",
+          },
+          {
+            key: "smokingType",
+            labelKey: "sidebar.smokingType",
+            icon: "Ban",
+            path: "masters/smoking-type",
+          },
+          {
+            key: "viewType",
+            labelKey: "sidebar.viewType",
+            icon: "Eye",
+            path: "masters/view-type",
+          },
+        ],
+      },
+      {
         key: "aviation",
         labelKey: "sidebar.aviation",
         icon: "Plane",
@@ -413,6 +503,12 @@ export const MENU_ITEMS: MenuItem[] = [
         icon: "Tags",
         path: "masters/property-masters",
         children: [
+          {
+            key: "property",
+            labelKey: "sidebar.property",
+            icon: "Building",
+            path: "masters/property",
+          },
           {
             key: "propertyType",
             labelKey: "sidebar.propertyType",
@@ -1271,6 +1367,32 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "crmCustomers", labelKey: "sidebar.crmCustomers", icon: "Users", path: "crm/customers" },
       { key: "campaigns", labelKey: "sidebar.campaigns", icon: "Megaphone", path: "crm/campaigns" },
       { key: "supportTickets", labelKey: "sidebar.supportTickets", icon: "Headphones", path: "crm/support-tickets" },
+    ],
+  },
+  {
+    key: "helpdesk",
+    labelKey: "sidebar.helpdesk",
+    icon: "Headphones",
+    path: "helpdesk/dashboard",
+    children: [
+      {
+        key: "helpdeskDashboard",
+        labelKey: "sidebar.helpdeskDashboard",
+        icon: "LayoutDashboard",
+        path: "helpdesk/dashboard",
+      },
+      {
+        key: "helpdeskTickets",
+        labelKey: "sidebar.helpdeskTickets",
+        icon: "Ticket",
+        path: "helpdesk/tickets",
+      },
+      {
+        key: "helpdeskMailboxes",
+        labelKey: "sidebar.helpdeskMailboxes",
+        icon: "Inbox",
+        path: "helpdesk/mailboxes",
+      },
     ],
   },
   {

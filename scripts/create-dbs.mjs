@@ -2,7 +2,7 @@ import pg from "pg";
 
 const { Client } = pg;
 
-const names = ["KlyraAdmin", "KlyraBase", "KlyraAccounts"];
+const names = ["KlyraAdmin", "KlyraBase", "KlyraAccounts", "KlyraHelpDesk"];
 
 const client = new Client({
   connectionString: "postgres://postgres:dev2026@127.0.0.1:5432/postgres",

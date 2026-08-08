@@ -10,9 +10,9 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { PropertyForm } from "@/components/masters/PropertyForm";
 import { getProperty, PropertiesApiError } from "@/lib/services/properties.service";
-import type { Property } from "@/types";
+import type { Property, RoleDef } from "@/types";
 
-function EditProperty() {
+function EditProperty({ roleDef }: { roleDef: RoleDef }) {
   const { role, propertyId } = useParams<{ role: string; propertyId: string }>();
   const id = Number(propertyId);
   const [property, setProperty] = useState<Property | null>(null);
@@ -81,7 +81,7 @@ function EditProperty() {
           </Button>
         }
       />
-      <PropertyForm property={property} />
+      <PropertyForm property={property} roleDef={roleDef} />
     </div>
   );
 }
@@ -89,7 +89,7 @@ function EditProperty() {
 export default function EditPropertyPage() {
   return (
     <AccessGate module="property" action="edit">
-      {() => <EditProperty />}
+      {(roleDef) => <EditProperty roleDef={roleDef} />}
     </AccessGate>
   );
 }

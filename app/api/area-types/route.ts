@@ -12,6 +12,7 @@ function dbUnavailable(error: unknown) {
 }
 
 const createSchema = z.object({
+  areaTypeCode: z.string().trim().min(1).max(50),
   areaTypeName: z.string().trim().min(1).max(150),
   isActive: z.boolean().optional(),
   createdBy: z.number().int().positive(),
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const created = await prisma.areaType.create({
       data: {
+        areaTypeCode: data.areaTypeCode,
         areaTypeName: data.areaTypeName,
         isActive: data.isActive ?? true,
         createdBy: data.createdBy,
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ error: "This area type already exists" }, { status: 409 });
+      return NextResponse.json({ error: "An area type with this code or name already exists" }, { status: 409 });
     }
     return dbUnavailable(error);
   }

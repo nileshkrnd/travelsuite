@@ -8,7 +8,6 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
 import {
-  Building2,
   Hotel,
   MapPin,
   Save,
@@ -19,6 +18,14 @@ import {
   Tags,
   Navigation,
   Lock,
+  Image as ImageIcon,
+  Sparkles,
+  Wrench,
+  CreditCard,
+  Compass,
+  Clock,
+  HelpCircle,
+  Star,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,11 +48,15 @@ import {
   FrequentlyAskedQuestionsTab,
 } from "@/components/masters/PropertyExtrasTabs";
 import { useSessionStore } from "@/lib/store/session.store";
-import { useTenantStore } from "@/lib/store/tenant.store";
+import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { listCompanies } from "@/lib/services/db-companies.service";
 import { listCountries } from "@/lib/services/countries.service";
 import { listCities } from "@/lib/services/cities.service";
+import { listStates } from "@/lib/services/states.service";
+import { listAreas } from "@/lib/services/areas.service";
+import { listLocations } from "@/lib/services/locations.service";
 import { listPropertyTypes } from "@/lib/services/property-types.service";
 import { listPropertyCategories } from "@/lib/services/property-categories.service";
 import { listPropertyUsages } from "@/lib/services/property-usages.service";
@@ -60,17 +71,38 @@ import {
 import { resolveSessionCompanyKey, shouldLockSessionCompany } from "@/lib/session-company";
 import { cn } from "@/lib/utils";
 import type {
+  Area,
   City,
   Country,
+  Location,
   OwnershipType,
   Property,
   PropertyBrand,
   PropertyCategory,
   PropertyType,
   PropertyUsage,
+  RoleDef,
+  State,
 } from "@/types";
 
 const NONE = "__none__";
+
+const TIME_ZONES = [
+  { id: 1, label: "UTC — Coordinated Universal Time" },
+  { id: 2, label: "GMT — London" },
+  { id: 3, label: "CET — Central Europe" },
+  { id: 4, label: "EET — Eastern Europe (Cairo, Istanbul)" },
+  { id: 5, label: "AST — Gulf Standard Time (Doha, Dubai, Abu Dhabi)" },
+  { id: 6, label: "IST — India Standard Time" },
+  { id: 7, label: "ICT — Indochina Time (Bangkok, Jakarta)" },
+  { id: 8, label: "SGT — Singapore / Hong Kong / China" },
+  { id: 9, label: "JST — Japan / Korea" },
+  { id: 10, label: "AEST — Australia Eastern" },
+  { id: 11, label: "EST — US Eastern" },
+  { id: 12, label: "CST — US Central" },
+  { id: 13, label: "MST — US Mountain" },
+  { id: 14, label: "PST — US Pacific" },
+];
 
 function optionalId() {
   return z.preprocess(
@@ -88,7 +120,8 @@ function optionalNumber() {
 
 const schema = z
   .object({
-    companyId: z.number().int().positive(),
+    // Omitted entirely for globally-managed properties (Super Admin, no tenant/company).
+    companyId: z.number().int().positive().optional(),
     propertyCode: z.string().trim().min(1, "Property code is required").max(50),
     propertyName: z.string().trim().max(250).optional().or(z.literal("")),
     propertyDisplayName: z.string().trim().max(250).optional().or(z.literal("")),
@@ -127,8 +160,6 @@ const schema = z
     googleMapUrl: z.string().trim().max(20000).optional().or(z.literal("")),
     plusCode: z.string().trim().max(50).optional().or(z.literal("")),
     timeZoneId: optionalId(),
-    openingDate: z.string().optional().or(z.literal("")),
-    closingDate: z.string().optional().or(z.literal("")),
     rating: optionalNumber().pipe(z.number().min(0).max(9.99).nullable()),
     starRating: z.preprocess(
       (v) => (v === "" || v == null ? null : Number(v)),
@@ -136,22 +167,13 @@ const schema = z
     ),
     isFeatured: z.boolean(),
     isPublished: z.boolean(),
-  })
-  .superRefine((values, ctx) => {
-    if (values.openingDate && values.closingDate && values.closingDate < values.openingDate) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["closingDate"],
-        message: "Closing date must be on or after opening date",
-      });
-    }
   });
 
 type FormValues = z.infer<typeof schema>;
 
-function emptyValues(companyId: number): FormValues {
+function emptyValues(companyId: number | undefined): FormValues {
   return {
-    companyId,
+    companyId: companyId || undefined,
     propertyCode: "",
     propertyName: "",
     propertyDisplayName: "",
@@ -184,8 +206,6 @@ function emptyValues(companyId: number): FormValues {
     googleMapUrl: "",
     plusCode: "",
     timeZoneId: null,
-    openingDate: "",
-    closingDate: "",
     rating: null,
     starRating: null,
     isFeatured: false,
@@ -195,7 +215,7 @@ function emptyValues(companyId: number): FormValues {
 
 function valuesFromProperty(p: Property): FormValues {
   return {
-    companyId: p.companyId,
+    companyId: p.companyId ?? undefined,
     propertyCode: p.propertyCode,
     propertyName: p.propertyName ?? "",
     propertyDisplayName: p.propertyDisplayName ?? "",
@@ -228,8 +248,6 @@ function valuesFromProperty(p: Property): FormValues {
     googleMapUrl: p.googleMapUrl ?? "",
     plusCode: p.plusCode ?? "",
     timeZoneId: p.timeZoneId,
-    openingDate: p.openingDate ?? "",
-    closingDate: p.closingDate ?? "",
     rating: p.rating,
     starRating: p.starRating,
     isFeatured: p.isFeatured,
@@ -288,20 +306,29 @@ function MultiCheckGroup({
 }
 
 /** Shared Create / Modify form for Property — heart of the product inventory. */
-export function PropertyForm({ property }: { property?: Property }) {
+export function PropertyForm({ property, roleDef }: { property?: Property; roleDef?: RoleDef }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
   const sessionUser = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
   const activeTenant = useTenantStore((s) => s.tenant);
+  const activeTenantId = useTenantStore((s) => s.tenantId);
   const isEdit = !!property;
   const actorKey = sessionUser
     ? (users.find((u) => u.id === sessionUser.id)?.userKey ?? sessionUser.userKey ?? 0)
     : 0;
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+  const isSuperAdmin = roleDef?.id === SUPER_ADMIN_ROLE_ID;
+  // A global property (created with no tenant) stays global for editing regardless of which
+  // tenant workspace it's opened from — it must not get silently re-parented to that tenant.
+  const editingGlobal = isEdit && property?.tenantId == null;
+  const platformMode = isSuperAdmin && (isPlatformMode(activeTenantId) || editingGlobal);
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
+  const [states, setStates] = useState<State[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [types, setTypes] = useState<PropertyType[]>([]);
   const [categories, setCategories] = useState<PropertyCategory[]>([]);
   const [usages, setUsages] = useState<PropertyUsage[]>([]);
@@ -310,8 +337,12 @@ export function PropertyForm({ property }: { property?: Property }) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [bootLoading, setBootLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(false);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [locationsLoading, setLocationsLoading] = useState(false);
   const [companyIdResolved, setCompanyIdResolved] = useState(0);
   const [activeTab, setActiveTab] = useState("details");
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(["details"]));
 
   const {
     register,
@@ -325,21 +356,28 @@ export function PropertyForm({ property }: { property?: Property }) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema as any),
     mode: "onBlur",
-    defaultValues: property ? valuesFromProperty(property) : emptyValues(0),
+    defaultValues: property ? valuesFromProperty(property) : emptyValues(undefined),
   });
 
   const countryId = useWatch({ control, name: "countryId" });
+  const cityId = useWatch({ control, name: "cityId" });
+  const areaId = useWatch({ control, name: "areaId" });
   const nameWatch = useWatch({ control, name: "propertyName" });
   const codeWatch = useWatch({ control, name: "propertyCode" });
   const displayWatch = useWatch({ control, name: "propertyDisplayName" });
   const typeIdsWatch = useWatch({ control, name: "propertyTypeIds" });
+  const starRatingWatch = useWatch({ control, name: "starRating" });
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(property?.coverImageUrl ?? null);
 
   useEffect(() => {
-    if (property) reset(valuesFromProperty(property));
+    if (property) {
+      reset(valuesFromProperty(property));
+      setCoverImageUrl(property.coverImageUrl ?? null);
+    }
   }, [property?.propertyId, property, reset]);
 
   useEffect(() => {
-    if (tenantKey <= 0) {
+    if (!platformMode && tenantKey <= 0) {
       setBootLoading(false);
       return;
     }
@@ -347,23 +385,33 @@ export function PropertyForm({ property }: { property?: Property }) {
     setBootLoading(true);
     void (async () => {
       try {
-        const [companyRows, countryRows, propertyRows] = await Promise.all([
-          listCompanies({ tenantId: tenantKey, activeOnly: true }),
-          listCountries({ activeOnly: true }),
-          listProperties({ tenantId: tenantKey }),
-        ]);
+        const countryRows = await listCountries({ activeOnly: true });
         if (cancelled) return;
         setCountries(countryRows);
-        setProperties(propertyRows);
-        const scoped = companyRows.filter((c) => c.companyKey > 0);
-        const { companyId: locked } = shouldLockSessionCompany(sessionUser, scoped);
-        const companyId =
-          property?.companyId ||
-          resolveSessionCompanyKey(sessionUser) ||
-          locked ||
-          (scoped.length === 1 ? scoped[0]!.companyKey : 0);
-        setCompanyIdResolved(companyId);
-        if (companyId > 0) setValue("companyId", companyId, { shouldValidate: true });
+
+        if (platformMode) {
+          // Globally-managed property — no tenant/company scoping, duplicate-code check against other globals.
+          const propertyRows = await listProperties({ global: true });
+          if (cancelled) return;
+          setProperties(propertyRows);
+        } else if (tenantKey > 0) {
+          const [companyRows, propertyRows] = await Promise.all([
+            listCompanies({ tenantId: tenantKey, activeOnly: true }),
+            listProperties({ tenantId: tenantKey }),
+          ]);
+          if (cancelled) return;
+          setProperties(propertyRows);
+          const scoped = companyRows.filter((c) => c.companyKey > 0);
+          const { companyId: locked } = shouldLockSessionCompany(sessionUser, scoped);
+          const companyId =
+            property?.companyId ||
+            resolveSessionCompanyKey(sessionUser) ||
+            locked ||
+            (scoped.length === 1 ? scoped[0]!.companyKey : 0);
+          setCompanyIdResolved(companyId);
+          if (companyId > 0) setValue("companyId", companyId, { shouldValidate: true });
+        }
+
         if (!property && countryRows.length) {
           const qa = countryRows.find((c) => c.code === "QA");
           if (qa) setValue("countryId", qa.countryKey, { shouldValidate: false });
@@ -375,7 +423,7 @@ export function PropertyForm({ property }: { property?: Property }) {
     return () => {
       cancelled = true;
     };
-  }, [tenantKey, sessionUser, property, setValue]);
+  }, [tenantKey, platformMode, sessionUser, property, setValue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -431,6 +479,90 @@ export function PropertyForm({ property }: { property?: Property }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countryId]);
 
+  useEffect(() => {
+    if (!countryId) {
+      setStates([]);
+      return;
+    }
+    let cancelled = false;
+    setStatesLoading(true);
+    listStates({ countryId, activeOnly: true })
+      .then((rows) => {
+        if (cancelled) return;
+        setStates(rows);
+        const current = getValues("stateId");
+        if (current && !rows.some((s) => s.stateKey === current)) {
+          setValue("stateId", null, { shouldValidate: false });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setStatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryId]);
+
+  useEffect(() => {
+    if (!countryId || !cityId) {
+      setAreas([]);
+      return;
+    }
+    let cancelled = false;
+    setAreasLoading(true);
+    listAreas({ countryId, cityId, activeOnly: true })
+      .then((rows) => {
+        if (cancelled) return;
+        setAreas(rows);
+        const current = getValues("areaId");
+        if (current && !rows.some((a) => a.areaKey === current)) {
+          setValue("areaId", null, { shouldValidate: false });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAreas([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAreasLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryId, cityId]);
+
+  useEffect(() => {
+    if (!countryId || !cityId || !areaId) {
+      setLocations([]);
+      return;
+    }
+    let cancelled = false;
+    setLocationsLoading(true);
+    listLocations({ countryId, cityId, areaId, activeOnly: true })
+      .then((rows) => {
+        if (cancelled) return;
+        setLocations(rows);
+        const current = getValues("locationId");
+        if (current && !rows.some((l) => l.locationKey === current)) {
+          setValue("locationId", null, { shouldValidate: false });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLocations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLocationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryId, cityId, areaId]);
+
   const previewTitle = useMemo(
     () => displayWatch?.trim() || nameWatch?.trim() || codeWatch?.trim() || "New property",
     [displayWatch, nameWatch, codeWatch]
@@ -440,29 +572,57 @@ export function PropertyForm({ property }: { property?: Property }) {
     [types, typeIdsWatch]
   );
 
+  const allValues = useWatch({ control });
+  const detailsScore = useMemo(() => {
+    const checks = [
+      !!allValues.propertyCode?.trim(),
+      !!(allValues.propertyDisplayName?.trim() || allValues.propertyName?.trim()),
+      (allValues.propertyTypeIds?.length ?? 0) > 0,
+      !!allValues.countryId,
+      !!allValues.cityId,
+      (allValues.propertyCategoryIds?.length ?? 0) > 0,
+      !!allValues.propertyUsageId,
+      !!allValues.ownershipTypeId,
+      !!allValues.propertyBrandId,
+      !!allValues.addressLine1?.trim(),
+    ];
+    return checks.filter(Boolean).length / checks.length;
+  }, [allValues]);
+  const OPTIONAL_TAB_COUNT = 8;
+  const optionalScore = Math.min(visitedTabs.size - 1, OPTIONAL_TAB_COUNT) / OPTIONAL_TAB_COUNT;
+  const completionPercent = Math.round((detailsScore * 0.5 + optionalScore * 0.5) * 100);
+  const completionLabel =
+    completionPercent >= 100
+      ? "All sections reviewed"
+      : completionPercent >= 50
+        ? "Almost there — review the remaining sections"
+        : "Add more details to strengthen this listing";
+
   async function onSubmit(values: FormValues) {
     if (!actorKey) {
       toast.error("Missing user key — sign in again.");
       return;
     }
-    if (!values.companyId) {
+    if (!platformMode && !values.companyId) {
       toast.error("Your user must be assigned to a company.");
       return;
     }
     const duplicate = properties.some(
       (p) =>
-        p.companyId === values.companyId &&
+        (platformMode || p.companyId === values.companyId) &&
         p.propertyCode.toLowerCase() === values.propertyCode.trim().toLowerCase() &&
         (!isEdit || p.propertyId !== property?.propertyId)
     );
     if (duplicate) {
-      toast.error("This property code already exists for the company");
+      toast.error(
+        platformMode ? "This property code already exists globally" : "This property code already exists for the company"
+      );
       return;
     }
 
     const payload = {
-      tenantId: tenantKey,
-      companyId: values.companyId,
+      tenantId: platformMode ? null : tenantKey,
+      companyId: platformMode ? null : (values.companyId ?? null),
       propertyCode: values.propertyCode.trim(),
       propertyName: values.propertyName?.trim() || null,
       propertyDisplayName: values.propertyDisplayName?.trim() || null,
@@ -495,8 +655,6 @@ export function PropertyForm({ property }: { property?: Property }) {
       googleMapUrl: values.googleMapUrl?.trim() || null,
       plusCode: values.plusCode?.trim() || null,
       timeZoneId: values.timeZoneId,
-      openingDate: values.openingDate || null,
-      closingDate: values.closingDate || null,
       rating: values.rating,
       starRating: values.starRating,
       isFeatured: values.isFeatured,
@@ -533,7 +691,23 @@ export function PropertyForm({ property }: { property?: Property }) {
     );
   }
 
-  if (!companyIdResolved && !isEdit) {
+  if (editingGlobal && !isSuperAdmin) {
+    return (
+      <Card className="max-w-xl">
+        <CardContent className="space-y-3 py-6">
+          <p className="font-medium">Access restricted</p>
+          <p className="text-sm text-muted-foreground">
+            This is a globally-managed property. Only Super Admin can modify it.
+          </p>
+          <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/masters/property`} />}>
+            Back to list
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!platformMode && !companyIdResolved && !isEdit) {
     return (
       <Card className="max-w-xl">
         <CardContent className="space-y-3 py-6">
@@ -552,40 +726,50 @@ export function PropertyForm({ property }: { property?: Property }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)] lg:items-start" noValidate>
       <div className="min-w-0 space-y-5">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v ?? "details")}>
-          <div className="overflow-x-auto">
-            <TabsList variant="line" className="w-max">
-              <TabsTrigger value="details">Property Details</TabsTrigger>
-              <TabsTrigger value="media" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            const next = v ?? "details";
+            setActiveTab(next);
+            setVisitedTabs((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+          }}
+        >
+          <div className="rounded-xl border border-border bg-muted/40 p-1.5">
+            <TabsList className="h-auto w-full flex-wrap justify-start gap-1.5 bg-transparent p-0 group-data-horizontal/tabs:h-auto">
+              <TabsTrigger value="details" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                <Hotel className="h-4 w-4" />
+                Property Details
+              </TabsTrigger>
+              <TabsTrigger value="media" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <ImageIcon className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Media
               </TabsTrigger>
-              <TabsTrigger value="amenities" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="amenities" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <Sparkles className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Amenities
               </TabsTrigger>
-              <TabsTrigger value="facilities" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="facilities" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <Wrench className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Facilities
               </TabsTrigger>
-              <TabsTrigger value="payment" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="payment" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <CreditCard className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Card Payment
               </TabsTrigger>
-              <TabsTrigger value="nearbyArea" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="nearbyArea" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <MapPin className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Near By Area
               </TabsTrigger>
-              <TabsTrigger value="nearbyActivities" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="nearbyActivities" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <Compass className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Near By Activities
               </TabsTrigger>
-              <TabsTrigger value="policies" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="policies" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <Clock className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 Policies
               </TabsTrigger>
-              <TabsTrigger value="faq" disabled={!isEdit}>
-                {!isEdit && <Lock className="h-3 w-3" />}
+              <TabsTrigger value="faq" disabled={!isEdit} className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+                {isEdit ? <HelpCircle className="h-4 w-4" /> : <Lock className="h-3 w-3" />}
                 FAQs
               </TabsTrigger>
             </TabsList>
@@ -781,15 +965,6 @@ export function PropertyForm({ property }: { property?: Property }) {
                 <Label htmlFor="rating">Guest rating</Label>
                 <Input id="rating" type="number" step="0.01" min={0} max={9.99} className="h-10" {...register("rating")} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="openingDate">Opening date</Label>
-                <Input id="openingDate" type="date" className="h-10" {...register("openingDate")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="closingDate">Closing date</Label>
-                <Input id="closingDate" type="date" className="h-10" {...register("closingDate")} />
-                {errors.closingDate && <p className="text-sm text-destructive">{errors.closingDate.message}</p>}
-              </div>
             </div>
           </div>
         </Section>
@@ -836,6 +1011,9 @@ export function PropertyForm({ property }: { property?: Property }) {
               <Label htmlFor="landmark">Landmark</Label>
               <Input id="landmark" className="h-10" {...register("landmark")} />
             </div>
+            <div className="sm:col-span-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Location hierarchy
+            </div>
             <div className="space-y-2">
               <Label required>Country</Label>
               <Controller
@@ -846,7 +1024,10 @@ export function PropertyForm({ property }: { property?: Property }) {
                     value={field.value ? String(field.value) : ""}
                     onValueChange={(v) => {
                       field.onChange(Number(v));
+                      setValue("stateId", null, { shouldValidate: false });
                       setValue("cityId", null, { shouldValidate: false });
+                      setValue("areaId", null, { shouldValidate: false });
+                      setValue("locationId", null, { shouldValidate: false });
                     }}
                   >
                     <SelectTrigger className="h-10 w-full" aria-invalid={!!errors.countryId}>
@@ -871,6 +1052,38 @@ export function PropertyForm({ property }: { property?: Property }) {
               {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
             </div>
             <div className="space-y-2">
+              <Label>State</Label>
+              <Controller
+                control={control}
+                name="stateId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : NONE}
+                    onValueChange={(v) => field.onChange(v === NONE ? null : Number(v))}
+                    disabled={!countryId || statesLoading}
+                  >
+                    <SelectTrigger className="h-10 w-full">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue>
+                        {(value: string | null) => {
+                          if (!value || value === NONE) return statesLoading ? "Loading…" : "Optional";
+                          return states.find((s) => String(s.stateKey) === value)?.name ?? value;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {states.map((s) => (
+                        <SelectItem key={s.id} value={String(s.stateKey)}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>City</Label>
               <Controller
                 control={control}
@@ -878,7 +1091,11 @@ export function PropertyForm({ property }: { property?: Property }) {
                 render={({ field }) => (
                   <Select
                     value={field.value ? String(field.value) : NONE}
-                    onValueChange={(v) => field.onChange(v === NONE ? null : Number(v))}
+                    onValueChange={(v) => {
+                      field.onChange(v === NONE ? null : Number(v));
+                      setValue("areaId", null, { shouldValidate: false });
+                      setValue("locationId", null, { shouldValidate: false });
+                    }}
                     disabled={!countryId || citiesLoading}
                   >
                     <SelectTrigger className="h-10 w-full">
@@ -902,20 +1119,105 @@ export function PropertyForm({ property }: { property?: Property }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="stateId">State ID</Label>
-              <Input id="stateId" type="number" className="h-10" placeholder="Optional" {...register("stateId")} />
+              <Label>Area</Label>
+              <Controller
+                control={control}
+                name="areaId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : NONE}
+                    onValueChange={(v) => {
+                      field.onChange(v === NONE ? null : Number(v));
+                      setValue("locationId", null, { shouldValidate: false });
+                    }}
+                    disabled={!countryId || !cityId || areasLoading}
+                  >
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {(value: string | null) => {
+                          if (!value || value === NONE) {
+                            if (areasLoading) return "Loading…";
+                            return cityId ? "Optional" : "Select city first";
+                          }
+                          return areas.find((a) => String(a.areaKey) === value)?.name ?? value;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {areas.map((a) => (
+                        <SelectItem key={a.id} value={String(a.areaKey)}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="areaId">Area ID</Label>
-              <Input id="areaId" type="number" className="h-10" placeholder="Optional" {...register("areaId")} />
+              <Label>Location</Label>
+              <Controller
+                control={control}
+                name="locationId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : NONE}
+                    onValueChange={(v) => field.onChange(v === NONE ? null : Number(v))}
+                    disabled={!countryId || !cityId || !areaId || locationsLoading}
+                  >
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {(value: string | null) => {
+                          if (!value || value === NONE) {
+                            if (locationsLoading) return "Loading…";
+                            return areaId ? "Optional" : "Select area first";
+                          }
+                          return locations.find((l) => String(l.locationKey) === value)?.name ?? value;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {locations.map((l) => (
+                        <SelectItem key={l.id} value={String(l.locationKey)}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="locationId">Location ID</Label>
-              <Input id="locationId" type="number" className="h-10" placeholder="Optional" {...register("locationId")} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="timeZoneId">Time zone ID</Label>
-              <Input id="timeZoneId" type="number" className="h-10" placeholder="Optional" {...register("timeZoneId")} />
+              <Label>Time zone</Label>
+              <Controller
+                control={control}
+                name="timeZoneId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : NONE}
+                    onValueChange={(v) => field.onChange(v === NONE ? null : Number(v))}
+                  >
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {(value: string | null) => {
+                          if (!value || value === NONE) return "Optional";
+                          return TIME_ZONES.find((t) => String(t.id) === value)?.label ?? value;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {TIME_ZONES.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
         </Section>
@@ -971,13 +1273,15 @@ export function PropertyForm({ property }: { property?: Property }) {
           </TabsContent>
 
           <TabsContent value="media" className="mt-4">
-            <MediaTab />
+            {property && (
+              <MediaTab propertyId={property.propertyId} actorKey={actorKey} onCoverChange={setCoverImageUrl} />
+            )}
           </TabsContent>
           <TabsContent value="amenities" className="mt-4">
-            <AmenitiesTab />
+            {property && <AmenitiesTab propertyId={property.propertyId} actorKey={actorKey} />}
           </TabsContent>
           <TabsContent value="facilities" className="mt-4">
-            <FacilitiesTab />
+            {property && <FacilitiesTab propertyId={property.propertyId} actorKey={actorKey} />}
           </TabsContent>
           <TabsContent value="payment" className="mt-4">
             <SupportedCardPaymentTab />
@@ -999,8 +1303,24 @@ export function PropertyForm({ property }: { property?: Property }) {
 
       <aside className="space-y-4 lg:sticky lg:top-6">
         <Card className="overflow-hidden p-0">
-          <div className="flex h-28 items-end bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] p-4 text-white">
-            <div className="min-w-0">
+          <div
+            className={cn(
+              "relative flex h-32 items-end bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] bg-cover bg-center p-4 text-white",
+              coverImageUrl && "bg-black/10 bg-blend-multiply"
+            )}
+            style={coverImageUrl ? { backgroundImage: `url(${coverImageUrl})` } : undefined}
+          >
+            {coverImageUrl && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+            )}
+            {starRatingWatch != null && starRatingWatch > 0 && (
+              <div className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-black/40 px-2 py-1">
+                {Array.from({ length: starRatingWatch }).map((_, i) => (
+                  <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+            )}
+            <div className="relative min-w-0">
               <p className="truncate text-lg font-semibold">{previewTitle}</p>
               <p className="truncate text-sm text-white/75">{codeWatch?.trim() || "Code"}</p>
             </div>
@@ -1023,9 +1343,18 @@ export function PropertyForm({ property }: { property?: Property }) {
                 Property is the core inventory master. Keep the code stable — channels and bookings will key off it.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Building2 className="h-4 w-4" />
-              Session company scoped
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-foreground">Property completion</span>
+                <span className="tabular-nums text-muted-foreground">{completionPercent}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{completionLabel}</p>
             </div>
           </CardContent>
         </Card>

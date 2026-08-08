@@ -35,6 +35,7 @@ export async function listAreaTypes(options?: {
 }
 
 export async function createAreaType(input: {
+  areaTypeCode: string;
   areaTypeName: string;
   isActive?: boolean;
   createdBy: number;
@@ -50,7 +51,7 @@ export async function createAreaType(input: {
 
 export async function updateAreaType(
   areaTypeId: number,
-  input: { areaTypeName: string; isActive?: boolean; modifiedBy: number }
+  input: { areaTypeCode: string; areaTypeName: string; isActive?: boolean; modifiedBy: number }
 ): Promise<AreaType> {
   const res = await fetch(`/api/area-types/${areaTypeId}`, {
     method: "PUT",

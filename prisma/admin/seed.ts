@@ -166,22 +166,36 @@ async function seedStates() {
   );
 }
 
+const AREA_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "RESIDENTIAL", name: "Residential" },
+  { code: "COMMERCIAL", name: "Commercial" },
+  { code: "INDUSTRIAL", name: "Industrial" },
+  { code: "MIXED_USE", name: "Mixed Use" },
+  { code: "TOURIST_AREA", name: "Tourist Area" },
+  { code: "BUSINESS_DISTRICT", name: "Business District" },
+  { code: "FREE_ZONE", name: "Free Zone" },
+  { code: "WATERFRONT", name: "Waterfront" },
+  { code: "AIRPORT", name: "Airport" },
+  { code: "MALL", name: "Shopping Mall" },
+  { code: "BEACH", name: "Beach" },
+  { code: "LANDMARK", name: "Landmark" },
+  { code: "METRO", name: "Metro Station" },
+  { code: "HOSPITAL", name: "Hospital" },
+  { code: "UNIVERSITY", name: "University" },
+  { code: "CITY_CENTER", name: "City Center" },
+];
+
 async function seedAreaTypes() {
-  const names = [
-    "Residential",
-    "Commercial",
-    "Industrial",
-    "Mixed Use",
-    "Tourist Area",
-    "Business District",
-    "Free Zone",
-    "Waterfront",
-  ];
-  for (const areaTypeName of names) {
+  for (const seed of AREA_TYPE_SEEDS) {
     await prisma.areaType.upsert({
-      where: { areaTypeName },
-      create: { areaTypeName, isActive: true, createdBy: CREATED_BY },
-      update: { isActive: true },
+      where: { areaTypeCode: seed.code },
+      create: {
+        areaTypeCode: seed.code,
+        areaTypeName: seed.name,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { areaTypeName: seed.name, isActive: true },
     });
   }
 }
@@ -197,6 +211,294 @@ async function seedSupplierTypes() {
   }
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('"SupplierType"', 'SupplierTypeID'), (SELECT COALESCE(MAX("SupplierTypeID"), 1) FROM "SupplierType"))`
+  );
+}
+
+const AMENITY_FACILITY_CATEGORY_SEEDS: Array<{
+  code: string;
+  name: string;
+  applicableTo: "PROPERTY" | "ROOM" | "BOTH";
+}> = [
+  { code: "PROPERTY", name: "Property Facilities", applicableTo: "PROPERTY" },
+  { code: "ROOM", name: "Room Amenities", applicableTo: "ROOM" },
+  { code: "BATHROOM", name: "Bathroom Facilities", applicableTo: "ROOM" },
+  { code: "KITCHEN", name: "Kitchen Facilities", applicableTo: "ROOM" },
+  { code: "RECREATION", name: "Recreation", applicableTo: "PROPERTY" },
+  { code: "BUSINESS", name: "Business Facilities", applicableTo: "PROPERTY" },
+  { code: "ACCESSIBILITY", name: "Accessibility", applicableTo: "BOTH" },
+  { code: "SAFETY", name: "Safety", applicableTo: "BOTH" },
+];
+
+async function seedAmenityFacilityCategories() {
+  for (const [index, seed] of AMENITY_FACILITY_CATEGORY_SEEDS.entries()) {
+    await prisma.amenityFacilityCategory.upsert({
+      where: { categoryCode: seed.code },
+      create: {
+        categoryCode: seed.code,
+        categoryName: seed.name,
+        applicableTo: seed.applicableTo,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { categoryName: seed.name, applicableTo: seed.applicableTo, isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"AmenityFacilityCategoryMaster"', 'AmenityFacilityCategoryID'), (SELECT COALESCE(MAX("AmenityFacilityCategoryID"), 1) FROM "AmenityFacilityCategoryMaster"))`
+  );
+}
+
+const AMENITY_SEEDS: Array<{
+  code: string;
+  name: string;
+  categoryCode: string;
+  icon: string | null;
+  isFilterable: boolean;
+}> = [
+  { code: "WIFI", name: "Free WiFi", categoryCode: "ROOM", icon: "Wifi", isFilterable: true },
+  { code: "TV", name: "Television", categoryCode: "ROOM", icon: "Tv", isFilterable: true },
+  { code: "MINIBAR", name: "Mini Bar", categoryCode: "ROOM", icon: null, isFilterable: false },
+  { code: "COFFEE_MACHINE", name: "Coffee Machine", categoryCode: "KITCHEN", icon: "Coffee", isFilterable: false },
+  { code: "SAFE", name: "Room Safe", categoryCode: "ROOM", icon: "Lock", isFilterable: true },
+  { code: "POOL", name: "Swimming Pool", categoryCode: "RECREATION", icon: "Waves", isFilterable: true },
+];
+
+async function seedAmenities() {
+  for (const [index, seed] of AMENITY_SEEDS.entries()) {
+    const category = await prisma.amenityFacilityCategory.findUnique({
+      where: { categoryCode: seed.categoryCode },
+    });
+    if (!category) continue;
+    await prisma.amenity.upsert({
+      where: { amenityCode: seed.code },
+      create: {
+        amenityFacilityCategoryId: category.amenityFacilityCategoryId,
+        amenityCode: seed.code,
+        amenityName: seed.name,
+        icon: seed.icon,
+        isFilterable: seed.isFilterable,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        amenityFacilityCategoryId: category.amenityFacilityCategoryId,
+        amenityName: seed.name,
+        icon: seed.icon,
+        isFilterable: seed.isFilterable,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"AmenityMaster"', 'AmenityID'), (SELECT COALESCE(MAX("AmenityID"), 1) FROM "AmenityMaster"))`
+  );
+}
+
+const FACILITY_SEEDS: Array<{
+  code: string;
+  name: string;
+  categoryCode: string;
+  icon: string | null;
+  isFilterable: boolean;
+}> = [
+  { code: "RESTAURANT", name: "Restaurant", categoryCode: "PROPERTY", icon: "UtensilsCrossed", isFilterable: true },
+  { code: "GYM", name: "Gym", categoryCode: "RECREATION", icon: "Dumbbell", isFilterable: true },
+  { code: "SPA", name: "Spa", categoryCode: "RECREATION", icon: "Sparkles", isFilterable: true },
+  { code: "PARKING", name: "Parking", categoryCode: "PROPERTY", icon: "ParkingCircle", isFilterable: true },
+  { code: "CONFERENCE", name: "Conference Room", categoryCode: "BUSINESS", icon: "Users2", isFilterable: false },
+];
+
+async function seedFacilities() {
+  for (const [index, seed] of FACILITY_SEEDS.entries()) {
+    const category = await prisma.amenityFacilityCategory.findUnique({
+      where: { categoryCode: seed.categoryCode },
+    });
+    if (!category) continue;
+    await prisma.facility.upsert({
+      where: { facilityCode: seed.code },
+      create: {
+        amenityFacilityCategoryId: category.amenityFacilityCategoryId,
+        facilityCode: seed.code,
+        facilityName: seed.name,
+        icon: seed.icon,
+        isFilterable: seed.isFilterable,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        amenityFacilityCategoryId: category.amenityFacilityCategoryId,
+        facilityName: seed.name,
+        icon: seed.icon,
+        isFilterable: seed.isFilterable,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"FacilityMaster"', 'FacilityID'), (SELECT COALESCE(MAX("FacilityID"), 1) FROM "FacilityMaster"))`
+  );
+}
+
+const ROOM_CATEGORY_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "STANDARD", name: "Standard" },
+  { code: "SUPERIOR", name: "Superior" },
+  { code: "DELUXE", name: "Deluxe" },
+  { code: "EXECUTIVE", name: "Executive" },
+  { code: "SUITE", name: "Suite" },
+  { code: "VILLA", name: "Villa" },
+];
+
+async function seedRoomCategories() {
+  for (const [index, seed] of ROOM_CATEGORY_SEEDS.entries()) {
+    await prisma.roomCategory.upsert({
+      where: { roomCategoryCode: seed.code },
+      create: {
+        roomCategoryCode: seed.code,
+        roomCategoryName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        roomCategoryName: seed.name,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"RoomCategoryMaster"', 'RoomCategoryID'), (SELECT COALESCE(MAX("RoomCategoryID"), 1) FROM "RoomCategoryMaster"))`
+  );
+}
+
+const ROOM_TYPE_SEEDS: Array<{ code: string; name: string; categoryCode: string }> = [
+  { code: "STD_KING", name: "Standard King Room", categoryCode: "STANDARD" },
+  { code: "STD_TWIN", name: "Standard Twin Room", categoryCode: "STANDARD" },
+  { code: "DLX_SEA", name: "Deluxe Sea View Room", categoryCode: "DELUXE" },
+  { code: "EXEC_SUITE", name: "Executive Suite", categoryCode: "SUITE" },
+];
+
+async function seedRoomTypes() {
+  for (const [index, seed] of ROOM_TYPE_SEEDS.entries()) {
+    const category = await prisma.roomCategory.findUnique({
+      where: { roomCategoryCode: seed.categoryCode },
+    });
+    if (!category) continue;
+    await prisma.roomType.upsert({
+      where: { roomTypeCode: seed.code },
+      create: {
+        roomCategoryId: category.roomCategoryId,
+        roomTypeCode: seed.code,
+        roomTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        roomCategoryId: category.roomCategoryId,
+        roomTypeName: seed.name,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"RoomTypeMaster"', 'RoomTypeID'), (SELECT COALESCE(MAX("RoomTypeID"), 1) FROM "RoomTypeMaster"))`
+  );
+}
+
+const BED_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "SINGLE", name: "Single Bed" },
+  { code: "TWIN", name: "Twin Bed" },
+  { code: "DOUBLE", name: "Double Bed" },
+  { code: "QUEEN", name: "Queen Bed" },
+  { code: "KING", name: "King Bed" },
+  { code: "SOFA", name: "Sofa Bed" },
+];
+
+async function seedBedTypes() {
+  for (const [index, seed] of BED_TYPE_SEEDS.entries()) {
+    await prisma.bedType.upsert({
+      where: { bedTypeCode: seed.code },
+      create: {
+        bedTypeCode: seed.code,
+        bedTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        bedTypeName: seed.name,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"BedTypeMaster"', 'BedTypeID'), (SELECT COALESCE(MAX("BedTypeID"), 1) FROM "BedTypeMaster"))`
+  );
+}
+
+const SMOKING_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "NON_SMOKING", name: "Non Smoking" },
+  { code: "SMOKING", name: "Smoking Allowed" },
+  { code: "BALCONY", name: "Balcony Smoking" },
+  { code: "DESIGNATED", name: "Designated Smoking Area" },
+  { code: "REQUEST", name: "On Request" },
+];
+
+async function seedSmokingTypes() {
+  for (const [index, seed] of SMOKING_TYPE_SEEDS.entries()) {
+    await prisma.smokingType.upsert({
+      where: { smokingTypeCode: seed.code },
+      create: {
+        smokingTypeCode: seed.code,
+        smokingTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        smokingTypeName: seed.name,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"SmokingTypeMaster"', 'SmokingTypeID'), (SELECT COALESCE(MAX("SmokingTypeID"), 1) FROM "SmokingTypeMaster"))`
+  );
+}
+
+const VIEW_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "CITY", name: "City View" },
+  { code: "SEA", name: "Sea View" },
+  { code: "POOL", name: "Pool View" },
+  { code: "GARDEN", name: "Garden View" },
+  { code: "BEACH", name: "Beach View" },
+  { code: "MOUNTAIN", name: "Mountain View" },
+  { code: "DESERT", name: "Desert View" },
+  { code: "LANDMARK", name: "Landmark View" },
+];
+
+async function seedViewTypes() {
+  for (const [index, seed] of VIEW_TYPE_SEEDS.entries()) {
+    await prisma.viewType.upsert({
+      where: { viewTypeCode: seed.code },
+      create: {
+        viewTypeCode: seed.code,
+        viewTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: {
+        viewTypeName: seed.name,
+        isActive: true,
+      },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"ViewTypeMaster"', 'ViewTypeID'), (SELECT COALESCE(MAX("ViewTypeID"), 1) FROM "ViewTypeMaster"))`
   );
 }
 
@@ -2113,6 +2415,14 @@ async function main() {
   await seedLocationTypes();
   await seedLocations();
   await seedSupplierTypes();
+  await seedAmenityFacilityCategories();
+  await seedAmenities();
+  await seedFacilities();
+  await seedRoomCategories();
+  await seedRoomTypes();
+  await seedBedTypes();
+  await seedSmokingTypes();
+  await seedViewTypes();
   await seedCultures();
   await seedTenants();
   await seedTenantCultures();

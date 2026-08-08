@@ -7,8 +7,9 @@ import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { PropertyForm } from "@/components/masters/PropertyForm";
+import type { RoleDef } from "@/types";
 
-function NewProperty() {
+function NewProperty({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
 
   return (
@@ -23,7 +24,7 @@ function NewProperty() {
           </Button>
         }
       />
-      <PropertyForm />
+      <PropertyForm roleDef={roleDef} />
     </div>
   );
 }
@@ -31,7 +32,7 @@ function NewProperty() {
 export default function NewPropertyPage() {
   return (
     <AccessGate module="property" action="create">
-      {() => <NewProperty />}
+      {(roleDef) => <NewProperty roleDef={roleDef} />}
     </AccessGate>
   );
 }

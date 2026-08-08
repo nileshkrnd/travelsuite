@@ -29,10 +29,18 @@ const optionalLongitude = z
   .optional()
   .transform((v) => (v === undefined ? undefined : v));
 
+/** 0 is the app-layer "global" sentinel from the client (see PropertyForm/property list); normalizes to null. */
+const nullableTenantScope = z.preprocess(
+  (v) => (v === 0 || v == null ? null : v),
+  z.number().int().positive().nullable()
+);
+
 export const propertyWriteSchema = z
   .object({
-    tenantId: z.number().int().positive(),
-    companyId: z.number().int().positive(),
+    /** null = globally-managed property (Super Admin, no tenant). A real id = a tenant's own property. */
+    tenantId: nullableTenantScope,
+    /** Must be null exactly when tenantId is null. */
+    companyId: nullableTenantScope,
     propertyCode: z.string().trim().min(1).max(50),
     propertyName: optionalText(250),
     propertyDisplayName: optionalText(250),
@@ -88,6 +96,13 @@ export const propertyWriteSchema = z
         message: "Closing date must be on or after opening date",
       });
     }
+    if ((values.tenantId == null) !== (values.companyId == null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["companyId"],
+        message: "tenantId and companyId must both be set (tenant-owned) or both be null (global)",
+      });
+    }
   });
 
 export const propertyInclude = {
@@ -102,6 +117,11 @@ export const propertyInclude = {
   propertyBrand: { select: { propertyBrandName: true } },
   country: { select: { countryName: true } },
   city: { select: { cityName: true } },
+  media: {
+    where: { isCover: true, isDeleted: false },
+    take: 1,
+    select: { mediaUrl: true },
+  },
 } as const;
 
 type SerializableProperty = {
@@ -125,15 +145,15 @@ export function serializePropertyRow<T extends SerializableProperty>(row: T) {
   };
 }
 
-export async function withCompanyName<T extends { companyId: number }>(rows: T[]) {
-  const companyIds = [...new Set(rows.map((r) => r.companyId))];
+export async function withCompanyName<T extends { companyId: number | null }>(rows: T[]) {
+  const companyIds = [...new Set(rows.map((r) => r.companyId).filter((id): id is number => id != null))];
   if (companyIds.length === 0) return rows.map((r) => ({ ...r, companyName: null as string | null }));
   const companies = await prisma.company.findMany({
     where: { companyId: { in: companyIds } },
     select: { companyId: true, companyName: true },
   });
   const nameById = new Map(companies.map((c) => [c.companyId, c.companyName]));
-  return rows.map((r) => ({ ...r, companyName: nameById.get(r.companyId) ?? null }));
+  return rows.map((r) => ({ ...r, companyName: r.companyId != null ? (nameById.get(r.companyId) ?? null) : null }));
 }
 
 function parseDateOnly(value: string | null | undefined): Date | null | undefined {
@@ -150,8 +170,8 @@ function trimOrNull(value: string | null | undefined): string | null | undefined
 }
 
 export async function validatePropertyLookups(data: {
-  tenantId: number;
-  companyId: number;
+  tenantId: number | null;
+  companyId: number | null;
   propertyTypeIds: number[];
   propertyCategoryIds?: number[];
   propertyUsageId?: number | null;
@@ -160,11 +180,13 @@ export async function validatePropertyLookups(data: {
   countryId: number;
   cityId?: number | null;
 }): Promise<NextResponse | null> {
-  const company = await prisma.company.findFirst({
-    where: { companyId: data.companyId, tenantId: data.tenantId },
-  });
-  if (!company) {
-    return NextResponse.json({ error: "Company not found for this tenant" }, { status: 400 });
+  if (data.tenantId != null && data.companyId != null) {
+    const company = await prisma.company.findFirst({
+      where: { companyId: data.companyId, tenantId: data.tenantId },
+    });
+    if (!company) {
+      return NextResponse.json({ error: "Company not found for this tenant" }, { status: 400 });
+    }
   }
 
   const uniqueTypeIds = [...new Set(data.propertyTypeIds)];

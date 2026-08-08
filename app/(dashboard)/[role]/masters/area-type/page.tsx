@@ -37,11 +37,21 @@ import { can } from "@/config/permissions";
 import type { AreaType, RoleDef } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
-type SortKey = "name";
+type SortKey = "name" | "code";
 type StatusFilter = "all" | "active" | "inactive";
 
 function useTypeSchema(types: AreaType[], currentId?: string) {
   return z.object({
+    code: z
+      .string()
+      .trim()
+      .min(1, "Code is required")
+      .max(50, "Must be 50 characters or fewer")
+      .refine(
+        (value) =>
+          !types.some((t) => t.id !== currentId && t.code.toLowerCase() === value.trim().toLowerCase()),
+        "This code already exists"
+      ),
     name: z
       .string()
       .trim()
@@ -81,7 +91,7 @@ function TypePanel({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    values: { name: type?.name ?? "" },
+    values: { code: type?.code ?? "", name: type?.name ?? "" },
   });
 
   async function onSubmit(values: FormValues) {
@@ -92,6 +102,7 @@ function TypePanel({
     try {
       if (mode === "edit" && type) {
         const saved = await updateAreaType(type.typeKey, {
+          areaTypeCode: values.code.trim(),
           areaTypeName: values.name.trim(),
           isActive: type.isActive,
           modifiedBy: actorKey,
@@ -100,6 +111,7 @@ function TypePanel({
         toast.success("Area type updated");
       } else if (mode === "create") {
         const created = await createAreaType({
+          areaTypeCode: values.code.trim(),
           areaTypeName: values.name.trim(),
           createdBy: actorKey,
         });
@@ -124,13 +136,26 @@ function TypePanel({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
+        <div className="space-y-2">
+          <Label htmlFor="code" required>
+            Code
+          </Label>
+          <Input
+            id="code"
+            autoFocus={!isReadOnly}
+            disabled={isReadOnly}
+            placeholder="e.g. RESIDENTIAL"
+            aria-invalid={!!errors.code}
+            {...register("code")}
+          />
+          {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="name" required>
             Area type
           </Label>
           <Input
             id="name"
-            autoFocus={!isReadOnly}
             disabled={isReadOnly}
             placeholder="e.g. Residential, Commercial, Industrial"
             aria-invalid={!!errors.name}
@@ -211,11 +236,14 @@ function TypeList({ roleDef }: { roleDef: RoleDef }) {
   const visibleTypes = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = types;
-    if (term) result = result.filter((t) => t.name.toLowerCase().includes(term));
+    if (term)
+      result = result.filter(
+        (t) => t.name.toLowerCase().includes(term) || t.code.toLowerCase().includes(term)
+      );
     if (statusFilter !== "all") result = result.filter((t) => (statusFilter === "active" ? t.isActive : !t.isActive));
     if (sortKey) {
       result = [...result].sort((a, b) => {
-        const cmp = a.name.localeCompare(b.name);
+        const cmp = sortKey === "code" ? a.code.localeCompare(b.code) : a.name.localeCompare(b.name);
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
@@ -340,6 +368,9 @@ function TypeList({ roleDef }: { roleDef: RoleDef }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14">Sr. No</TableHead>
+                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Code
+                </SortableTableHead>
                 <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
@@ -351,6 +382,7 @@ function TypeList({ roleDef }: { roleDef: RoleDef }) {
               {visibleTypes.map((type, index) => (
                 <TableRow key={type.id}>
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="text-muted-foreground">{type.code}</TableCell>
                   <TableCell className="font-medium">{type.name}</TableCell>
                   <TableCell>
                     <Badge variant={type.isActive ? "default" : "secondary"}>

@@ -18,7 +18,12 @@ const createSchema = propertyWriteSchema.and(
   })
 );
 
-/** Property list — filter by TenantID / CompanyID. */
+/**
+ * Property list — filter by TenantID / CompanyID.
+ * `tenantId=0` (the app-layer "global" sentinel) or `global=true` returns only globally-managed
+ * properties (TenantID IS NULL). A real `tenantId` returns just that tenant's own properties,
+ * unless `includeGlobal=true` is also passed, which merges in the global properties too.
+ */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,13 +31,19 @@ export async function GET(request: Request) {
     const companyIdParam = searchParams.get("companyId");
     const activeOnly = searchParams.get("activeOnly") === "true";
     const propertyTypeIdParam = searchParams.get("propertyTypeId");
+    const globalOnly = searchParams.get("global") === "true" || tenantIdParam === "0";
+    const includeGlobal = searchParams.get("includeGlobal") === "true";
 
     const where: Prisma.PropertyWhereInput = {};
-    if (tenantIdParam != null && tenantIdParam !== "") {
-      where.tenantId = Number(tenantIdParam);
-    }
-    if (companyIdParam != null && companyIdParam !== "") {
-      where.companyId = Number(companyIdParam);
+    if (globalOnly) {
+      where.tenantId = null;
+    } else if (tenantIdParam != null && tenantIdParam !== "") {
+      const ownWhere: Prisma.PropertyWhereInput = { tenantId: Number(tenantIdParam) };
+      if (companyIdParam != null && companyIdParam !== "") {
+        ownWhere.companyId = Number(companyIdParam);
+      }
+      where.OR = includeGlobal ? [ownWhere, { tenantId: null }] : undefined;
+      if (!includeGlobal) Object.assign(where, ownWhere);
     }
     if (activeOnly) where.isActive = true;
     if (propertyTypeIdParam != null && propertyTypeIdParam !== "") {

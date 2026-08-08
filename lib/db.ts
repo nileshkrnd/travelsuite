@@ -1,17 +1,20 @@
 /**
  * Multi-database clients:
- * - adminDb / prisma  → KlyraAdmin (masters & configuration)
- * - getBaseDb()       → KlyraBase (booking / operations)
- * - getAccountsDb()   → KlyraAccounts (finance)
+ * - adminDb / prisma     → KlyraAdmin (masters & configuration)
+ * - getBaseDb()          → KlyraBase (booking / operations)
+ * - getAccountsDb()      → KlyraAccounts (finance)
+ * - getHelpdeskDb()      → KlyraHelpdesk (support tickets / mailbox sync)
  */
 import { PrismaClient as AdminPrismaClient } from "@prisma/client";
 import { PrismaClient as BasePrismaClient } from "@prisma/base-client";
 import { PrismaClient as AccountsPrismaClient } from "@prisma/accounts-client";
+import { PrismaClient as HelpdeskPrismaClient } from "@prisma/helpdesk-client";
 
 const globalForDb = globalThis as unknown as {
   adminDb?: AdminPrismaClient;
   baseDb?: BasePrismaClient;
   accountsDb?: AccountsPrismaClient;
+  helpdeskDb?: HelpdeskPrismaClient;
 };
 
 const log = process.env.NODE_ENV === "development" ? (["error", "warn"] as const) : (["error"] as const);
@@ -20,7 +23,7 @@ function requireUrl(primary: string | undefined, fallback: string | undefined, l
   const url = primary?.trim() || fallback?.trim();
   if (!url) {
     throw new Error(
-      `Missing ${label}. Set ADMINCNX_URL / BASECNX_URL / ACCOUNTSCNX_URL in .env (see .env.example), then restart next.`
+      `Missing ${label}. Set ADMINCNX_URL / BASECNX_URL / ACCOUNTSCNX_URL / HELPDESKCNX_URL in .env (see .env.example), then restart next.`
     );
   }
   return url;
@@ -62,6 +65,18 @@ export function getAccountsDb(): AccountsPrismaClient {
   return globalForDb.accountsDb;
 }
 
+/** Helpdesk tickets & mailbox sync (HELPDESKCNX_URL → KlyraHelpdesk). */
+export function getHelpdeskDb(): HelpdeskPrismaClient {
+  if (!globalForDb.helpdeskDb) {
+    const url = requireUrl(process.env.HELPDESKCNX_URL, undefined, "HELPDESKCNX_URL");
+    globalForDb.helpdeskDb = new HelpdeskPrismaClient({
+      datasources: { db: { url } },
+      log: [...log],
+    });
+  }
+  return globalForDb.helpdeskDb;
+}
+
 /** Admin client used by all master / auth APIs. */
 export const adminDb = getAdminDb();
 
@@ -80,6 +95,14 @@ export const baseDb = new Proxy({} as BasePrismaClient, {
 export const accountsDb = new Proxy({} as AccountsPrismaClient, {
   get(_t, prop, receiver) {
     const client = getAccountsDb();
+    const value = Reflect.get(client as object, prop, receiver);
+    return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(client) : value;
+  },
+});
+
+export const helpdeskDb = new Proxy({} as HelpdeskPrismaClient, {
+  get(_t, prop, receiver) {
+    const client = getHelpdeskDb();
     const value = Reflect.get(client as object, prop, receiver);
     return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(client) : value;
   },

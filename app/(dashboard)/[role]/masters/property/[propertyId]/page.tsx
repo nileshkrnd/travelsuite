@@ -134,6 +134,9 @@ function PropertyView({ roleDef }: { roleDef: RoleDef }) {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {property.tenantId == null && (
+              <Badge className="bg-white/15 text-white hover:bg-white/20">Global property</Badge>
+            )}
             <Badge variant={property.isActive ? "default" : "secondary"}>{property.isActive ? "active" : "inactive"}</Badge>
             <div className="flex items-center gap-3 text-sm text-white/80">
               {property.starRating != null && (

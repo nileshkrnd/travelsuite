@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Image as ImageIcon,
@@ -8,11 +8,8 @@ import {
   X,
   Plus,
   Trash2,
-  Wifi,
-  Dumbbell,
+  Star,
   Sparkles,
-  UtensilsCrossed,
-  ParkingCircle,
   Wrench,
   CreditCard,
   Banknote,
@@ -35,6 +32,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ICONS } from "@/lib/icon-registry";
+import {
+  listPropertyMedia,
+  uploadPropertyMedia,
+  updatePropertyMedia,
+  setCoverPropertyMedia,
+  deletePropertyMedia,
+  PropertyMediaApiError,
+} from "@/lib/services/property-media.service";
+import { listAmenities } from "@/lib/services/amenities.service";
+import { listFacilities } from "@/lib/services/facilities.service";
+import {
+  listPropertyAmenities,
+  savePropertyAmenities,
+  PropertyAmenitiesApiError,
+} from "@/lib/services/property-amenities.service";
+import {
+  listPropertyFacilities,
+  savePropertyFacilities,
+  PropertyFacilitiesApiError,
+} from "@/lib/services/property-facilities.service";
+import type { PropertyMedia, PropertyMediaKind } from "@/types";
 
 /** Preview-only note shown on every mock tab — saves stay local to this session only. */
 function PreviewNotice() {
@@ -112,47 +131,157 @@ const IMAGE_TYPE_OPTIONS = [
   "Others",
 ];
 
-type MediaKind = "image" | "video";
-
-type MediaItem = {
-  id: string;
-  url: string;
-  name: string;
-  imageType: string;
-  mediaType: MediaKind;
-  description: string;
-};
-
-/** Media tab — categorized photo/video gallery, client-side preview only (object URLs, nothing uploaded). */
-export function MediaTab() {
-  const [items, setItems] = useState<MediaItem[]>([]);
+/** Media tab — real, database-backed photo/video gallery for a property (PropertyMedia master). */
+export function MediaTab({
+  propertyId,
+  actorKey,
+  onCoverChange,
+}: {
+  propertyId: number;
+  actorKey: number;
+  onCoverChange?: (url: string | null) => void;
+}) {
+  const [items, setItems] = useState<PropertyMedia[]>([]);
+  const [loading, setLoading] = useState(true);
   const [imageType, setImageType] = useState(IMAGE_TYPE_OPTIONS[0]!);
-  const [mediaType, setMediaType] = useState<MediaKind>("image");
-  const [description, setDescription] = useState("");
+  const [mediaType, setMediaType] = useState<PropertyMediaKind>("image");
+  const [uploading, setUploading] = useState(false);
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const next = Array.from(files).map((file) => ({
-      id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
-      url: URL.createObjectURL(file),
-      name: file.name,
-      imageType,
-      mediaType,
-      description: description.trim(),
-    }));
-    setItems((prev) => [...prev, ...next]);
-    setDescription("");
+  function setBusy(id: string, busy: boolean) {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   }
 
-  function removeItem(id: string) {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  function notifyCover(rows: PropertyMedia[]) {
+    onCoverChange?.(rows.find((r) => r.isCover)?.url ?? null);
+  }
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const rows = await listPropertyMedia(propertyId);
+      setItems(rows);
+      notifyCover(rows);
+    } catch (error) {
+      toast.error(error instanceof PropertyMediaApiError ? error.message : "Failed to load media");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId]);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again before uploading.");
+      return;
+    }
+    setUploading(true);
+    let uploaded = 0;
+    let failed = 0;
+    const newlyCreated: PropertyMedia[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const created = await uploadPropertyMedia(file, {
+          propertyId,
+          mediaType,
+          imageType,
+          createdBy: actorKey,
+        });
+        newlyCreated.push(created);
+        setItems((prev) => [...prev, created]);
+        uploaded += 1;
+      } catch (error) {
+        failed += 1;
+        toast.error(
+          error instanceof PropertyMediaApiError ? error.message : `Could not upload ${file.name}`
+        );
+      }
+    }
+    setUploading(false);
+    if (newlyCreated.length > 0) notifyCover([...items, ...newlyCreated]);
+    if (uploaded > 0) toast.success(`${uploaded} file${uploaded > 1 ? "s" : ""} uploaded`);
+    if (failed > 0 && uploaded === 0) return;
+  }
+
+  async function removeItem(id: string) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    setBusy(id, true);
+    try {
+      await deletePropertyMedia(Number(id), actorKey);
+      await refresh();
+      toast.success("Media removed");
+    } catch (error) {
+      toast.error(error instanceof PropertyMediaApiError ? error.message : "Could not remove media");
+    } finally {
+      setBusy(id, false);
+    }
+  }
+
+async function saveDescription(id: string, description: string) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    setBusy(id, true);
+    try {
+      const saved = await updatePropertyMedia(Number(id), { description, modifiedBy: actorKey });
+      setItems((prev) => prev.map((item) => (item.id === id ? saved : item)));
+      setDirtyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast.success("Description saved");
+    } catch (error) {
+      toast.error(error instanceof PropertyMediaApiError ? error.message : "Could not save description");
+    } finally {
+      setBusy(id, false);
+    }
+  }
+
+  function updateDescriptionLocal(id: string, description: string) {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, description } : item)));
+    setDirtyIds((prev) => new Set(prev).add(id));
+  }
+
+  async function makeCover(id: string) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    setBusy(id, true);
+    try {
+      await setCoverPropertyMedia(Number(id), actorKey);
+      await refresh();
+      toast.success("Cover image updated");
+    } catch (error) {
+      toast.error(error instanceof PropertyMediaApiError ? error.message : "Could not set cover image");
+    } finally {
+      setBusy(id, false);
+    }
   }
 
   return (
     <Section icon={ImageIcon} title="Media" description="Photos and videos shown on the property listing and channels.">
       <div className="space-y-4">
-        <PreviewNotice />
+        <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Uploads save immediately — the property&apos;s cover image is used on its card in the property list.
+        </p>
 
         <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -172,7 +301,10 @@ export function MediaTab() {
           </div>
           <div className="space-y-2">
             <Label>Media type</Label>
-            <Select value={mediaType} onValueChange={(v) => setMediaType((v as MediaKind) ?? "image")}>
+            <Select
+              value={mediaType}
+              onValueChange={(v) => setMediaType((v as PropertyMediaKind) ?? "image")}
+            >
               <SelectTrigger className="h-10 w-full">
                 <SelectValue>{(value: string | null) => (value === "video" ? "Video" : "Image")}</SelectValue>
               </SelectTrigger>
@@ -182,16 +314,6 @@ export function MediaTab() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="mediaDescription">Description</Label>
-            <Input
-              id="mediaDescription"
-              placeholder="e.g. Deluxe room with king bed and city view"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
           <div className="sm:col-span-2">
             <input
               ref={inputRef}
@@ -199,19 +321,27 @@ export function MediaTab() {
               accept={mediaType === "video" ? "video/*" : "image/*"}
               multiple
               className="hidden"
+              disabled={uploading}
               onChange={(e) => {
-                handleFiles(e.target.files);
+                void handleFiles(e.target.files);
                 e.target.value = "";
               }}
             />
             <button
               type="button"
+              disabled={uploading}
               onClick={() => inputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/30"
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Upload className="h-6 w-6 text-muted-foreground" />
+              {uploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                <Upload className="h-6 w-6 text-muted-foreground" />
+              )}
               <p className="text-sm font-medium">
-                Click to upload {mediaType === "video" ? "videos" : "photos"}
+                {uploading
+                  ? "Uploading…"
+                  : `Click to upload ${mediaType === "video" ? "videos" : "photos"} — select multiple files at once`}
               </p>
               <p className="text-xs text-muted-foreground">
                 Tagged as <span className="font-medium text-foreground">{imageType}</span> — or drag and drop
@@ -220,139 +350,316 @@ export function MediaTab() {
           </div>
         </div>
 
-        {items.length > 0 ? (
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading media…</p>
+        ) : items.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {items.map((item, i) => (
-              <div key={item.id} className="group relative overflow-hidden rounded-lg border border-border">
-                <div className="relative aspect-square">
-                  {item.mediaType === "video" ? (
-                    <video src={item.url} className="h-full w-full object-cover" muted controls />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
-                  )}
-                  {i === 0 && (
-                    <Badge className="absolute left-1.5 top-1.5" variant="default">
-                      Cover
-                    </Badge>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.id)}
-                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                    aria-label="Remove media"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="space-y-1 p-2">
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary">{item.imageType}</Badge>
-                    <Badge variant="outline" className="capitalize">
-                      {item.mediaType}
-                    </Badge>
+            {items.map((item) => {
+              const busy = busyIds.has(item.id);
+              return (
+                <div key={item.id} className="group relative overflow-hidden rounded-lg border border-border">
+                  <div className="relative aspect-square">
+                    {item.mediaType === "video" ? (
+                      <video src={item.url} className="h-full w-full object-cover" muted controls />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.url} alt={item.fileName ?? ""} className="h-full w-full object-cover" />
+                    )}
+                    {item.isCover && (
+                      <Badge className="absolute left-1.5 top-1.5" variant="default">
+                        Cover
+                      </Badge>
+                    )}
+                    <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      {!item.isCover && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void makeCover(item.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-50"
+                          aria-label="Make cover image"
+                          title="Make cover image"
+                        >
+                          <Star className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void removeItem(item.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-50"
+                        aria-label="Remove media"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  {item.description && (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
-                  )}
+                  <div className="space-y-1.5 p-2">
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="secondary">{item.imageType}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {item.mediaType}
+                      </Badge>
+                    </div>
+                    <Textarea
+                      rows={2}
+                      placeholder="Add a description…"
+                      value={item.description ?? ""}
+                      onChange={(e) => updateDescriptionLocal(item.id, e.target.value)}
+                      className="min-h-0 resize-none text-xs"
+                    />
+                    {dirtyIds.has(item.id) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 w-full text-xs"
+                        disabled={busy}
+                        onClick={() => void saveDescription(item.id, item.description ?? "")}
+                      >
+                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save description
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No media added yet. The first photo becomes the cover.</p>
+          <p className="text-sm text-muted-foreground">No media added yet. The first upload becomes the cover.</p>
         )}
-        <SaveSectionButton label="Media" />
       </div>
     </Section>
   );
 }
 
-const AMENITY_GROUPS: { label: string; options: { id: string; label: string; icon?: React.ComponentType<{ className?: string }> }[] }[] = [
-  {
-    label: "General",
-    options: [
-      { id: "wifi", label: "Free WiFi", icon: Wifi },
-      { id: "ac", label: "Air Conditioning" },
-      { id: "frontdesk", label: "24-Hour Front Desk", icon: Clock },
-      { id: "nonsmoking", label: "Non-Smoking Rooms" },
-      { id: "elevator", label: "Elevator" },
-    ],
-  },
-  {
-    label: "Recreation",
-    options: [
-      { id: "pool", label: "Swimming Pool" },
-      { id: "gym", label: "Fitness Center", icon: Dumbbell },
-      { id: "spa", label: "Spa", icon: Sparkles },
-      { id: "bar", label: "Bar" },
-    ],
-  },
-  {
-    label: "Dining",
-    options: [
-      { id: "restaurant", label: "Restaurant", icon: UtensilsCrossed },
-      { id: "roomservice", label: "Room Service" },
-      { id: "breakfast", label: "Breakfast Included" },
-    ],
-  },
-  {
-    label: "Convenience",
-    options: [
-      { id: "parking", label: "Parking", icon: ParkingCircle },
-      { id: "shuttle", label: "Airport Shuttle" },
-      { id: "laundry", label: "Laundry Service" },
-      { id: "concierge", label: "Concierge" },
-      { id: "petfriendly", label: "Pet Friendly", icon: PawPrint },
-    ],
-  },
-];
+type LinkableOption = {
+  id: number;
+  name: string;
+  icon: string | null;
+  categoryName?: string;
+};
 
-export function AmenitiesTab() {
-  const [selected, setSelected] = useState<string[]>(["wifi", "ac", "pool"]);
+/** Grouped checkbox picker for a linked master (Amenity/Facility), grouped by category. */
+function GroupedLinkPicker({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: LinkableOption[];
+  selected: Set<number>;
+  onToggle: (id: number) => void;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, LinkableOption[]>();
+    for (const opt of options) {
+      const key = opt.categoryName ?? "Other";
+      const list = map.get(key) ?? [];
+      list.push(opt);
+      map.set(key, list);
+    }
+    return [...map.entries()];
+  }, [options]);
+
   return (
-    <Section icon={Sparkles} title="Amenities" description="Guest-facing amenities shown on the property page.">
-      <div className="space-y-5">
-        <PreviewNotice />
-        {AMENITY_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-2">
-            <Label>{group.label}</Label>
-            <ChipToggleGroup
-              options={group.options}
-              value={selected}
-              onChange={setSelected}
-            />
+    <div className="space-y-4">
+      {groups.map(([category, items]) => (
+        <div key={category} className="space-y-2">
+          <Label>{category}</Label>
+          <div className="flex flex-wrap gap-2">
+            {items.map((item) => {
+              const checked = selected.has(item.id);
+              const Icon = item.icon ? ICONS[item.icon] : undefined;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onToggle(item.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    checked
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <Checkbox checked={checked} onCheckedChange={() => onToggle(item.id)} />
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {item.name}
+                </button>
+              );
+            })}
           </div>
-        ))}
-        <SaveSectionButton label="Amenities" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Amenities tab — selects from the real Amenity master, persisted via PropertyAmenity links. */
+export function AmenitiesTab({ propertyId, actorKey }: { propertyId: number; actorKey: number }) {
+  const [options, setOptions] = useState<LinkableOption[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([listAmenities({ activeOnly: true }), listPropertyAmenities(propertyId)])
+      .then(([amenities, linked]) => {
+        if (cancelled) return;
+        setOptions(
+          amenities.map((a) => ({ id: a.amenityKey, name: a.name, icon: a.icon, categoryName: a.categoryName }))
+        );
+        setSelected(new Set(linked.map((l) => l.amenityId)));
+        setDirty(false);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(error instanceof PropertyAmenitiesApiError ? error.message : "Failed to load amenities");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId]);
+
+  function toggle(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await savePropertyAmenities(propertyId, [...selected]);
+      setDirty(false);
+      toast.success("Amenities saved");
+    } catch (error) {
+      toast.error(error instanceof PropertyAmenitiesApiError ? error.message : "Could not save amenities");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      icon={Sparkles}
+      title="Amenities"
+      description="Guest-facing amenities offered by this property, selected from the Amenity master."
+    >
+      <div className="space-y-5">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading amenities…</p>
+        ) : options.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No amenities defined yet — add them under Masters → Amenity.
+          </p>
+        ) : (
+          <GroupedLinkPicker options={options} selected={selected} onToggle={toggle} />
+        )}
+        <Button type="button" size="sm" disabled={saving || !dirty} onClick={() => void handleSave()}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save amenities
+        </Button>
       </div>
     </Section>
   );
 }
 
-const FACILITY_OPTIONS = [
-  { id: "conference", label: "Conference Room" },
-  { id: "banquet", label: "Banquet Hall" },
-  { id: "business", label: "Business Center" },
-  { id: "kidsclub", label: "Kids Club" },
-  { id: "rooftop", label: "Rooftop Terrace" },
-  { id: "garden", label: "Garden" },
-  { id: "evcharging", label: "EV Charging Station" },
-  { id: "wheelchair", label: "Wheelchair Accessible" },
-  { id: "luggage", label: "Luggage Storage" },
-  { id: "currency", label: "Currency Exchange" },
-  { id: "atm", label: "ATM on Site" },
-  { id: "giftshop", label: "Gift Shop" },
-];
+/** Facilities tab — selects from the real Facility master, persisted via PropertyFacility links. */
+export function FacilitiesTab({ propertyId, actorKey }: { propertyId: number; actorKey: number }) {
+  const [options, setOptions] = useState<LinkableOption[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
-export function FacilitiesTab() {
-  const [selected, setSelected] = useState<string[]>(["business", "wheelchair"]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([listFacilities({ activeOnly: true }), listPropertyFacilities(propertyId)])
+      .then(([facilities, linked]) => {
+        if (cancelled) return;
+        setOptions(
+          facilities.map((f) => ({ id: f.facilityKey, name: f.name, icon: f.icon, categoryName: f.categoryName }))
+        );
+        setSelected(new Set(linked.map((l) => l.facilityId)));
+        setDirty(false);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(error instanceof PropertyFacilitiesApiError ? error.message : "Failed to load facilities");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId]);
+
+  function toggle(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await savePropertyFacilities(propertyId, [...selected]);
+      setDirty(false);
+      toast.success("Facilities saved");
+    } catch (error) {
+      toast.error(error instanceof PropertyFacilitiesApiError ? error.message : "Could not save facilities");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <Section icon={Wrench} title="Facilities" description="On-site facilities available to guests and events.">
-      <div className="space-y-4">
-        <PreviewNotice />
-        <ChipToggleGroup options={FACILITY_OPTIONS} value={selected} onChange={setSelected} />
-        <SaveSectionButton label="Facilities" />
+    <Section
+      icon={Wrench}
+      title="Facilities"
+      description="On-site facilities offered by this property, selected from the Facility master."
+    >
+      <div className="space-y-5">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading facilities…</p>
+        ) : options.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No facilities defined yet — add them under Masters → Facility.
+          </p>
+        ) : (
+          <GroupedLinkPicker options={options} selected={selected} onToggle={toggle} />
+        )}
+        <Button type="button" size="sm" disabled={saving || !dirty} onClick={() => void handleSave()}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save facilities
+        </Button>
       </div>
     </Section>
   );

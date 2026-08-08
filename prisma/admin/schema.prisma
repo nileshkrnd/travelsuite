@@ -179,9 +179,10 @@ model State {
   @@map("State")
 }
 
-/// Area type lookup (Residential, Commercial, Industrial, …). Global.
+/// Area type lookup (Residential, Commercial, Industrial, …) — also used to categorize nearby points of interest (Airport, Mall, Beach, …). Global.
 model AreaType {
   areaTypeId   Int       @id @default(autoincrement()) @map("AreaTypeID")
+  areaTypeCode String    @unique @map("AreaTypeCode") @db.VarChar(50)
   areaTypeName String    @unique @map("AreaTypeName") @db.VarChar(150)
   isActive     Boolean   @default(true) @map("IsActive")
   createdBy    Int       @map("CreatedBy")
@@ -440,6 +441,168 @@ model SupplierType {
   @@map("SupplierType")
 }
 
+/// Amenity/Facility Category master — classifies amenities & facilities as Property, Room, or Both. Global.
+model AmenityFacilityCategory {
+  amenityFacilityCategoryId BigInt    @id @default(autoincrement()) @map("AmenityFacilityCategoryID")
+  categoryCode              String    @unique @map("CategoryCode") @db.VarChar(50)
+  categoryName              String    @map("CategoryName") @db.VarChar(150)
+  /// PROPERTY | ROOM | BOTH
+  applicableTo              String    @map("ApplicableTo") @db.VarChar(50)
+  description               String?   @map("Description") @db.Text
+  displayOrder              Int       @default(0) @map("DisplayOrder")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted                 Boolean   @default(false) @map("IsDeleted")
+
+  amenities  Amenity[]
+  facilities Facility[]
+
+  @@map("AmenityFacilityCategoryMaster")
+}
+
+/// Amenity master — individual amenities/facilities (WiFi, TV, Mini Bar, …), grouped under a category. Global.
+model Amenity {
+  amenityId                 BigInt    @id @default(autoincrement()) @map("AmenityID")
+  amenityFacilityCategoryId BigInt    @map("AmenityFacilityCategoryID")
+  amenityCode               String    @unique @map("AmenityCode") @db.VarChar(50)
+  amenityName               String    @map("AmenityName") @db.VarChar(250)
+  description               String?   @map("Description") @db.Text
+  icon                      String?   @map("Icon") @db.VarChar(255)
+  isFilterable              Boolean   @default(false) @map("IsFilterable")
+  displayOrder              Int       @default(0) @map("DisplayOrder")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted                 Boolean   @default(false) @map("IsDeleted")
+
+  category      AmenityFacilityCategory @relation(fields: [amenityFacilityCategoryId], references: [amenityFacilityCategoryId], onDelete: Restrict)
+  propertyLinks PropertyAmenity[]
+
+  @@index([amenityFacilityCategoryId], map: "Amenity_AmenityFacilityCategoryID_idx")
+  @@map("AmenityMaster")
+}
+
+/// Facility master — property-level facilities (Restaurant, Gym, Spa, Parking, …), grouped under a category. Global.
+model Facility {
+  facilityId                BigInt    @id @default(autoincrement()) @map("FacilityID")
+  amenityFacilityCategoryId BigInt    @map("AmenityFacilityCategoryID")
+  facilityCode              String    @unique @map("FacilityCode") @db.VarChar(50)
+  facilityName              String    @map("FacilityName") @db.VarChar(250)
+  description               String?   @map("Description") @db.Text
+  icon                      String?   @map("Icon") @db.VarChar(255)
+  isFilterable              Boolean   @default(false) @map("IsFilterable")
+  displayOrder              Int       @default(0) @map("DisplayOrder")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted                 Boolean   @default(false) @map("IsDeleted")
+
+  category      AmenityFacilityCategory @relation(fields: [amenityFacilityCategoryId], references: [amenityFacilityCategoryId], onDelete: Restrict)
+  propertyLinks PropertyFacility[]
+
+  @@index([amenityFacilityCategoryId], map: "Facility_AmenityFacilityCategoryID_idx")
+  @@map("FacilityMaster")
+}
+
+/// Room Category master — Standard, Superior, Deluxe, Executive, Suite, Villa, … Global.
+model RoomCategory {
+  roomCategoryId   BigInt    @id @default(autoincrement()) @map("RoomCategoryID")
+  roomCategoryCode String    @unique @map("RoomCategoryCode") @db.VarChar(50)
+  roomCategoryName String    @map("RoomCategoryName") @db.VarChar(200)
+  description      String?   @map("Description") @db.Text
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted        Boolean   @default(false) @map("IsDeleted")
+
+  roomTypes RoomType[]
+
+  @@map("RoomCategoryMaster")
+}
+
+/// Room Type master — individual room types (Standard King Room, Deluxe Sea View Room, …), grouped under a Room Category. Global.
+model RoomType {
+  roomTypeId     BigInt    @id @default(autoincrement()) @map("RoomTypeID")
+  roomCategoryId BigInt    @map("RoomCategoryID")
+  roomTypeCode   String    @unique @map("RoomTypeCode") @db.VarChar(50)
+  roomTypeName   String    @map("RoomTypeName") @db.VarChar(200)
+  description    String?   @map("Description") @db.Text
+  displayOrder   Int       @default(0) @map("DisplayOrder")
+  isActive       Boolean   @default(true) @map("IsActive")
+  createdBy      Int       @map("CreatedBy")
+  createdDtTm    DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy     Int?      @map("ModifiedBy")
+  modifiedDtTm   DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted      Boolean   @default(false) @map("IsDeleted")
+
+  category RoomCategory @relation(fields: [roomCategoryId], references: [roomCategoryId], onDelete: Restrict)
+
+  @@index([roomCategoryId], map: "RoomType_RoomCategoryID_idx")
+  @@map("RoomTypeMaster")
+}
+
+/// Bed Type master — Single, Twin, Double, Queen, King, Sofa Bed, … Global.
+model BedType {
+  bedTypeId    BigInt    @id @default(autoincrement()) @map("BedTypeID")
+  bedTypeCode  String    @unique @map("BedTypeCode") @db.VarChar(50)
+  bedTypeName  String    @map("BedTypeName") @db.VarChar(200)
+  bedSize      String?   @map("BedSize") @db.VarChar(50)
+  description  String?   @map("Description") @db.Text
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted    Boolean   @default(false) @map("IsDeleted")
+
+  @@map("BedTypeMaster")
+}
+
+/// Smoking Type master — Non Smoking, Smoking Allowed, Balcony Smoking, … Global.
+model SmokingType {
+  smokingTypeId   BigInt    @id @default(autoincrement()) @map("SmokingTypeID")
+  smokingTypeCode String    @unique @map("SmokingTypeCode") @db.VarChar(50)
+  smokingTypeName String    @map("SmokingTypeName") @db.VarChar(200)
+  description     String?   @map("Description") @db.Text
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted       Boolean   @default(false) @map("IsDeleted")
+
+  @@map("SmokingTypeMaster")
+}
+
+/// View Type master — City, Sea, Pool, Garden, Beach, Mountain, Desert, Landmark View, … Global.
+model ViewType {
+  viewTypeId   BigInt    @id @default(autoincrement()) @map("ViewTypeID")
+  viewTypeCode String    @unique @map("ViewTypeCode") @db.VarChar(50)
+  viewTypeName String    @map("ViewTypeName") @db.VarChar(200)
+  description  String?   @map("Description") @db.Text
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted    Boolean   @default(false) @map("IsDeleted")
+
+  @@map("ViewTypeMaster")
+}
+
 /// Company master — scoped by TenantID (tenant workspace Administration).
 model Company {
   companyId                  Int       @id @default(autoincrement()) @map("CompanyID")
@@ -561,10 +724,11 @@ model PropertyBrand {
 }
 
 /// Property master — scoped by TenantID + CompanyID.
+/// Global property master. TenantID/CompanyID = NULL means a globally-managed property (Super Admin owned, e.g. a major hotel chain); a real TenantID/CompanyID means a property a tenant registered for itself.
 model Property {
   propertyId          Int       @id @default(autoincrement()) @map("PropertyID")
-  tenantId            Int       @map("TenantID")
-  companyId           Int       @map("CompanyID")
+  tenantId            Int?      @map("TenantID")
+  companyId           Int?      @map("CompanyID")
   propertyCode        String    @map("PropertyCode") @db.VarChar(50)
   propertyName        String?   @map("PropertyName") @db.VarChar(250)
   propertyDisplayName String?   @map("PropertyDisplayName") @db.VarChar(250)
@@ -620,6 +784,9 @@ model Property {
   propertyBrand PropertyBrand?         @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
   country       Country                @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
   city          City?                  @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  media         PropertyMedia[]
+  amenityLinks  PropertyAmenity[]
+  facilityLinks PropertyFacility[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -630,6 +797,32 @@ model Property {
   @@index([cityId], map: "Property_CityID_idx")
   @@index([createdDtTm], map: "Property_CreatedDtTm_idx")
   @@map("Property")
+}
+
+/// Property media (photos/videos), attached to a Property. One row per property may be marked the cover image (enforced by a partial unique index in the migration).
+model PropertyMedia {
+  propertyMediaId BigInt    @id @default(autoincrement()) @map("PropertyMediaID")
+  propertyId      Int       @map("PropertyID")
+  /// image | video
+  mediaType       String    @map("MediaType") @db.VarChar(20)
+  /// Rooms | Bathroom | Amenities | Pool | Common Areas | Dining | Others
+  imageType       String    @map("ImageType") @db.VarChar(50)
+  mediaUrl        String    @map("MediaUrl") @db.VarChar(500)
+  fileName        String?   @map("FileName") @db.VarChar(255)
+  description     String?   @map("Description") @db.Text
+  isCover         Boolean   @default(false) @map("IsCover")
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted       Boolean   @default(false) @map("IsDeleted")
+
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+
+  @@index([propertyId], map: "PropertyMedia_PropertyID_idx")
+  @@map("PropertyMediaMaster")
 }
 
 /// Many-to-many: Property ↔ PropertyType.
@@ -656,6 +849,32 @@ model PropertyCategoryLink {
   @@id([propertyId, propertyCategoryId], map: "PropertyCategoryLink_pkey")
   @@index([propertyCategoryId], map: "PropertyCategoryLink_PropertyCategoryID_idx")
   @@map("PropertyCategoryLink")
+}
+
+/// Many-to-many: Property ↔ Amenity — which amenities (from the Amenity master) this property offers.
+model PropertyAmenity {
+  propertyId Int    @map("PropertyID")
+  amenityId  BigInt @map("AmenityID")
+
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  amenity  Amenity  @relation(fields: [amenityId], references: [amenityId], onDelete: Cascade)
+
+  @@id([propertyId, amenityId], map: "PropertyAmenityLink_pkey")
+  @@index([amenityId], map: "PropertyAmenityLink_AmenityID_idx")
+  @@map("PropertyAmenityLink")
+}
+
+/// Many-to-many: Property ↔ Facility — which facilities (from the Facility master) this property offers.
+model PropertyFacility {
+  propertyId Int    @map("PropertyID")
+  facilityId BigInt @map("FacilityID")
+
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [facilityId], onDelete: Cascade)
+
+  @@id([propertyId, facilityId], map: "PropertyFacilityLink_pkey")
+  @@index([facilityId], map: "PropertyFacilityLink_FacilityID_idx")
+  @@map("PropertyFacilityLink")
 }
 
 /// Branch Type master — Super Admin / Tenant Configuration only (e.g. Head Office, Branch Office).
