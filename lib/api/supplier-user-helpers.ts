@@ -23,8 +23,13 @@ export async function validateSupplierUserLookups(data: {
   });
   if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 400 });
 
+  // CompanyID = 0 is a tenant-wide sentinel (matches User.companyId's convention) — such roles apply to every company.
   const accessRole = await prisma.accessRole.findFirst({
-    where: { accessRoleId: data.accessRoleId, tenantId: supplier.tenantId, companyId: supplier.companyId },
+    where: {
+      accessRoleId: data.accessRoleId,
+      tenantId: supplier.tenantId,
+      companyId: { in: [0, supplier.companyId] },
+    },
   });
   if (!accessRole) {
     return NextResponse.json({ error: "Access role not found for this supplier's company" }, { status: 400 });

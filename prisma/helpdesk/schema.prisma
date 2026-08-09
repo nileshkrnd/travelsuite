@@ -28,6 +28,8 @@ model HelpdeskMailbox {
   /// AES-GCM encrypted JSON credentials (never returned to the client).
   credentialsEnc    String?   @map("CredentialsEnc") @db.Text
   lastSyncAt        DateTime? @map("LastSyncAt") @db.Timestamptz(6)
+  /// Last sync error message (cleared on successful sync).
+  lastSyncError     String?   @map("LastSyncError") @db.VarChar(1000)
   /// Graph delta link for incremental mail sync (optional).
   lastDeltaLink     String?   @map("LastDeltaLink") @db.Text
   createdBy         Int?      @map("CreatedBy")

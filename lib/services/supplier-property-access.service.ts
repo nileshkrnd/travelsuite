@@ -57,6 +57,12 @@ export async function listSupplierPropertyAccess(options?: {
   return ((await res.json()) as SupplierPropertyAccessRow[]).map(toAppSupplierPropertyAccess);
 }
 
+export async function getSupplierPropertyAccess(supplierPropertyAccessId: number): Promise<SupplierPropertyAccess> {
+  const res = await fetch(`/api/supplier-property-access/${supplierPropertyAccessId}`, { cache: "no-store" });
+  if (!res.ok) throw new SupplierPropertyAccessApiError(await parseError(res), res.status);
+  return toAppSupplierPropertyAccess(await res.json());
+}
+
 export async function createSupplierPropertyAccess(
   input: SupplierPropertyAccessWriteInput & { createdBy: number }
 ): Promise<SupplierPropertyAccess> {

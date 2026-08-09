@@ -103,6 +103,10 @@ import {
   Award,
   LogOut,
   Eye,
+  Mail,
+  MessagesSquare,
+  Phone,
+  CircleDot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -215,6 +219,10 @@ export const ICONS: Record<string, LucideIcon> = {
   Award,
   LogOut,
   Eye,
+  Mail,
+  MessagesSquare,
+  Phone,
+  CircleDot,
 };
 
 /** Sorted icon names available for MenuIcon and similar DB/config fields. */

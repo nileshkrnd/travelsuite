@@ -1,4 +1,5 @@
 import { getAdminDb, getHelpdeskDb } from "@/lib/db";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
 
 export type HelpdeskEmailSyncResult = {
   provider: string;
@@ -65,7 +66,10 @@ export async function ensureHelpdeskMailbox(input: {
   isShared?: boolean;
 }) {
   const db = getHelpdeskDb();
-  const address = input.address.trim().toLowerCase();
+  const address =
+    input.provider === "whatsapp"
+      ? normalizeWhatsAppPhone(input.address)
+      : input.address.trim().toLowerCase();
   return db.helpdeskMailbox.upsert({
     where: {
       tenantId_mailboxAddress: { tenantId: input.tenantId, mailboxAddress: address },
@@ -88,8 +92,11 @@ export async function ingestInboundEmails(input: {
   mailboxAddress: string;
   tenantId: number;
   messages: InboundEmailMessage[];
+  /** Defaults to email. Use whatsapp for WhatsApp Cloud API ingest. */
+  channel?: string;
 }): Promise<HelpdeskEmailSyncResult> {
   const db = getHelpdeskDb();
+  const channel = (input.channel || "email").trim().toLowerCase() || "email";
   const result: HelpdeskEmailSyncResult = {
     provider: input.provider,
     mailbox: input.mailboxAddress,
@@ -132,12 +139,6 @@ export async function ingestInboundEmails(input: {
             })
           : null;
 
-      // Fallback: match by In-Reply-To / References already resolved into conversationId by provider.
-      // If still no thread, try finding prior message by internetMessageId referenced as conversation.
-      if (!ticket && msg.internetMessageId) {
-        // no-op — providers should set conversationId
-      }
-
       if (!ticket) {
         const ticketNumber = await nextTicketNumber(input.tenantId);
         ticket = await db.helpdeskTicket.create({
@@ -148,7 +149,7 @@ export async function ingestInboundEmails(input: {
             subject,
             status: "open",
             priority: "normal",
-            channel: "email",
+            channel,
             requesterName: msg.fromName,
             requesterEmail: msg.fromEmail,
             conversationId,
@@ -162,7 +163,7 @@ export async function ingestInboundEmails(input: {
           where: { ticketId: ticket.ticketId },
           data: {
             lastMessageAt: msg.receivedAt,
-            status: ticket.status === "closed" ? "open" : ticket.status,
+            status: ticket.status === "closed" || ticket.status === "resolved" ? "open" : ticket.status,
             modifiedDtTm: new Date(),
           },
         });
@@ -192,7 +193,11 @@ export async function ingestInboundEmails(input: {
 
   await db.helpdeskMailbox.update({
     where: { mailboxId: mailboxRow.mailboxId },
-    data: { lastSyncAt: new Date(), modifiedDtTm: new Date() },
+    data: {
+      lastSyncAt: new Date(),
+      lastSyncError: null,
+      modifiedDtTm: new Date(),
+    },
   });
 
   return result;

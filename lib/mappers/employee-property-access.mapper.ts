@@ -1,11 +1,11 @@
-import type { EmployeePropertyAccess } from "@/types";
+import type { EmployeePropertyGrant } from "@/types";
 
 export interface EmployeePropertyAccessRow {
   employeePropertyAccessId: bigint | number;
   tenantId: number;
   companyId: number;
   employeeId: number;
-  propertyId: number;
+  propertyId: number | null;
   canView: boolean;
   canCreate: boolean;
   canEdit: boolean;
@@ -30,28 +30,47 @@ function toDateOnly(value: Date | string | null): string | null {
   return iso.slice(0, 10);
 }
 
-export function toAppEmployeePropertyAccess(row: EmployeePropertyAccessRow): EmployeePropertyAccess {
-  return {
-    id: String(row.employeePropertyAccessId),
-    employeePropertyAccessKey: Number(row.employeePropertyAccessId),
-    tenantKey: row.tenantId,
-    companyKey: row.companyId,
-    employeeId: row.employeeId,
-    employeeName: row.employee
-      ? `${row.employee.title} ${row.employee.firstName} ${row.employee.lastName}`.trim()
-      : undefined,
-    propertyId: row.propertyId,
-    propertyCode: row.property?.propertyCode,
-    propertyName: row.property?.propertyName ?? undefined,
-    canView: row.canView,
-    canCreate: row.canCreate,
-    canEdit: row.canEdit,
-    canSubmit: row.canSubmit,
-    canApprove: row.canApprove,
-    isActive: row.isActive,
-    validFrom: toDateOnly(row.validFrom),
-    validTo: toDateOnly(row.validTo),
-    createdBy: row.createdBy,
-    createdAt: toIso(row.createdDtTm),
-  };
+/** Groups the flat per-row rows (one row per property, or one NULL-property row) into one grant per employee. */
+export function toAppEmployeePropertyGrants(rows: EmployeePropertyAccessRow[]): EmployeePropertyGrant[] {
+  const byEmployee = new Map<number, EmployeePropertyAccessRow[]>();
+  for (const row of rows) {
+    const list = byEmployee.get(row.employeeId);
+    if (list) list.push(row);
+    else byEmployee.set(row.employeeId, [row]);
+  }
+
+  return [...byEmployee.entries()].map(([employeeId, group]) => {
+    const first = group[0]!;
+    const allRow = group.find((r) => r.propertyId == null);
+    const isAllProperties = !!allRow;
+    const flagsSource = allRow ?? first;
+    return {
+      employeeId,
+      employeeName: first.employee
+        ? `${first.employee.title} ${first.employee.firstName} ${first.employee.lastName}`.trim()
+        : undefined,
+      tenantKey: first.tenantId,
+      companyKey: first.companyId,
+      isAllProperties,
+      properties: isAllProperties
+        ? []
+        : group
+            .filter((r) => r.propertyId != null)
+            .map((r) => ({
+              propertyId: r.propertyId as number,
+              propertyCode: r.property?.propertyCode,
+              propertyName: r.property?.propertyName ?? undefined,
+            })),
+      canView: flagsSource.canView,
+      canCreate: flagsSource.canCreate,
+      canEdit: flagsSource.canEdit,
+      canSubmit: flagsSource.canSubmit,
+      canApprove: flagsSource.canApprove,
+      isActive: flagsSource.isActive,
+      validFrom: toDateOnly(flagsSource.validFrom),
+      validTo: toDateOnly(flagsSource.validTo),
+      createdBy: flagsSource.createdBy,
+      createdAt: toIso(flagsSource.createdDtTm),
+    };
+  });
 }

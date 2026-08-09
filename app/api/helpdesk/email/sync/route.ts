@@ -26,9 +26,15 @@ export async function POST(request: Request) {
       body && typeof body === "object" && "tenantId" in body
         ? Number((body as { tenantId?: number }).tenantId)
         : undefined;
+    const modeRaw =
+      body && typeof body === "object" && "mode" in body
+        ? String((body as { mode?: string }).mode ?? "")
+        : "";
+    const mode = modeRaw === "quick" ? "quick" : "full";
 
     const result = await syncHelpdeskMailboxToTickets({
       tenantId: Number.isFinite(tenantId) && (tenantId as number) > 0 ? tenantId : undefined,
+      mode,
     });
     return NextResponse.json(result);
   } catch (error) {

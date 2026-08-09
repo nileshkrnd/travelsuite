@@ -45,6 +45,7 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "administration/exchange-rate": ["Travel"],
   "administration/employees": ["Travel", "HRMS (Human Resource Management System)"],
   "masters/employee": ["Travel", "HRMS (Human Resource Management System)"],
+  "masters/employee-property-access": ["Travel", "Real Estate"],
   "administration/employee-gds-sign": ["Travel"],
   "administration/customers": ["Travel"],
   "administration/customers/cash": ["Travel"],
@@ -52,9 +53,12 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "masters/subAgency": ["Travel"],
   "administration/suppliers": ["Travel"],
   "masters/supplier": ["Travel"],
+  "masters/supplier-user": ["Travel"],
+  "masters/supplier-property-access": ["Travel", "Real Estate"],
   "administration/credit-control": ["Travel"],
-  "administration/product": ["Travel", "Real Estate"],
+  "administration/property": ["Travel", "Real Estate"],
   "masters/property": ["Travel", "Real Estate"],
+  "masters/property-supplier": ["Travel", "Real Estate"],
 };
 
 export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
@@ -127,6 +131,11 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           children: [
             { name: "Employee", url: "masters/employee", icon: "UserCog" },
             {
+              name: "Employee Property Access",
+              url: "masters/employee-property-access",
+              icon: "ShieldCheck",
+            },
+            {
               name: "Employee GDS Sign",
               url: "administration/employee-gds-sign",
               icon: "KeyRound",
@@ -149,6 +158,12 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           icon: "Store",
           children: [
             { name: "Supplier", url: "masters/supplier", icon: "Store" },
+            { name: "Supplier User", url: "masters/supplier-user", icon: "UserPlus" },
+            {
+              name: "Supplier Property Access",
+              url: "masters/supplier-property-access",
+              icon: "ShieldCheck",
+            },
           ],
         },
         {
@@ -157,10 +172,13 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           icon: "CreditCard",
         },
         {
-          name: "Product",
-          url: "administration/product",
-          icon: "Package",
-          children: [{ name: "Property", url: "masters/property", icon: "Building" }],
+          name: "Property",
+          url: "administration/property",
+          icon: "Building",
+          children: [
+            { name: "Property", url: "masters/property", icon: "Building" },
+            { name: "Property Supplier", url: "masters/property-supplier", icon: "Store" },
+          ],
         },
       ],
     },
@@ -555,9 +573,39 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       url: "helpdesk",
       icon: "Headphones",
       children: [
-        { name: "Helpdesk Dashboard", url: "helpdesk/dashboard", icon: "LayoutDashboard" },
-        { name: "Support Tickets", url: "helpdesk/tickets", icon: "Ticket" },
-        { name: "Support Mailboxes", url: "helpdesk/mailboxes", icon: "Inbox" },
+        { name: "Dashboard", url: "helpdesk/dashboard", icon: "LayoutDashboard" },
+        {
+          name: "Tickets",
+          url: "helpdesk/tickets",
+          icon: "Ticket",
+          children: [
+            { name: "All", url: "helpdesk/tickets?status=all", icon: "ListOrdered" },
+            { name: "Open", url: "helpdesk/tickets?status=open", icon: "CircleDot" },
+            { name: "Pending", url: "helpdesk/tickets?status=pending", icon: "Hourglass" },
+            { name: "Resolved", url: "helpdesk/tickets?status=resolved", icon: "CheckCircle2" },
+            { name: "Closed", url: "helpdesk/tickets?status=closed", icon: "XCircle" },
+          ],
+        },
+        { name: "Email", url: "helpdesk/email", icon: "Mail" },
+        { name: "WhatsApp", url: "helpdesk/whatsapp", icon: "Smartphone" },
+        { name: "Conversations", url: "helpdesk/conversations", icon: "MessagesSquare" },
+        { name: "SLA", url: "helpdesk/sla", icon: "Clock" },
+        { name: "Automation", url: "helpdesk/automation", icon: "Workflow" },
+        { name: "Canned Responses", url: "helpdesk/canned-responses", icon: "ScrollText" },
+        { name: "Templates", url: "helpdesk/templates", icon: "FileText" },
+        { name: "Knowledge Base", url: "helpdesk/knowledge-base", icon: "BookOpen" },
+        { name: "Reports", url: "helpdesk/reports", icon: "BarChart3" },
+        {
+          name: "Channel Configuration",
+          url: "helpdesk/channels",
+          icon: "Settings",
+          children: [
+            { name: "Email", url: "helpdesk/mailboxes", icon: "Mail" },
+            { name: "WhatsApp", url: "helpdesk/channels/whatsapp", icon: "Smartphone" },
+            { name: "Web Chat", url: "helpdesk/channels/web-chat", icon: "MessagesSquare" },
+            { name: "SMS", url: "helpdesk/channels/sms", icon: "Phone" },
+          ],
+        },
       ],
     },
   ],

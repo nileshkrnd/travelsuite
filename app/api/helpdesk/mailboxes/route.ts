@@ -4,14 +4,15 @@ import { getHelpdeskDb } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { mergeMailboxCredentials } from "@/lib/helpdesk-credentials";
 import { toAppHelpdeskMailbox } from "@/lib/mappers/helpdesk-mailbox.mapper";
+import { isValidWhatsAppPhone, normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
 
 const createSchema = z
   .object({
     tenantId: z.number().int().positive(),
     companyId: z.number().int().positive().optional().nullable(),
-    mailboxAddress: z.string().trim().email().max(200),
+    mailboxAddress: z.string().trim().max(200),
     displayName: z.string().trim().max(200).optional().nullable(),
-    provider: z.enum(["gmail", "microsoft365"]),
+    provider: z.enum(["gmail", "microsoft365", "whatsapp"]),
     isShared: z.boolean().optional(),
     isActive: z.boolean().optional(),
     syncLookbackHours: z.number().int().min(1).max(8760).optional(),
@@ -23,9 +24,54 @@ const createSchema = z
     ms365TenantId: z.string().trim().max(100).optional().nullable(),
     ms365ClientId: z.string().trim().max(100).optional().nullable(),
     ms365ClientSecret: z.string().trim().max(500).optional().nullable(),
+    waPhoneNumberId: z.string().trim().max(100).optional().nullable(),
+    waBusinessAccountId: z.string().trim().max(100).optional().nullable(),
+    waAccessToken: z.string().trim().max(2000).optional().nullable(),
+    waAppSecret: z.string().trim().max(500).optional().nullable(),
+    waVerifyToken: z.string().trim().max(200).optional().nullable(),
     createdBy: z.number().int().positive().optional(),
   })
   .superRefine((values, ctx) => {
+    if (values.provider === "whatsapp") {
+      if (!isValidWhatsAppPhone(values.mailboxAddress)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["mailboxAddress"],
+          message: "Valid WhatsApp business phone (E.164) is required",
+        });
+      }
+      if (!values.waPhoneNumberId?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["waPhoneNumberId"],
+          message: "WhatsApp Phone Number ID is required",
+        });
+      }
+      if (!values.waAccessToken?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["waAccessToken"],
+          message: "WhatsApp access token is required",
+        });
+      }
+      if (!values.waVerifyToken?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["waVerifyToken"],
+          message: "Webhook verify token is required",
+        });
+      }
+      return;
+    }
+
+    if (!z.string().email().safeParse(values.mailboxAddress).success) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["mailboxAddress"],
+        message: "Valid email is required",
+      });
+    }
+
     if (values.provider === "gmail") {
       if (!values.appPassword?.trim()) {
         ctx.addIssue({
@@ -57,6 +103,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tenantIdParam = searchParams.get("tenantId");
     const activeOnly = searchParams.get("activeOnly") === "true";
+    const provider = searchParams.get("provider")?.trim().toLowerCase() || "";
 
     if (!tenantIdParam) {
       return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
@@ -71,6 +118,7 @@ export async function GET(request: Request) {
       where: {
         tenantId,
         ...(activeOnly ? { isActive: true } : {}),
+        ...(provider ? { provider } : {}),
       },
       include: { _count: { select: { tickets: true } } },
       orderBy: [{ isActive: "desc" }, { mailboxAddress: "asc" }],
@@ -82,7 +130,7 @@ export async function GET(request: Request) {
   }
 }
 
-/** Create a support mailbox (Gmail or Microsoft 365). Multiple per tenant allowed. */
+/** Create a support mailbox (Gmail, Microsoft 365, or WhatsApp). */
 export async function POST(request: Request) {
   try {
     const parsed = createSchema.safeParse(await request.json());
@@ -94,7 +142,11 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
-    const address = data.mailboxAddress.trim().toLowerCase();
+    const address =
+      data.provider === "whatsapp"
+        ? normalizeWhatsAppPhone(data.mailboxAddress)
+        : data.mailboxAddress.trim().toLowerCase();
+
     const providerDefaults =
       data.provider === "gmail"
         ? {
@@ -115,6 +167,11 @@ export async function POST(request: Request) {
       ms365TenantId: data.ms365TenantId ?? undefined,
       ms365ClientId: data.ms365ClientId ?? undefined,
       ms365ClientSecret: data.ms365ClientSecret ?? undefined,
+      waPhoneNumberId: data.waPhoneNumberId ?? undefined,
+      waBusinessAccountId: data.waBusinessAccountId ?? undefined,
+      waAccessToken: data.waAccessToken ?? undefined,
+      waAppSecret: data.waAppSecret ?? undefined,
+      waVerifyToken: data.waVerifyToken ?? undefined,
     });
 
     const db = getHelpdeskDb();
@@ -144,7 +201,12 @@ export async function POST(request: Request) {
         (err as { code?: string }).code === "P2002"
       ) {
         return NextResponse.json(
-          { error: "This mailbox address is already configured for the tenant" },
+          {
+            error:
+              data.provider === "whatsapp"
+                ? "This WhatsApp number is already configured for the tenant"
+                : "This mailbox address is already configured for the tenant",
+          },
           { status: 409 }
         );
       }

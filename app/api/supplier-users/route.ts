@@ -24,10 +24,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const supplierIdParam = searchParams.get("supplierId");
+    const tenantIdParam = searchParams.get("tenantId");
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const where: Prisma.SupplierUserWhereInput = {};
     if (supplierIdParam) where.supplierId = BigInt(supplierIdParam);
+    if (tenantIdParam) {
+      const tenantId = Number(tenantIdParam);
+      if (Number.isFinite(tenantId) && tenantId > 0) {
+        where.supplier = { tenantId, isDeleted: false };
+      }
+    }
     if (activeOnly) where.isActive = true;
 
     const rows = await prisma.supplierUser.findMany({

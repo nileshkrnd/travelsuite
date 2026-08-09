@@ -25,6 +25,23 @@ const patchSchema = z.object({ isActive: z.boolean(), updatedBy: z.number().int(
 
 type RouteContext = { params: Promise<{ supplierUserId: string }> };
 
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const { supplierUserId: raw } = await context.params;
+    const id = idSchema.safeParse(raw);
+    if (!id.success) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+    const row = await prisma.supplierUser.findUnique({
+      where: { supplierUserId: BigInt(id.data) },
+      include: supplierUserInclude,
+    });
+    if (!row) return NextResponse.json({ error: "Supplier user not found" }, { status: 404 });
+    return NextResponse.json(serializeSupplierUserRow(row));
+  } catch (error) {
+    return dbUnavailable(error);
+  }
+}
+
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { supplierUserId: raw } = await context.params;

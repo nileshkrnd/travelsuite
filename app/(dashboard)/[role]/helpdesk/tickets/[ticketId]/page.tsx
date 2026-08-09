@@ -4,8 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { ArrowLeft, Lock, Mail, Send, Ticket } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Clock,
+  Headphones,
+  Lock,
+  Mail,
+  MessageCircle,
+  Send,
+  Ticket,
+} from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -15,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HelpdeskRichComposer, plainTextToHtml } from "@/components/helpdesk/HelpdeskRichComposer";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -26,6 +37,8 @@ import {
   postHelpdeskTicketMessage,
   HelpdeskApiError,
 } from "@/lib/services/helpdesk.service";
+import { applyHelpdeskMacro, HELPDESK_MACROS } from "@/config/helpdesk-macros";
+import { getFirstResponseSla, isPendingOnUs, waitingParty } from "@/lib/helpdesk-queue";
 import { cn } from "@/lib/utils";
 import type { Department, Employee, HelpdeskTicket } from "@/types";
 
@@ -48,7 +61,10 @@ function TicketDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [composerKind, setComposerKind] = useState<"reply" | "note">("reply");
-  const [composerBody, setComposerBody] = useState("");
+  const [composerHtml, setComposerHtml] = useState("<p></p>");
+  const [composerText, setComposerText] = useState("");
+  const [composerContentKey, setComposerContentKey] = useState(0);
+  const [macroSelectKey, setMacroSelectKey] = useState(0);
   const [sending, setSending] = useState(false);
   const [savingProps, setSavingProps] = useState(false);
 
@@ -118,19 +134,23 @@ function TicketDetail() {
   }
 
   async function onSend() {
-    if (!ticket || !composerBody.trim()) {
+    if (!ticket || !composerText.trim()) {
       toast.error("Enter a message");
       return;
     }
+    const isWhatsApp = ticket.channel === "whatsapp";
     setSending(true);
     try {
       const updated = await postHelpdeskTicketMessage(ticket.ticketId, {
         kind: composerKind,
-        bodyText: composerBody.trim(),
+        bodyText: composerText.trim(),
+        bodyHtml: isWhatsApp ? null : composerHtml,
         createdBy: actorKey || undefined,
       });
       setTicket(updated);
-      setComposerBody("");
+      setComposerHtml("<p></p>");
+      setComposerText("");
+      setComposerContentKey((k) => k + 1);
       toast.success(composerKind === "reply" ? "Reply sent" : "Internal note added");
     } catch (err) {
       toast.error(err instanceof HelpdeskApiError ? err.message : "Could not post message");
@@ -161,13 +181,39 @@ function TicketDetail() {
     );
   }
 
+  const currentTicket = ticket;
+  const isWhatsApp = currentTicket.channel === "whatsapp";
   const assigneeOptions = employees.filter((e) => e.userId > 0);
+  const pendingUs = isPendingOnUs(currentTicket);
+  const waiting = waitingParty(currentTicket);
+  const sla = getFirstResponseSla(currentTicket);
+  const agentName = sessionUser?.name ?? "Support";
+
+  function insertMacro(macroId: string) {
+    const macro = HELPDESK_MACROS.find((m) => m.id === macroId);
+    if (!macro) return;
+    const plain = applyHelpdeskMacro(macro.body, {
+      requesterName: currentTicket.requesterName || currentTicket.requesterEmail,
+      ticketNumber: currentTicket.ticketNumber,
+      agentName,
+      subject: currentTicket.subject,
+    });
+    setComposerKind("reply");
+    setComposerText(plain.trim());
+    if (isWhatsApp) {
+      setComposerHtml("<p></p>");
+    } else {
+      setComposerHtml(plainTextToHtml(plain));
+    }
+    setComposerContentKey((k) => k + 1);
+    setMacroSelectKey((k) => k + 1);
+  }
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title={ticket.subject}
-        description={`${ticket.ticketNumber} · ${ticket.requesterEmail ?? "unknown sender"}`}
+        title={currentTicket.subject}
+        description={`${currentTicket.ticketNumber} · ${currentTicket.requesterEmail ?? "unknown sender"}`}
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/helpdesk/tickets`} />}>
             <ArrowLeft className="h-4 w-4" />
@@ -176,22 +222,61 @@ function TicketDetail() {
         }
       />
 
+      <div className="flex flex-wrap gap-2">
+        {isWhatsApp ? (
+          <Badge variant="outline" className="gap-1 border-emerald-600/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200">
+            <MessageCircle className="h-3.5 w-3.5" />
+            WhatsApp
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="gap-1">
+            <Mail className="h-3.5 w-3.5" />
+            Email
+          </Badge>
+        )}
+        {pendingUs && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-amber-600/50 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+          >
+            <Headphones className="h-3.5 w-3.5" />
+            Pending on us
+          </Badge>
+        )}
+        {waiting === "customer" && <Badge variant="secondary">Waiting on customer</Badge>}
+        {sla?.breached ? (
+          <Badge variant="destructive" className="gap-1">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            First-response SLA breached ({sla.hours}h)
+          </Badge>
+        ) : sla && !sla.met ? (
+          <Badge variant="outline" className="gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            First reply due {formatDistanceToNow(sla.dueAt, { addSuffix: true })} ({sla.hours}h SLA)
+          </Badge>
+        ) : null}
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Conversation
             </h2>
-            {(ticket.messages ?? []).length === 0 ? (
+            {(currentTicket.messages ?? []).length === 0 ? (
               <EmptyState
-                icon={Mail}
+                icon={isWhatsApp ? MessageCircle : Mail}
                 tone="muted"
                 heading="No messages"
-                description="No email messages on this ticket yet."
+                description={
+                  isWhatsApp
+                    ? "No WhatsApp messages on this ticket yet."
+                    : "No email messages on this ticket yet."
+                }
                 size="compact"
               />
             ) : (
-              (ticket.messages ?? []).map((msg) => {
+              (currentTicket.messages ?? []).map((msg) => {
                 const isNote = msg.direction === "note" || msg.isInternal;
                 const isOutbound = msg.direction === "outbound";
                 return (
@@ -229,7 +314,7 @@ function TicketDetail() {
                         </div>
                       </div>
                       {msg.subject && !isNote && <p className="text-sm font-medium">{msg.subject}</p>}
-                      {msg.bodyHtml && !isNote ? (
+                      {msg.bodyHtml ? (
                         <div
                           className="prose prose-sm max-w-none text-foreground dark:prose-invert"
                           dangerouslySetInnerHTML={{ __html: msg.bodyHtml }}
@@ -248,14 +333,14 @@ function TicketDetail() {
 
           <Card>
             <CardContent className="space-y-4 pt-5">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant={composerKind === "reply" ? "default" : "outline"}
                   onClick={() => setComposerKind("reply")}
                 >
-                  <Mail className="h-4 w-4" />
+                  {isWhatsApp ? <MessageCircle className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
                   Reply
                 </Button>
                 <Button
@@ -268,20 +353,70 @@ function TicketDetail() {
                   Internal note
                 </Button>
               </div>
-              <Textarea
-                rows={6}
-                placeholder={
-                  composerKind === "reply"
-                    ? "Write a public reply to the requester (sent by email)…"
-                    : "Write an internal note (not emailed)…"
-                }
-                value={composerBody}
-                onChange={(e) => setComposerBody(e.target.value)}
-              />
+              {composerKind === "reply" && (
+                <div className="space-y-2">
+                  <Label>Insert macro</Label>
+                  <Select
+                    key={macroSelectKey}
+                    onValueChange={(v) => {
+                      if (typeof v === "string" && v) insertMacro(v);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:max-w-sm">
+                      <SelectValue placeholder="Choose a starter reply…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HELPDESK_MACROS.map((macro) => (
+                        <SelectItem key={macro.id} value={macro.id}>
+                          {macro.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {isWhatsApp ? (
+                <Textarea
+                  key={`${composerKind}-${composerContentKey}`}
+                  value={composerText}
+                  onChange={(e) => {
+                    setComposerText(e.target.value);
+                    setComposerHtml("<p></p>");
+                  }}
+                  rows={6}
+                  placeholder={
+                    composerKind === "reply"
+                      ? "Write a WhatsApp reply (plain text, max 4096 characters)…"
+                      : "Write an internal note (not sent to the customer)…"
+                  }
+                  className="min-h-32"
+                />
+              ) : (
+                <HelpdeskRichComposer
+                  key={`${composerKind}-${composerContentKey}`}
+                  html={composerHtml}
+                  contentKey={composerContentKey}
+                  onChange={({ html, text }) => {
+                    setComposerHtml(html);
+                    setComposerText(text);
+                  }}
+                  placeholder={
+                    composerKind === "reply"
+                      ? "Write a public reply to the requester (sent by email)…"
+                      : "Write an internal note (not emailed)…"
+                  }
+                />
+              )}
               <div className="flex justify-end">
-                <Button type="button" onClick={() => void onSend()} disabled={sending || !composerBody.trim()}>
+                <Button type="button" onClick={() => void onSend()} disabled={sending || !composerText.trim()}>
                   <Send className="h-4 w-4" />
-                  {sending ? "Sending…" : composerKind === "reply" ? "Send reply" : "Add note"}
+                  {sending
+                    ? "Sending…"
+                    : composerKind === "reply"
+                      ? isWhatsApp
+                        ? "Send WhatsApp"
+                        : "Send reply"
+                      : "Add note"}
                 </Button>
               </div>
             </CardContent>
@@ -298,7 +433,7 @@ function TicketDetail() {
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select
-                  value={ticket.status}
+                  value={currentTicket.status}
                   onValueChange={(v) => v && void patchTicket({ status: v })}
                   disabled={savingProps}
                 >
@@ -317,7 +452,7 @@ function TicketDetail() {
               <div className="space-y-2">
                 <Label>Priority</Label>
                 <Select
-                  value={ticket.priority}
+                  value={currentTicket.priority}
                   onValueChange={(v) => v && void patchTicket({ priority: v })}
                   disabled={savingProps}
                 >
@@ -336,7 +471,7 @@ function TicketDetail() {
               <div className="space-y-2">
                 <Label>Department</Label>
                 <Select
-                  value={ticket.departmentId ? String(ticket.departmentId) : NONE}
+                  value={currentTicket.departmentId ? String(currentTicket.departmentId) : NONE}
                   onValueChange={(v) => {
                     if (!v) return;
                     void patchTicket({ departmentId: v === NONE ? null : Number(v) });
@@ -349,7 +484,7 @@ function TicketDetail() {
                         if (!value || value === NONE) return "Unassigned";
                         return (
                           departments.find((d) => String(d.departmentId) === value)?.departmentName ??
-                          ticket.departmentName ??
+                          currentTicket.departmentName ??
                           value
                         );
                       }}
@@ -369,7 +504,7 @@ function TicketDetail() {
               <div className="space-y-2">
                 <Label>Assignee</Label>
                 <Select
-                  value={ticket.assigneeUserId ? String(ticket.assigneeUserId) : NONE}
+                  value={currentTicket.assigneeUserId ? String(currentTicket.assigneeUserId) : NONE}
                   onValueChange={(v) => {
                     if (!v) return;
                     void patchTicket({ assigneeUserId: v === NONE ? null : Number(v) });
@@ -383,7 +518,7 @@ function TicketDetail() {
                         const emp = assigneeOptions.find((e) => String(e.userId) === value);
                         return emp
                           ? `${emp.firstName} ${emp.lastName}`.trim()
-                          : ticket.assigneeName ?? value;
+                          : currentTicket.assigneeName ?? value;
                       }}
                     </SelectValue>
                   </SelectTrigger>
@@ -401,19 +536,41 @@ function TicketDetail() {
               <dl className="space-y-2 border-t border-border pt-4 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Ticket</dt>
-                  <dd className="font-mono">{ticket.ticketNumber}</dd>
+                  <dd className="font-mono">{currentTicket.ticketNumber}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Waiting</dt>
+                  <dd>
+                    {waiting === "us"
+                      ? "On us"
+                      : waiting === "customer"
+                        ? "On customer"
+                        : "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">First-response SLA</dt>
+                  <dd className="text-end">
+                    {sla?.met
+                      ? "Met"
+                      : sla?.breached
+                        ? "Breached"
+                        : sla
+                          ? `Due ${format(sla.dueAt, "dd MMM HH:mm")}`
+                          : "—"}
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Channel</dt>
-                  <dd>{ticket.channel}</dd>
+                  <dd>{isWhatsApp ? "WhatsApp" : currentTicket.channel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Requester</dt>
-                  <dd className="truncate text-end">{ticket.requesterEmail ?? "—"}</dd>
+                  <dt className="text-muted-foreground">{isWhatsApp ? "Customer phone" : "Requester"}</dt>
+                  <dd className="truncate text-end">{currentTicket.requesterEmail ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Mailbox</dt>
-                  <dd className="truncate text-end">{ticket.mailboxAddress ?? "—"}</dd>
+                  <dd className="truncate text-end">{currentTicket.mailboxAddress ?? "—"}</dd>
                 </div>
               </dl>
             </CardContent>

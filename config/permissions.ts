@@ -287,7 +287,25 @@ export type ModuleKey =
   | "helpdesk"
   | "helpdeskDashboard"
   | "helpdeskTickets"
+  | "helpdeskTicketsAll"
+  | "helpdeskTicketsOpen"
+  | "helpdeskTicketsPending"
+  | "helpdeskTicketsResolved"
+  | "helpdeskTicketsClosed"
+  | "helpdeskEmail"
+  | "helpdeskWhatsApp"
+  | "helpdeskConversations"
+  | "helpdeskSla"
+  | "helpdeskAutomation"
+  | "helpdeskCannedResponses"
+  | "helpdeskTemplates"
+  | "helpdeskKnowledgeBase"
+  | "helpdeskReports"
+  | "helpdeskChannels"
   | "helpdeskMailboxes"
+  | "helpdeskChannelsWhatsApp"
+  | "helpdeskChannelsWebChat"
+  | "helpdeskChannelsSms"
   // B2B Portal
   | "b2b"
   | "b2bDashboard"
@@ -1414,12 +1432,124 @@ export const MENU_ITEMS: MenuItem[] = [
         labelKey: "sidebar.helpdeskTickets",
         icon: "Ticket",
         path: "helpdesk/tickets",
+        children: [
+          {
+            key: "helpdeskTicketsAll",
+            labelKey: "sidebar.helpdeskTicketsAll",
+            icon: "ListOrdered",
+            path: "helpdesk/tickets?status=all",
+          },
+          {
+            key: "helpdeskTicketsOpen",
+            labelKey: "sidebar.helpdeskTicketsOpen",
+            icon: "CircleDot",
+            path: "helpdesk/tickets?status=open",
+          },
+          {
+            key: "helpdeskTicketsPending",
+            labelKey: "sidebar.helpdeskTicketsPending",
+            icon: "Hourglass",
+            path: "helpdesk/tickets?status=pending",
+          },
+          {
+            key: "helpdeskTicketsResolved",
+            labelKey: "sidebar.helpdeskTicketsResolved",
+            icon: "CheckCircle2",
+            path: "helpdesk/tickets?status=resolved",
+          },
+          {
+            key: "helpdeskTicketsClosed",
+            labelKey: "sidebar.helpdeskTicketsClosed",
+            icon: "XCircle",
+            path: "helpdesk/tickets?status=closed",
+          },
+        ],
       },
       {
-        key: "helpdeskMailboxes",
-        labelKey: "sidebar.helpdeskMailboxes",
-        icon: "Inbox",
-        path: "helpdesk/mailboxes",
+        key: "helpdeskEmail",
+        labelKey: "sidebar.helpdeskEmail",
+        icon: "Mail",
+        path: "helpdesk/email",
+      },
+      {
+        key: "helpdeskWhatsApp",
+        labelKey: "sidebar.helpdeskWhatsApp",
+        icon: "Smartphone",
+        path: "helpdesk/whatsapp",
+      },
+      {
+        key: "helpdeskConversations",
+        labelKey: "sidebar.helpdeskConversations",
+        icon: "MessagesSquare",
+        path: "helpdesk/conversations",
+      },
+      {
+        key: "helpdeskSla",
+        labelKey: "sidebar.helpdeskSla",
+        icon: "Clock",
+        path: "helpdesk/sla",
+      },
+      {
+        key: "helpdeskAutomation",
+        labelKey: "sidebar.helpdeskAutomation",
+        icon: "Workflow",
+        path: "helpdesk/automation",
+      },
+      {
+        key: "helpdeskCannedResponses",
+        labelKey: "sidebar.helpdeskCannedResponses",
+        icon: "ScrollText",
+        path: "helpdesk/canned-responses",
+      },
+      {
+        key: "helpdeskTemplates",
+        labelKey: "sidebar.helpdeskTemplates",
+        icon: "FileText",
+        path: "helpdesk/templates",
+      },
+      {
+        key: "helpdeskKnowledgeBase",
+        labelKey: "sidebar.helpdeskKnowledgeBase",
+        icon: "BookOpen",
+        path: "helpdesk/knowledge-base",
+      },
+      {
+        key: "helpdeskReports",
+        labelKey: "sidebar.helpdeskReports",
+        icon: "BarChart3",
+        path: "helpdesk/reports",
+      },
+      {
+        key: "helpdeskChannels",
+        labelKey: "sidebar.helpdeskChannels",
+        icon: "Settings",
+        path: "helpdesk/channels",
+        children: [
+          {
+            key: "helpdeskMailboxes",
+            labelKey: "sidebar.helpdeskChannelsEmail",
+            icon: "Mail",
+            path: "helpdesk/mailboxes",
+          },
+          {
+            key: "helpdeskChannelsWhatsApp",
+            labelKey: "sidebar.helpdeskChannelsWhatsApp",
+            icon: "Smartphone",
+            path: "helpdesk/channels/whatsapp",
+          },
+          {
+            key: "helpdeskChannelsWebChat",
+            labelKey: "sidebar.helpdeskChannelsWebChat",
+            icon: "MessagesSquare",
+            path: "helpdesk/channels/web-chat",
+          },
+          {
+            key: "helpdeskChannelsSms",
+            labelKey: "sidebar.helpdeskChannelsSms",
+            icon: "Phone",
+            path: "helpdesk/channels/sms",
+          },
+        ],
       },
     ],
   },
@@ -1542,13 +1672,43 @@ export function findTopMenuGroup(key: ModuleKey | string): MenuItem | undefined 
   return MENU_ITEMS.find((group) => group.key === key || contains(group.children, key));
 }
 
+/** Find a menu item (group or leaf) by key anywhere in MENU_ITEMS. */
+export function findMenuItemByKey(key: ModuleKey | string): MenuItem | undefined {
+  function walk(items: MenuItem[]): MenuItem | undefined {
+    for (const item of items) {
+      if (item.key === key) return item;
+      if (item.children?.length) {
+        const found = walk(item.children);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  return walk(MENU_ITEMS);
+}
+
 export function can(
   roleDef: RoleDef | undefined,
   module: ModuleKey | string,
   action: PermissionAction
 ): boolean {
   if (!roleDef) return false;
-  return roleDef.permissions[module as ModuleKey]?.includes(action) ?? false;
+  if (roleDef.permissions[module as ModuleKey]?.includes(action)) return true;
+
+  // Group keys (e.g. helpdeskTickets) are not granted as leaves — allow if any child leaf is granted.
+  const item = findMenuItemByKey(module);
+  if (item?.children?.length) {
+    const leaves = flatMenuItems().filter((leaf) => {
+      function under(node: MenuItem): boolean {
+        if (!node.children) return false;
+        return node.children.some((c) => c.key === leaf.key || under(c));
+      }
+      return under(item);
+    });
+    return leaves.some((leaf) => roleDef.permissions[leaf.key as ModuleKey]?.includes(action));
+  }
+
+  return false;
 }
 
 export function getMenuForRole(

@@ -24,6 +24,7 @@ export async function listHelpdeskTickets(options?: {
   tenantId?: number;
   status?: string;
   priority?: string;
+  channel?: string;
   departmentId?: number;
   assigneeUserId?: number;
 }): Promise<HelpdeskTicket[]> {
@@ -31,6 +32,7 @@ export async function listHelpdeskTickets(options?: {
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.status) params.set("status", options.status);
   if (options?.priority) params.set("priority", options.priority);
+  if (options?.channel) params.set("channel", options.channel);
   if (options?.departmentId !== undefined) params.set("departmentId", String(options.departmentId));
   if (options?.assigneeUserId !== undefined) {
     params.set("assigneeUserId", String(options.assigneeUserId));
@@ -47,7 +49,11 @@ export async function getHelpdeskTicket(ticketId: number): Promise<HelpdeskTicke
   return toAppTicket(await res.json());
 }
 
-export async function syncHelpdeskMailbox(options?: { tenantId?: number }): Promise<{
+export async function syncHelpdeskMailbox(options?: {
+  tenantId?: number;
+  /** quick = auto-poll (default for timers); full = manual Sync mailbox */
+  mode?: "quick" | "full";
+}): Promise<{
   provider: string;
   mailbox: string;
   fetched: number;
@@ -60,7 +66,10 @@ export async function syncHelpdeskMailbox(options?: { tenantId?: number }): Prom
   const res = await fetch("/api/helpdesk/email/sync", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenantId: options?.tenantId }),
+    body: JSON.stringify({
+      tenantId: options?.tenantId,
+      mode: options?.mode ?? "full",
+    }),
   });
   if (!res.ok) throw new HelpdeskApiError(await parseError(res), res.status);
   return res.json();

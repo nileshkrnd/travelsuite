@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     const tenantIdParam = searchParams.get("tenantId");
     const status = searchParams.get("status");
     const priority = searchParams.get("priority");
+    const channel = searchParams.get("channel");
     const departmentIdParam = searchParams.get("departmentId");
     const assigneeUserIdParam = searchParams.get("assigneeUserId");
 
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
     if (tenantIdParam) where.tenantId = Number(tenantIdParam);
     if (status && status !== "all") where.status = status;
     if (priority && priority !== "all") where.priority = priority;
+    if (channel && channel !== "all") where.channel = channel;
     if (departmentIdParam && departmentIdParam !== "all") {
       where.departmentId = Number(departmentIdParam);
     }

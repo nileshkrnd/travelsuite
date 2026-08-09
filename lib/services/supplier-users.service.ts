@@ -35,15 +35,23 @@ export interface SupplierUserWriteInput {
 
 export async function listSupplierUsers(options?: {
   supplierId?: number;
+  tenantId?: number;
   activeOnly?: boolean;
 }): Promise<SupplierUser[]> {
   const params = new URLSearchParams();
   if (options?.supplierId !== undefined) params.set("supplierId", String(options.supplierId));
+  if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.activeOnly) params.set("activeOnly", "true");
   const qs = params.toString();
   const res = await fetch(`/api/supplier-users${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new SupplierUsersApiError(await parseError(res), res.status);
   return ((await res.json()) as SupplierUserRow[]).map(toAppSupplierUser);
+}
+
+export async function getSupplierUser(supplierUserId: number): Promise<SupplierUser> {
+  const res = await fetch(`/api/supplier-users/${supplierUserId}`, { cache: "no-store" });
+  if (!res.ok) throw new SupplierUsersApiError(await parseError(res), res.status);
+  return toAppSupplierUser(await res.json());
 }
 
 export async function createSupplierUser(

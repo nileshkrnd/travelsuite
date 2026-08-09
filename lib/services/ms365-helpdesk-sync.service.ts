@@ -29,6 +29,8 @@ export type Ms365SyncConfig = {
   ms365ClientId?: string;
   ms365ClientSecret?: string;
   lookbackHours?: number;
+  mode?: "quick" | "full";
+  lastSyncAt?: Date | string | null;
 };
 
 async function getGraphToken(cfg: {
@@ -62,13 +64,20 @@ async function getGraphToken(cfg: {
   return json.access_token;
 }
 
-async function fetchInboxMessages(token: string, mailbox: string, sinceIso: string): Promise<GraphMessage[]> {
+async function fetchInboxMessages(
+  token: string,
+  mailbox: string,
+  sinceIso: string,
+  options?: { top?: number; newestFirst?: boolean }
+): Promise<GraphMessage[]> {
   const select =
     "id,conversationId,internetMessageId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isDraft";
   const filter = `receivedDateTime ge ${sinceIso} and isDraft eq false`;
+  const top = options?.top ?? 50;
+  const order = options?.newestFirst ? "receivedDateTime desc" : "receivedDateTime asc";
   const url =
     `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/mailFolders/Inbox/messages` +
-    `?$select=${select}&$filter=${encodeURIComponent(filter)}&$orderby=receivedDateTime asc&$top=50`;
+    `?$select=${select}&$filter=${encodeURIComponent(filter)}&$orderby=${order}&$top=${top}`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: "eventual" },
@@ -104,11 +113,28 @@ export async function syncMs365MailboxToTickets(
   }
 
   const tenantId = await resolveHelpdeskTenantId(options?.tenantId);
+  const mode = options?.mode ?? "full";
   const lookbackHours = options?.lookbackHours ?? syncLookbackHours("MS365_SYNC_LOOKBACK_HOURS");
-  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+  let since: Date;
+  let top = 50;
+  if (mode === "quick") {
+    const lastSync = options?.lastSyncAt ? new Date(options.lastSyncAt) : null;
+    const quickFloor = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    if (lastSync && !Number.isNaN(lastSync.getTime())) {
+      since = new Date(Math.max(quickFloor.getTime(), lastSync.getTime() - 5 * 60 * 1000));
+    } else {
+      since = quickFloor;
+    }
+    top = 40;
+  } else {
+    since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+  }
 
   const token = await getGraphToken({ ms365TenantId, ms365ClientId, ms365ClientSecret });
-  const messages = await fetchInboxMessages(token, mailbox, since.toISOString());
+  const messages = await fetchInboxMessages(token, mailbox, since.toISOString(), {
+    top,
+    newestFirst: mode === "quick",
+  });
 
   const inbound: InboundEmailMessage[] = [];
   for (const msg of messages) {

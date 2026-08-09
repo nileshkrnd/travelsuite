@@ -27,8 +27,11 @@ function emptyResult(provider: string, mailbox: string): HelpdeskEmailSyncResult
 /** Sync all active Tenant Admin mailboxes (falls back to .env if none configured). */
 export async function syncHelpdeskMailboxToTickets(options?: {
   tenantId?: number;
+  /** quick = auto-poll newest only; full = manual deep sync */
+  mode?: "quick" | "full";
 }): Promise<HelpdeskEmailSyncBatchResult> {
   const tenantId = await resolveHelpdeskTenantId(options?.tenantId);
+  const mode = options?.mode ?? "full";
   const db = getHelpdeskDb();
   const mailboxes = await db.helpdeskMailbox.findMany({
     where: { tenantId, isActive: true },
@@ -42,13 +45,20 @@ export async function syncHelpdeskMailboxToTickets(options?: {
     const provider = (process.env.HELPDESK_EMAIL_PROVIDER ?? "gmail").trim().toLowerCase();
     try {
       if (provider === "microsoft365" || provider === "ms365" || provider === "outlook") {
-        results.push(await syncMs365MailboxToTickets({ tenantId, mailboxAddress: process.env.MS365_MAILBOX || "" }));
+        results.push(
+          await syncMs365MailboxToTickets({
+            tenantId,
+            mailboxAddress: process.env.MS365_MAILBOX || "",
+            mode,
+          })
+        );
       } else {
         results.push(
           await syncGmailMailboxToTickets({
             tenantId,
             mailboxAddress: process.env.GMAIL_USER || "",
             appPassword: process.env.GMAIL_APP_PASSWORD || "",
+            mode,
           })
         );
       }
@@ -60,6 +70,10 @@ export async function syncHelpdeskMailboxToTickets(options?: {
     }
   } else {
     for (const box of mailboxes) {
+      // WhatsApp (and future non-email channels) use webhooks — never IMAP/Graph sync.
+      if (box.provider !== "gmail" && box.provider !== "microsoft365") {
+        continue;
+      }
       try {
         const creds = decryptMailboxCredentials(box.credentialsEnc);
         if (box.provider === "microsoft365") {
@@ -71,6 +85,8 @@ export async function syncHelpdeskMailboxToTickets(options?: {
               ms365ClientId: creds.ms365ClientId || "",
               ms365ClientSecret: creds.ms365ClientSecret || "",
               lookbackHours: box.syncLookbackHours,
+              mode,
+              lastSyncAt: box.lastSyncAt,
             })
           );
         } else {
@@ -82,13 +98,23 @@ export async function syncHelpdeskMailboxToTickets(options?: {
               imapHost: box.imapHost,
               imapPort: box.imapPort,
               lookbackHours: box.syncLookbackHours,
+              mode,
+              lastSyncAt: box.lastSyncAt,
             })
           );
         }
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         results.push({
           ...emptyResult(box.provider, box.mailboxAddress),
-          errors: [err instanceof Error ? err.message : String(err)],
+          errors: [message],
+        });
+        await db.helpdeskMailbox.update({
+          where: { mailboxId: box.mailboxId },
+          data: {
+            lastSyncError: message.slice(0, 1000),
+            modifiedDtTm: new Date(),
+          },
         });
       }
     }

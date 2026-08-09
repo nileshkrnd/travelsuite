@@ -24,7 +24,7 @@ export type HelpdeskMailboxWriteInput = {
   companyId?: number | null;
   mailboxAddress: string;
   displayName?: string | null;
-  provider: "gmail" | "microsoft365";
+  provider: "gmail" | "microsoft365" | "whatsapp";
   isShared?: boolean;
   isActive?: boolean;
   syncLookbackHours?: number;
@@ -36,6 +36,11 @@ export type HelpdeskMailboxWriteInput = {
   ms365TenantId?: string | null;
   ms365ClientId?: string | null;
   ms365ClientSecret?: string | null;
+  waPhoneNumberId?: string | null;
+  waBusinessAccountId?: string | null;
+  waAccessToken?: string | null;
+  waAppSecret?: string | null;
+  waVerifyToken?: string | null;
   createdBy?: number;
   modifiedBy?: number;
 };
@@ -43,9 +48,11 @@ export type HelpdeskMailboxWriteInput = {
 export async function listHelpdeskMailboxes(options: {
   tenantId: number;
   activeOnly?: boolean;
+  provider?: "gmail" | "microsoft365" | "whatsapp";
 }): Promise<HelpdeskMailbox[]> {
   const params = new URLSearchParams({ tenantId: String(options.tenantId) });
   if (options.activeOnly) params.set("activeOnly", "true");
+  if (options.provider) params.set("provider", options.provider);
   const res = await fetch(`/api/helpdesk/mailboxes?${params}`, { cache: "no-store" });
   if (!res.ok) throw new HelpdeskMailboxesApiError(await parseError(res), res.status);
   return res.json();

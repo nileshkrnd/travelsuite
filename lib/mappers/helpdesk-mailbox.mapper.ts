@@ -22,6 +22,7 @@ export function toAppHelpdeskMailbox(row: {
   smtpPort?: number | null;
   credentialsEnc?: string | null;
   lastSyncAt: Date | string | null;
+  lastSyncError?: string | null;
   createdBy: number | null;
   createdDtTm: Date | string;
   modifiedBy: number | null;
@@ -30,11 +31,17 @@ export function toAppHelpdeskMailbox(row: {
 }): HelpdeskMailbox {
   let ms365TenantId: string | null = null;
   let ms365ClientId: string | null = null;
+  let waPhoneNumberId: string | null = null;
+  let waBusinessAccountId: string | null = null;
+  let hasWaVerifyToken = false;
   if (row.credentialsEnc) {
     try {
       const creds = decryptMailboxCredentials(row.credentialsEnc);
       ms365TenantId = creds.ms365TenantId ?? null;
       ms365ClientId = creds.ms365ClientId ?? null;
+      waPhoneNumberId = creds.waPhoneNumberId ?? null;
+      waBusinessAccountId = creds.waBusinessAccountId ?? null;
+      hasWaVerifyToken = !!creds.waVerifyToken;
     } catch {
       /* ignore decrypt for list display */
     }
@@ -57,7 +64,11 @@ export function toAppHelpdeskMailbox(row: {
     hasCredentials: !!row.credentialsEnc,
     ms365TenantId,
     ms365ClientId,
+    waPhoneNumberId,
+    waBusinessAccountId,
+    hasWaVerifyToken,
     lastSyncAt: toIso(row.lastSyncAt),
+    lastSyncError: row.lastSyncError ?? null,
     createdBy: row.createdBy,
     createdDtTm: toIso(row.createdDtTm) ?? new Date().toISOString(),
     modifiedBy: row.modifiedBy,

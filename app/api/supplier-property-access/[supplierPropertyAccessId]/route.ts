@@ -16,6 +16,23 @@ const patchSchema = z.object({ isActive: z.boolean() });
 
 type RouteContext = { params: Promise<{ supplierPropertyAccessId: string }> };
 
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const { supplierPropertyAccessId: raw } = await context.params;
+    const id = idSchema.safeParse(raw);
+    if (!id.success) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+    const row = await prisma.supplierPropertyAccess.findUnique({
+      where: { supplierPropertyAccessId: BigInt(id.data) },
+      include: supplierPropertyAccessInclude,
+    });
+    if (!row) return NextResponse.json({ error: "Access grant not found" }, { status: 404 });
+    return NextResponse.json(serializeSupplierPropertyAccessRow(row));
+  } catch (error) {
+    return dbUnavailable(error);
+  }
+}
+
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { supplierPropertyAccessId: raw } = await context.params;

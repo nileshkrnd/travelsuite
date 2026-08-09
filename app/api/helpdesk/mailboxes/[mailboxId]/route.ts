@@ -4,28 +4,58 @@ import { getHelpdeskDb } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { mergeMailboxCredentials } from "@/lib/helpdesk-credentials";
 import { toAppHelpdeskMailbox } from "@/lib/mappers/helpdesk-mailbox.mapper";
+import { isValidWhatsAppPhone, normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
 
 const idSchema = z.coerce.number().int().positive();
 
-const updateSchema = z.object({
-  companyId: z.number().int().positive().optional().nullable(),
-  mailboxAddress: z.string().trim().email().max(200).optional(),
-  displayName: z.string().trim().max(200).optional().nullable(),
-  provider: z.enum(["gmail", "microsoft365"]).optional(),
-  isShared: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  syncLookbackHours: z.number().int().min(1).max(8760).optional(),
-  imapHost: z.string().trim().max(200).optional().nullable(),
-  imapPort: z.number().int().min(1).max(65535).optional().nullable(),
-  smtpHost: z.string().trim().max(200).optional().nullable(),
-  smtpPort: z.number().int().min(1).max(65535).optional().nullable(),
-  /** Leave blank to keep existing secret. */
-  appPassword: z.string().trim().max(200).optional().nullable(),
-  ms365TenantId: z.string().trim().max(100).optional().nullable(),
-  ms365ClientId: z.string().trim().max(100).optional().nullable(),
-  ms365ClientSecret: z.string().trim().max(500).optional().nullable(),
-  modifiedBy: z.number().int().positive().optional(),
-});
+const updateSchema = z
+  .object({
+    companyId: z.number().int().positive().optional().nullable(),
+    mailboxAddress: z.string().trim().max(200).optional(),
+    displayName: z.string().trim().max(200).optional().nullable(),
+    provider: z.enum(["gmail", "microsoft365", "whatsapp"]).optional(),
+    isShared: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    syncLookbackHours: z.number().int().min(1).max(8760).optional(),
+    imapHost: z.string().trim().max(200).optional().nullable(),
+    imapPort: z.number().int().min(1).max(65535).optional().nullable(),
+    smtpHost: z.string().trim().max(200).optional().nullable(),
+    smtpPort: z.number().int().min(1).max(65535).optional().nullable(),
+    /** Leave blank to keep existing secret. */
+    appPassword: z.string().trim().max(200).optional().nullable(),
+    ms365TenantId: z.string().trim().max(100).optional().nullable(),
+    ms365ClientId: z.string().trim().max(100).optional().nullable(),
+    ms365ClientSecret: z.string().trim().max(500).optional().nullable(),
+    waPhoneNumberId: z.string().trim().max(100).optional().nullable(),
+    waBusinessAccountId: z.string().trim().max(100).optional().nullable(),
+    waAccessToken: z.string().trim().max(2000).optional().nullable(),
+    waAppSecret: z.string().trim().max(500).optional().nullable(),
+    waVerifyToken: z.string().trim().max(200).optional().nullable(),
+    modifiedBy: z.number().int().positive().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.mailboxAddress === undefined) return;
+    const providerHint = values.provider;
+    const treatAsWhatsApp =
+      providerHint === "whatsapp" || (!providerHint && values.mailboxAddress.startsWith("+"));
+    if (treatAsWhatsApp) {
+      if (!isValidWhatsAppPhone(values.mailboxAddress)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["mailboxAddress"],
+          message: "Valid WhatsApp business phone (E.164) is required",
+        });
+      }
+      return;
+    }
+    if (!z.string().email().safeParse(values.mailboxAddress).success) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["mailboxAddress"],
+        message: "Valid email is required",
+      });
+    }
+  });
 
 type RouteContext = { params: Promise<{ mailboxId: string }> };
 
@@ -67,15 +97,31 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const data = parsed.data;
     const provider = data.provider ?? existing.provider;
-    const nextAddress = data.mailboxAddress
-      ? data.mailboxAddress.trim().toLowerCase()
-      : existing.mailboxAddress;
+    let nextAddress = existing.mailboxAddress;
+    if (data.mailboxAddress) {
+      nextAddress =
+        provider === "whatsapp"
+          ? normalizeWhatsAppPhone(data.mailboxAddress)
+          : data.mailboxAddress.trim().toLowerCase();
+    }
+
+    if (provider === "whatsapp" && !isValidWhatsAppPhone(nextAddress)) {
+      return NextResponse.json(
+        { error: "Valid WhatsApp business phone (E.164) is required" },
+        { status: 400 }
+      );
+    }
 
     const credentialsEnc = mergeMailboxCredentials(existing.credentialsEnc, {
       appPassword: data.appPassword ?? undefined,
       ms365TenantId: data.ms365TenantId ?? undefined,
       ms365ClientId: data.ms365ClientId ?? undefined,
       ms365ClientSecret: data.ms365ClientSecret ?? undefined,
+      waPhoneNumberId: data.waPhoneNumberId ?? undefined,
+      waBusinessAccountId: data.waBusinessAccountId ?? undefined,
+      waAccessToken: data.waAccessToken ?? undefined,
+      waAppSecret: data.waAppSecret ?? undefined,
+      waVerifyToken: data.waVerifyToken ?? undefined,
     });
 
     try {

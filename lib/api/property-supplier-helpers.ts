@@ -8,21 +8,6 @@ const optionalDate = z
   .optional()
   .transform((v) => (v === undefined ? undefined : v));
 
-export const propertySupplierWriteSchema = z
-  .object({
-    propertyId: z.number().int().positive("Property is required"),
-    supplierId: z.number().int().positive("Supplier is required"),
-    isPrimary: z.boolean().optional(),
-    isActive: z.boolean().optional(),
-    validFrom: optionalDate,
-    validTo: optionalDate,
-  })
-  .superRefine((values, ctx) => {
-    if (values.validFrom && values.validTo && values.validTo < values.validFrom) {
-      ctx.addIssue({ code: "custom", path: ["validTo"], message: "Valid to must be on or after valid from" });
-    }
-  });
-
 export const propertySupplierInclude = {
   property: { select: { propertyCode: true, propertyName: true } },
   supplier: { select: { supplierCode: true, supplierName: true } },
@@ -40,60 +25,6 @@ function parseDateOnly(value: string | null | undefined): Date | null | undefine
   return new Date(`${value}T00:00:00.000Z`);
 }
 
-export async function validatePropertySupplierLookups(data: {
-  propertyId: number;
-  supplierId: number;
-}): Promise<NextResponse | null> {
-  const property = await prisma.property.findUnique({ where: { propertyId: data.propertyId } });
-  if (!property) return NextResponse.json({ error: "Property not found" }, { status: 400 });
-
-  const supplier = await prisma.supplier.findFirst({
-    where: { supplierId: BigInt(data.supplierId), isDeleted: false },
-  });
-  if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 400 });
-
-  if (property.tenantId != null && property.tenantId !== supplier.tenantId) {
-    return NextResponse.json(
-      { error: "This supplier belongs to a different tenant than the property" },
-      { status: 400 }
-    );
-  }
-
-  return null;
-}
-
-type WriteData = z.infer<typeof propertySupplierWriteSchema>;
-
-function scalars(data: WriteData) {
-  return {
-    propertyId: data.propertyId,
-    supplierId: BigInt(data.supplierId),
-    validFrom: parseDateOnly(data.validFrom) ?? null,
-    validTo: parseDateOnly(data.validTo) ?? null,
-  };
-}
-
-export function toPropertySupplierCreateData(
-  data: WriteData & { createdBy: number }
-): Prisma.PropertySupplierUncheckedCreateInput {
-  return {
-    ...scalars(data),
-    isPrimary: data.isPrimary ?? false,
-    isActive: data.isActive ?? true,
-    createdBy: data.createdBy,
-  };
-}
-
-export function toPropertySupplierUpdateScalars(
-  data: WriteData
-): Prisma.PropertySupplierUncheckedUpdateInput {
-  return {
-    ...scalars(data),
-    isPrimary: data.isPrimary,
-    isActive: data.isActive,
-  };
-}
-
 /** Unsets any other primary supplier for this property before the caller sets a new one. */
 export async function clearOtherPrimaries(
   tx: Prisma.TransactionClient,
@@ -107,5 +38,91 @@ export async function clearOtherPrimaries(
       ...(exceptPropertySupplierId != null ? { propertySupplierId: { not: exceptPropertySupplierId } } : {}),
     },
     data: { isPrimary: false },
+  });
+}
+
+export const supplierPropertyGrantWriteSchema = z
+  .object({
+    propertyIds: z.array(z.number().int().positive()).min(1, "Select at least one property"),
+    isPrimary: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    validFrom: optionalDate,
+    validTo: optionalDate,
+  })
+  .superRefine((values, ctx) => {
+    if (values.validFrom && values.validTo && values.validTo < values.validFrom) {
+      ctx.addIssue({ code: "custom", path: ["validTo"], message: "Valid to must be on or after valid from" });
+    }
+  });
+
+type GrantWriteData = z.infer<typeof supplierPropertyGrantWriteSchema>;
+
+export async function validateSupplierPropertiesLookup(
+  supplierId: number,
+  propertyIds: number[]
+): Promise<NextResponse | { supplier: { tenantId: number } }> {
+  const supplier = await prisma.supplier.findFirst({
+    where: { supplierId: BigInt(supplierId), isDeleted: false },
+  });
+  if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 400 });
+
+  const uniqueIds = [...new Set(propertyIds)];
+  const properties = await prisma.property.findMany({ where: { propertyId: { in: uniqueIds } } });
+  if (properties.length !== uniqueIds.length) {
+    return NextResponse.json({ error: "One or more properties were not found" }, { status: 400 });
+  }
+  const mismatched = properties.find((p) => p.tenantId != null && p.tenantId !== supplier.tenantId);
+  if (mismatched) {
+    return NextResponse.json(
+      { error: "One or more properties belong to a different tenant than the supplier" },
+      { status: 400 }
+    );
+  }
+
+  return { supplier };
+}
+
+/** Full-replace save: deletes the supplier's existing property links, then writes the new set in one transaction. */
+export async function saveSupplierPropertyGrant(
+  supplierId: number,
+  data: GrantWriteData & { createdBy: number }
+) {
+  const validFrom = parseDateOnly(data.validFrom) ?? null;
+  const validTo = parseDateOnly(data.validTo) ?? null;
+  const isPrimary = data.isPrimary ?? false;
+  const isActive = data.isActive ?? true;
+  const uniquePropertyIds = [...new Set(data.propertyIds)];
+
+  return prisma.$transaction(async (tx) => {
+    await tx.propertySupplier.deleteMany({ where: { supplierId: BigInt(supplierId) } });
+
+    // Create every link as non-primary first, so clearing other suppliers' primary flag below can't clobber our own.
+    await tx.propertySupplier.createMany({
+      data: uniquePropertyIds.map((propertyId) => ({
+        propertyId,
+        supplierId: BigInt(supplierId),
+        isPrimary: false,
+        isActive,
+        validFrom,
+        validTo,
+        createdBy: data.createdBy,
+      })),
+    });
+
+    if (isPrimary) {
+      for (const propertyId of uniquePropertyIds) {
+        await clearOtherPrimaries(tx, propertyId);
+      }
+      await tx.propertySupplier.updateMany({
+        where: { supplierId: BigInt(supplierId), propertyId: { in: uniquePropertyIds } },
+        data: { isPrimary: true },
+      });
+    }
+
+    return tx.propertySupplier.findMany({
+      where: { supplierId: BigInt(supplierId) },
+      include: propertySupplierInclude,
+      orderBy: [{ propertyId: "asc" }],
+    });
   });
 }

@@ -93,11 +93,11 @@ export async function PATCH(request: Request, context: RouteContext) {
         } else {
           const user = await admin.user.findUnique({
             where: { userId: parsed.data.assigneeUserId },
-            select: { userId: true, userDisplayName: true, email: true },
+            select: { userId: true, userDisplayName: true, username: true },
           });
           if (!user) return NextResponse.json({ error: "Assignee not found" }, { status: 400 });
           data.assigneeUserId = user.userId;
-          data.assigneeName = user.userDisplayName || user.email;
+          data.assigneeName = user.userDisplayName || user.username;
         }
       }
     }

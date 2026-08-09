@@ -33,8 +33,28 @@ export async function GET(request: Request) {
     const propertyTypeIdParam = searchParams.get("propertyTypeId");
     const globalOnly = searchParams.get("global") === "true" || tenantIdParam === "0";
     const includeGlobal = searchParams.get("includeGlobal") === "true";
+    const countryIdParam = searchParams.get("countryId");
+    const stateIdParam = searchParams.get("stateId");
+    const cityIdParam = searchParams.get("cityId");
+    const areaIdParam = searchParams.get("areaId");
+    const search = searchParams.get("search")?.trim() || "";
+    const requireLocation = searchParams.get("requireLocation") === "true";
+    const takeParam = Number(searchParams.get("take") ?? "");
+
+    if (requireLocation) {
+      const countryId = Number(countryIdParam);
+      const cityId = Number(cityIdParam);
+      if (!Number.isFinite(countryId) || countryId <= 0 || !Number.isFinite(cityId) || cityId <= 0) {
+        return NextResponse.json(
+          { error: "Country and city are required to list properties" },
+          { status: 400 }
+        );
+      }
+    }
 
     const where: Prisma.PropertyWhereInput = {};
+    const andFilters: Prisma.PropertyWhereInput[] = [];
+
     if (globalOnly) {
       where.tenantId = null;
     } else if (tenantIdParam != null && tenantIdParam !== "") {
@@ -42,18 +62,54 @@ export async function GET(request: Request) {
       if (companyIdParam != null && companyIdParam !== "") {
         ownWhere.companyId = Number(companyIdParam);
       }
-      where.OR = includeGlobal ? [ownWhere, { tenantId: null }] : undefined;
-      if (!includeGlobal) Object.assign(where, ownWhere);
+      if (includeGlobal) {
+        andFilters.push({ OR: [ownWhere, { tenantId: null }] });
+      } else {
+        Object.assign(where, ownWhere);
+      }
     }
     if (activeOnly) where.isActive = true;
     if (propertyTypeIdParam != null && propertyTypeIdParam !== "") {
       where.typeLinks = { some: { propertyTypeId: BigInt(propertyTypeIdParam) } };
     }
+    if (countryIdParam != null && countryIdParam !== "") {
+      where.countryId = Number(countryIdParam);
+    }
+    if (stateIdParam != null && stateIdParam !== "") {
+      where.stateId = Number(stateIdParam);
+    }
+    if (cityIdParam != null && cityIdParam !== "") {
+      where.cityId = Number(cityIdParam);
+    }
+    if (areaIdParam != null && areaIdParam !== "") {
+      where.areaId = Number(areaIdParam);
+    }
+    if (search) {
+      andFilters.push({
+        OR: [
+          { propertyCode: { contains: search, mode: "insensitive" } },
+          { propertyName: { contains: search, mode: "insensitive" } },
+          { propertyDisplayName: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (andFilters.length) where.AND = andFilters;
+
+    // Cap large catalogs when location-scoped (property access pickers).
+    const hasLocationFilter =
+      (countryIdParam != null && countryIdParam !== "") ||
+      (cityIdParam != null && cityIdParam !== "");
+    const take = Number.isFinite(takeParam) && takeParam > 0
+      ? Math.min(Math.floor(takeParam), 2000)
+      : hasLocationFilter
+        ? 500
+        : undefined;
 
     const rows = await prisma.property.findMany({
       where,
       include: propertyInclude,
       orderBy: [{ createdDtTm: "desc" }, { propertyCode: "asc" }],
+      ...(take ? { take } : {}),
     });
     return NextResponse.json((await withCompanyName(rows)).map(serializePropertyRow));
   } catch (error) {

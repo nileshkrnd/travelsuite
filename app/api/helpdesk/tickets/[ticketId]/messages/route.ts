@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getAdminDb, getHelpdeskDb } from "@/lib/db";
 import { dbUnavailable } from "@/lib/api/db-error";
 import { sendHelpdeskOutboundEmail } from "@/lib/services/helpdesk-email-send.service";
+import { sendWhatsAppTextMessage } from "@/lib/services/whatsapp-helpdesk.service";
+import { stripHtml } from "@/lib/services/helpdesk-email-ingest.service";
 
 const idSchema = z.coerce.number().int().positive();
 const bodySchema = z.object({
@@ -25,6 +27,13 @@ function replySubject(subject: string): string {
   return /^re:/i.test(s) ? s : `Re: ${s}`;
 }
 
+function plainReplyText(bodyText: string, bodyHtml: string | null): string {
+  const text = bodyText.trim();
+  if (text) return text;
+  if (bodyHtml?.trim()) return stripHtml(bodyHtml);
+  return "";
+}
+
 export async function POST(request: Request, context: RouteContext) {
   try {
     const db = getHelpdeskDb();
@@ -41,13 +50,18 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const ticket = await db.helpdeskTicket.findUnique({ where: { ticketId: id.data } });
+    const ticket = await db.helpdeskTicket.findUnique({
+      where: { ticketId: id.data },
+      include: { mailbox: { select: { provider: true, mailboxAddress: true } } },
+    });
     if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
 
     const now = new Date();
     const bodyText = parsed.data.bodyText;
     const bodyHtml = parsed.data.bodyHtml?.trim() || null;
     const preview = bodyText.slice(0, 1000);
+    const isWhatsApp =
+      ticket.channel === "whatsapp" || ticket.mailbox?.provider === "whatsapp";
 
     let agentName: string | null = null;
     let agentEmail: string | null = null;
@@ -62,10 +76,10 @@ export async function POST(request: Request, context: RouteContext) {
       } else {
         const user = await admin.user.findUnique({
           where: { userId: parsed.data.createdBy },
-          select: { userDisplayName: true, email: true },
+          select: { userDisplayName: true, username: true },
         });
         agentName = user?.userDisplayName ?? null;
-        agentEmail = user?.email ?? null;
+        agentEmail = user?.username ?? null;
       }
     }
 
@@ -92,46 +106,71 @@ export async function POST(request: Request, context: RouteContext) {
     } else {
       if (!ticket.requesterEmail) {
         return NextResponse.json(
-          { error: "Ticket has no requester email — cannot send reply" },
+          {
+            error: isWhatsApp
+              ? "Ticket has no customer phone — cannot send WhatsApp reply"
+              : "Ticket has no requester email — cannot send reply",
+          },
           { status: 400 }
         );
       }
 
-      const lastInbound = await db.helpdeskTicketMessage.findFirst({
-        where: { ticketId: ticket.ticketId, direction: "inbound" },
-        orderBy: { receivedAt: "desc" },
-        select: { internetMessageId: true },
-      });
-
       const subject = replySubject(ticket.subject);
       let sentMessageId: string | null = null;
-      let fromEmail = process.env.GMAIL_USER?.trim().toLowerCase() || agentEmail;
+      let fromEmail =
+        ticket.mailbox?.mailboxAddress ||
+        process.env.GMAIL_USER?.trim().toLowerCase() ||
+        agentEmail;
 
       try {
-        const sent = await sendHelpdeskOutboundEmail({
-          to: ticket.requesterEmail,
-          subject,
-          text: bodyText,
-          html: bodyHtml,
-          inReplyTo: lastInbound?.internetMessageId
-            ? `<${lastInbound.internetMessageId.replace(/^<|>$/g, "")}>`
-            : null,
-          references: lastInbound?.internetMessageId
-            ? `<${lastInbound.internetMessageId.replace(/^<|>$/g, "")}>`
-            : null,
-          mailboxId: ticket.mailboxId,
-        });
-        sentMessageId = sent.messageId;
-        fromEmail = sent.from;
+        if (isWhatsApp) {
+          const plain = plainReplyText(bodyText, bodyHtml);
+          if (!plain) {
+            return NextResponse.json({ error: "Enter a message" }, { status: 400 });
+          }
+          const sent = await sendWhatsAppTextMessage({
+            toPhone: ticket.requesterEmail,
+            text: plain,
+            mailboxId: ticket.mailboxId,
+            tenantId: ticket.tenantId,
+          });
+          sentMessageId = sent.messageId;
+          fromEmail = sent.from;
+        } else {
+          const lastInbound = await db.helpdeskTicketMessage.findFirst({
+            where: { ticketId: ticket.ticketId, direction: "inbound" },
+            orderBy: { receivedAt: "desc" },
+            select: { internetMessageId: true },
+          });
+          const sent = await sendHelpdeskOutboundEmail({
+            to: ticket.requesterEmail,
+            subject,
+            text: bodyText,
+            html: bodyHtml,
+            inReplyTo: lastInbound?.internetMessageId
+              ? `<${lastInbound.internetMessageId.replace(/^<|>$/g, "")}>`
+              : null,
+            references: lastInbound?.internetMessageId
+              ? `<${lastInbound.internetMessageId.replace(/^<|>$/g, "")}>`
+              : null,
+            mailboxId: ticket.mailboxId,
+          });
+          sentMessageId = sent.messageId;
+          fromEmail = sent.from;
+        }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to send email";
+        const message = err instanceof Error ? err.message : "Failed to send message";
         return NextResponse.json({ error: message }, { status: 400 });
       }
 
       await db.helpdeskTicketMessage.create({
         data: {
           ticketId: ticket.ticketId,
-          graphMessageId: sentMessageId ? `smtp:${sentMessageId}` : `smtp-local:${ticket.ticketId}:${now.getTime()}`,
+          graphMessageId: sentMessageId
+            ? isWhatsApp
+              ? `wa:${sentMessageId}`
+              : `smtp:${sentMessageId}`
+            : `${isWhatsApp ? "wa" : "smtp"}-local:${ticket.ticketId}:${now.getTime()}`,
           internetMessageId: sentMessageId,
           direction: "outbound",
           isInternal: false,
@@ -141,7 +180,7 @@ export async function POST(request: Request, context: RouteContext) {
           toEmails: ticket.requesterEmail,
           subject,
           bodyPreview: preview,
-          bodyHtml,
+          bodyHtml: isWhatsApp ? null : bodyHtml,
           bodyText,
           receivedAt: now,
         },

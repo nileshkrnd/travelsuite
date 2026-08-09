@@ -1,22 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm, Controller, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, UserPlus, MoreHorizontal } from "lucide-react";
+import {
+  Plus,
+  UserPlus,
+  MoreHorizontal,
+  Search,
+  Eye,
+  Pencil,
+  Power,
+  PowerOff,
+  CheckCircle2,
+  CircleDashed,
+  Trash2,
+} from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Card } from "@/components/ui/card";
+import { SortableTableHead, type SortDirection } from "@/components/shared/SortableTableHead";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,254 +36,65 @@ import {
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { listSuppliers } from "@/lib/services/suppliers.service";
-import { listAccessRoles } from "@/lib/services/access-roles.service";
 import {
   listSupplierUsers,
-  createSupplierUser,
-  updateSupplierUser,
   setSupplierUserActive,
   deleteSupplierUser,
   SupplierUsersApiError,
 } from "@/lib/services/supplier-users.service";
 import { can } from "@/config/permissions";
-import type { AccessRole, RoleDef, Supplier, SupplierUser } from "@/types";
+import type { RoleDef, Supplier, SupplierUser } from "@/types";
 
-const schema = z.object({
-  supplierId: z.number().int().positive("Supplier is required"),
-  firstName: z.string().trim().min(1, "First name is required").max(100),
-  lastName: z.string().trim().min(1, "Last name is required").max(100),
-  email: z.string().trim().min(1, "Email is required").email("Enter a valid email").max(200),
-  dialCountryCode: z.string().trim().max(10).optional().or(z.literal("")),
-  mobileNumber: z.string().trim().max(30).optional().or(z.literal("")),
-  accessRoleId: z.number().int().positive("Access role is required"),
-  password: z.string().trim().max(200).optional().or(z.literal("")),
-});
-type FormValues = z.infer<typeof schema>;
+type SortKey = "name" | "supplier" | "email" | "status";
 
-function SupplierUserDialog({
-  open,
-  onOpenChange,
-  entry,
-  suppliers,
-  onSaved,
+function StatCard({
+  icon: Icon,
+  label,
+  value,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  entry?: SupplierUser;
-  suppliers: Supplier[];
-  onSaved: (row: SupplierUser) => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
 }) {
-  const sessionUser = useSessionStore((s) => s.user);
-  const actorKey = sessionUser?.userKey ?? 0;
-  const isEdit = !!entry;
-  const [accessRoles, setAccessRoles] = useState<AccessRole[]>([]);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    values: {
-      supplierId: entry?.supplierId ?? 0,
-      firstName: entry?.firstName ?? "",
-      lastName: entry?.lastName ?? "",
-      email: entry?.email ?? "",
-      dialCountryCode: entry?.dialCountryCode ?? "",
-      mobileNumber: entry?.mobileNumber ?? "",
-      accessRoleId: entry?.accessRoleId ?? 0,
-      password: "",
-    },
-  });
-
-  const supplierId = useWatch({ control, name: "supplierId" });
-  const selectedSupplier = suppliers.find((s) => s.supplierKey === supplierId);
-
-  useEffect(() => {
-    if (!selectedSupplier) {
-      setAccessRoles([]);
-      return;
-    }
-    let cancelled = false;
-    listAccessRoles({ tenantId: selectedSupplier.tenantKey, companyId: selectedSupplier.companyKey, activeOnly: true })
-      .then((rows) => {
-        if (!cancelled) setAccessRoles(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setAccessRoles([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSupplier]);
-
-  async function onSubmit(values: FormValues) {
-    if (!actorKey) {
-      toast.error("Missing user key — sign in again.");
-      return;
-    }
-    if (!isEdit && !values.password.trim()) {
-      toast.error("Set an initial password for this user");
-      return;
-    }
-    const payload = {
-      supplierId: values.supplierId,
-      firstName: values.firstName.trim(),
-      lastName: values.lastName.trim(),
-      email: values.email.trim(),
-      dialCountryCode: values.dialCountryCode?.trim() || null,
-      mobileNumber: values.mobileNumber?.trim() || null,
-      accessRoleId: values.accessRoleId,
-      ...(values.password.trim() ? { password: values.password.trim() } : {}),
-    };
-    try {
-      if (isEdit && entry) {
-        const saved = await updateSupplierUser(entry.supplierUserKey, {
-          ...payload,
-          isActive: entry.isActive,
-          updatedBy: actorKey,
-        });
-        onSaved(saved);
-        toast.success("Supplier user updated");
-      } else {
-        const saved = await createSupplierUser({ ...payload, password: values.password.trim(), createdBy: actorKey });
-        onSaved(saved);
-        toast.success("Supplier user registered — login account created");
-      }
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof SupplierUsersApiError ? error.message : "Could not save supplier user");
-    }
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit supplier user" : "Register supplier user"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label required>Supplier</Label>
-            <Controller
-              control={control}
-              name="supplierId"
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
-                  disabled={isEdit}
-                >
-                  <SelectTrigger className="w-full" aria-invalid={!!errors.supplierId}>
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.supplierKey} value={String(s.supplierKey)}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="firstName" required>
-                First name
-              </Label>
-              <Input id="firstName" autoFocus aria-invalid={!!errors.firstName} {...register("firstName")} />
-              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName" required>
-                Last name
-              </Label>
-              <Input id="lastName" aria-invalid={!!errors.lastName} {...register("lastName")} />
-              {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email" required>
-              Email
-            </Label>
-            <Input id="email" type="email" aria-invalid={!!errors.email} {...register("email")} />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-[7rem_1fr]">
-            <div className="space-y-2">
-              <Label htmlFor="dialCountryCode">Dial code</Label>
-              <Input id="dialCountryCode" placeholder="+974" {...register("dialCountryCode")} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mobileNumber">Mobile number</Label>
-              <Input id="mobileNumber" {...register("mobileNumber")} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label required>Access role</Label>
-            <Controller
-              control={control}
-              name="accessRoleId"
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
-                  disabled={!selectedSupplier}
-                >
-                  <SelectTrigger className="w-full" aria-invalid={!!errors.accessRoleId}>
-                    <SelectValue placeholder={selectedSupplier ? "Select access role" : "Select a supplier first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accessRoles.map((r) => (
-                      <SelectItem key={r.accessRoleId} value={String(r.accessRoleId)}>
-                        {r.accessRoleName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.accessRoleId && <p className="text-sm text-destructive">{errors.accessRoleId.message}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" required={!isEdit}>
-              {isEdit ? "New password" : "Password"}
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder={isEdit ? "Leave blank to keep current password" : undefined}
-              {...register("password")}
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-            <Button type="submit" disabled={isSubmitting}>
-              {isEdit ? "Save" : "Register"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Card>
+      <CardContent className="flex items-center gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
+function displayName(entry: SupplierUser) {
+  return `${entry.firstName} ${entry.lastName}`.trim();
+}
+
 function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
+  const { role } = useParams<{ role: string }>();
+  const router = useRouter();
   const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
   const actorKey = sessionUser?.userKey ?? 0;
+
   const [entries, setEntries] = useState<SupplierUser[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<SupplierUser | undefined>();
+  const [search, setSearch] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
   const canEdit = can(roleDef, "supplierUser", "edit");
   const canCreate = can(roleDef, "supplierUser", "create");
+  const canDelete = can(roleDef, "supplierUser", "delete");
 
   useEffect(() => {
     if (tenantKey <= 0) {
@@ -282,15 +103,19 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
     }
     let cancelled = false;
     setLoading(true);
-    listSuppliers({ tenantId: tenantKey, activeOnly: true })
-      .then(async (supplierRows) => {
+    Promise.all([
+      listSupplierUsers({ tenantId: tenantKey }),
+      listSuppliers({ tenantId: tenantKey, activeOnly: true }),
+    ])
+      .then(([userRows, supplierRows]) => {
         if (cancelled) return;
+        setEntries(userRows);
         setSuppliers(supplierRows);
-        const results = await Promise.all(supplierRows.map((s) => listSupplierUsers({ supplierId: s.supplierKey })));
-        if (!cancelled) setEntries(results.flat());
       })
-      .catch(() => {
-        if (!cancelled) toast.error("Failed to load supplier users");
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof SupplierUsersApiError ? err.message : "Failed to load supplier users");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -300,18 +125,65 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
     };
   }, [tenantKey]);
 
-  function upsertLocal(row: SupplierUser) {
-    setEntries((prev) => {
-      const idx = prev.findIndex((r) => r.id === row.id);
-      return idx === -1 ? [row, ...prev] : prev.map((r, i) => (i === idx ? row : r));
-    });
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
   }
 
-  async function toggleActive(entry: SupplierUser) {
+  const supplierName = (supplierId: number) =>
+    suppliers.find((s) => s.supplierKey === supplierId)?.name ??
+    entries.find((e) => e.supplierId === supplierId)?.supplierName ??
+    `Supplier ${supplierId}`;
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    let result = entries;
+    if (supplierFilter !== "all") {
+      result = result.filter((e) => String(e.supplierId) === supplierFilter);
+    }
+    if (statusFilter === "active") result = result.filter((e) => e.isActive);
+    if (statusFilter === "inactive") result = result.filter((e) => !e.isActive);
+    if (term) {
+      result = result.filter((e) => {
+        const name = displayName(e).toLowerCase();
+        const supplier = (e.supplierName ?? supplierName(e.supplierId)).toLowerCase();
+        return (
+          name.includes(term) ||
+          e.email.toLowerCase().includes(term) ||
+          supplier.includes(term) ||
+          (e.accessRoleName ?? "").toLowerCase().includes(term)
+        );
+      });
+    }
+    if (sortKey) {
+      result = [...result].sort((a, b) => {
+        let cmp = 0;
+        if (sortKey === "name") cmp = displayName(a).localeCompare(displayName(b));
+        else if (sortKey === "supplier") {
+          cmp = (a.supplierName ?? "").localeCompare(b.supplierName ?? "");
+        } else if (sortKey === "email") cmp = a.email.localeCompare(b.email);
+        else cmp = Number(a.isActive) - Number(b.isActive);
+        return sortDirection === "asc" ? cmp : -cmp;
+      });
+    }
+    return result;
+  }, [entries, search, supplierFilter, statusFilter, sortKey, sortDirection, suppliers]);
+
+  const activeCount = entries.filter((e) => e.isActive).length;
+
+  async function toggleStatus(entry: SupplierUser) {
+    if (!actorKey) {
+      toast.error("Missing user key — sign in again.");
+      return;
+    }
     try {
       const saved = await setSupplierUserActive(entry.supplierUserKey, !entry.isActive, actorKey);
-      upsertLocal(saved);
-      toast.success(saved.isActive ? "Activated" : "Deactivated");
+      setEntries((prev) => prev.map((r) => (r.supplierUserKey === saved.supplierUserKey ? saved : r)));
+      toast.success(saved.isActive ? "Supplier user activated" : "Supplier user deactivated");
     } catch (error) {
       toast.error(error instanceof SupplierUsersApiError ? error.message : "Could not update status");
     }
@@ -320,11 +192,15 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
   async function removeEntry(entry: SupplierUser) {
     try {
       await deleteSupplierUser(entry.supplierUserKey);
-      setEntries((prev) => prev.filter((r) => r.id !== entry.id));
+      setEntries((prev) => prev.filter((r) => r.supplierUserKey !== entry.supplierUserKey));
       toast.success("Supplier user removed");
     } catch (error) {
       toast.error(error instanceof SupplierUsersApiError ? error.message : "Could not remove supplier user");
     }
+  }
+
+  function goToView(entry: SupplierUser) {
+    router.push(`/${role}/masters/supplier-user/${entry.supplierUserKey}`);
   }
 
   return (
@@ -335,10 +211,9 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
         actions={
           canCreate ? (
             <Button
-              onClick={() => {
-                setEditing(undefined);
-                setDialogOpen(true);
-              }}
+              nativeButton={false}
+              render={<Link href={`/${role}/masters/supplier-user/new`} />}
+              disabled={suppliers.length === 0}
             >
               <Plus className="h-4 w-4" />
               Register user
@@ -346,35 +221,131 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
           ) : undefined
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      {loading && <p className="text-sm text-muted-foreground">Loading supplier users…</p>}
+
+      {entries.length > 0 && (
+        <div className="grid max-w-xl grid-cols-2 gap-4 sm:grid-cols-3">
+          <StatCard icon={UserPlus} label="Total users" value={entries.length} />
+          <StatCard icon={CheckCircle2} label="Active" value={activeCount} />
+          <StatCard icon={CircleDashed} label="Inactive" value={entries.length - activeCount} />
+        </div>
+      )}
+
+      {suppliers.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative sm:w-72">
+            <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search name, email, supplier…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ps-9"
+            />
+          </div>
+          <Select value={supplierFilter} onValueChange={(v) => setSupplierFilter(v ?? "all")}>
+            <SelectTrigger className="w-56">
+              <SelectValue>
+                {(value: string | null) =>
+                  !value || value === "all" ? "All suppliers" : supplierName(Number(value))
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All suppliers</SelectItem>
+              {suppliers.map((s) => (
+                <SelectItem key={s.supplierKey} value={String(s.supplierKey)}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+            <SelectTrigger className="w-40">
+              <SelectValue>
+                {(value: string | null) =>
+                  value === "active" ? "Active" : value === "inactive" ? "Inactive" : "All statuses"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <Card>
-        {!loading && entries.length === 0 ? (
+        {suppliers.length === 0 && !loading ? (
+          <EmptyState
+            icon={UserPlus}
+            tone="muted"
+            heading="Add a supplier first"
+            description="Supplier users belong to a supplier — create one under Masters → Supplier."
+            size="compact"
+          />
+        ) : entries.length === 0 && !loading ? (
           <EmptyState
             icon={UserPlus}
             tone="primary"
             heading="No supplier users yet"
             description="Register your first supplier contact to get started."
             size="compact"
+            action={
+              canCreate ? (
+                <Button nativeButton={false} render={<Link href={`/${role}/masters/supplier-user/new`} />}>
+                  <Plus className="h-4 w-4" />
+                  Register user
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            tone="muted"
+            heading="No matching supplier users"
+            description="Try a different search term or filter."
+            size="compact"
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead className="w-14">Sr. No</TableHead>
+                <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Name
+                </SortableTableHead>
+                <SortableTableHead
+                  sortKey="supplier"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                >
+                  Supplier
+                </SortableTableHead>
+                <SortableTableHead sortKey="email" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Email
+                </SortableTableHead>
                 <TableHead>Access role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-10" />
+                <SortableTableHead sortKey="status" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Status
+                </SortableTableHead>
+                <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-medium">
-                    {entry.firstName} {entry.lastName}
-                  </TableCell>
-                  <TableCell>{entry.supplierName ?? `Supplier ${entry.supplierId}`}</TableCell>
+              {visible.map((entry, index) => (
+                <TableRow
+                  key={entry.id}
+                  className="cursor-pointer"
+                  onClick={() => goToView(entry)}
+                >
+                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="font-medium">{displayName(entry)}</TableCell>
+                  <TableCell>{entry.supplierName ?? supplierName(entry.supplierId)}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.email}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{entry.accessRoleName ?? "—"}</Badge>
@@ -384,28 +355,40 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
                       {entry.isActive ? "active" : "inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {canEdit && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => goToView(entry)}>
+                          <Eye className="h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        {canEdit && (
                           <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(entry);
-                              setDialogOpen(true);
-                            }}
+                            onClick={() =>
+                              router.push(`/${role}/masters/supplier-user/${entry.supplierUserKey}/edit`)
+                            }
                           >
-                            Edit
+                            <Pencil className="h-4 w-4" />
+                            Modify
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void toggleActive(entry)}>
+                        )}
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => void toggleStatus(entry)}>
+                            {entry.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                             {entry.isActive ? "Deactivate" : "Activate"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void removeEntry(entry)}>Remove</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem onClick={() => void removeEntry(entry)}>
+                            <Trash2 className="h-4 w-4" />
+                            Remove
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -413,13 +396,6 @@ function SupplierUserList({ roleDef }: { roleDef: RoleDef }) {
           </Table>
         )}
       </Card>
-      <SupplierUserDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        entry={editing}
-        suppliers={suppliers}
-        onSaved={upsertLocal}
-      />
     </div>
   );
 }

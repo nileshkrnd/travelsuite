@@ -5,8 +5,11 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
   Inbox,
   Loader2,
   MoreHorizontal,
@@ -17,7 +20,7 @@ import {
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,11 +43,64 @@ import {
   setHelpdeskMailboxActive,
   updateHelpdeskMailbox,
 } from "@/lib/services/helpdesk-mailboxes.service";
+import { getMailboxSyncHealth, type MailboxSyncHealth } from "@/lib/helpdesk-queue";
 import { can } from "@/config/permissions";
+import { cn } from "@/lib/utils";
 import type { HelpdeskMailbox, RoleDef } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
 type StatusFilter = "all" | "active" | "inactive";
+
+function syncHealthLabel(health: MailboxSyncHealth): string {
+  switch (health) {
+    case "healthy":
+      return "Healthy";
+    case "stale":
+      return "Stale";
+    case "never":
+      return "Never synced";
+    case "missing_credentials":
+      return "Missing credentials";
+    case "error":
+      return "Sync error";
+    case "inactive":
+      return "Inactive";
+  }
+}
+
+function SyncHealthBadge({ mailbox }: { mailbox: HelpdeskMailbox }) {
+  const health = getMailboxSyncHealth(mailbox);
+  const variant =
+    health === "healthy"
+      ? "secondary"
+      : health === "inactive"
+        ? "outline"
+        : health === "stale" || health === "never"
+          ? "outline"
+          : "destructive";
+  return (
+    <Badge
+      variant={variant}
+      className={cn(
+        "gap-1",
+        health === "healthy" &&
+          "border-emerald-600/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300",
+        (health === "stale" || health === "never") &&
+          "border-amber-600/40 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+      )}
+      title={mailbox.lastSyncError ?? undefined}
+    >
+      {health === "healthy" ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : health === "stale" || health === "never" ? (
+        <Clock className="h-3 w-3" />
+      ) : health === "inactive" ? null : (
+        <AlertTriangle className="h-3 w-3" />
+      )}
+      {syncHealthLabel(health)}
+    </Badge>
+  );
+}
 
 const formSchema = z.object({
   mailboxAddress: z.string().trim().email("Valid email is required").max(200),
@@ -374,6 +430,9 @@ function MailboxPanel({
 
         {mode === "view" && mailbox && (
           <div className="sm:col-span-2 grid gap-2 text-sm text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-2">
+              Sync health: <SyncHealthBadge mailbox={mailbox} />
+            </p>
             <p>
               Credentials:{" "}
               <Badge variant={mailbox.hasCredentials ? "secondary" : "outline"}>
@@ -382,8 +441,16 @@ function MailboxPanel({
             </p>
             <p>
               Last sync:{" "}
-              {mailbox.lastSyncAt ? format(new Date(mailbox.lastSyncAt), "dd MMM yyyy HH:mm") : "Never"}
+              {mailbox.lastSyncAt
+                ? `${format(new Date(mailbox.lastSyncAt), "dd MMM yyyy HH:mm")} (${formatDistanceToNow(
+                    new Date(mailbox.lastSyncAt),
+                    { addSuffix: true }
+                  )})`
+                : "Never"}
             </p>
+            {mailbox.lastSyncError && (
+              <p className="text-destructive">Last error: {mailbox.lastSyncError}</p>
+            )}
             <p>Tickets linked: {mailbox.ticketCount ?? 0}</p>
           </div>
         )}
@@ -428,7 +495,9 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
     }
     setLoading(true);
     try {
-      setRows(await listHelpdeskMailboxes({ tenantId: tenantKey }));
+      // Email / M365 only — WhatsApp is configured under Channel Configuration → WhatsApp
+      const list = await listHelpdeskMailboxes({ tenantId: tenantKey });
+      setRows(list.filter((r) => r.provider !== "whatsapp"));
     } catch (error) {
       toast.error(
         error instanceof HelpdeskMailboxesApiError ? error.message : "Failed to load mailboxes"
@@ -456,6 +525,21 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
       );
     });
   }, [rows, search, statusFilter]);
+
+  const healthCounts = useMemo(() => {
+    const counts = {
+      healthy: 0,
+      attention: 0,
+      inactive: 0,
+    };
+    for (const row of rows) {
+      const health = getMailboxSyncHealth(row);
+      if (health === "healthy") counts.healthy += 1;
+      else if (health === "inactive") counts.inactive += 1;
+      else counts.attention += 1;
+    }
+    return counts;
+  }, [rows]);
 
   async function toggleActive(row: HelpdeskMailbox) {
     try {
@@ -492,7 +576,7 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6">
       <PageHeader
         title="Support mailboxes"
-        description="Tenant Admin setup for Gmail / Microsoft 365 inboxes used by helpdesk ticketing."
+        description="Tenant Admin setup for Gmail / Microsoft 365 inboxes used by helpdesk ticketing. Sync health shows last successful sync and errors."
         actions={
           canCreate ? (
             <Button
@@ -508,6 +592,41 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Healthy</p>
+              <p className="text-2xl font-semibold tabular-nums">{healthCounts.healthy}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={cn(healthCounts.attention > 0 && "border-amber-500/40 bg-amber-500/5")}>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Needs attention</p>
+              <p className="text-2xl font-semibold tabular-nums">{healthCounts.attention}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Inbox className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Inactive</p>
+              <p className="text-2xl font-semibold tabular-nums">{healthCounts.inactive}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       {panel !== "closed" && (
         <MailboxPanel
           key={`${panel}-${selected?.mailboxId ?? "new"}`}
@@ -573,6 +692,7 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
                 <TableHead>Mailbox</TableHead>
                 <TableHead>Provider</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Sync health</TableHead>
                 <TableHead>Credentials</TableHead>
                 <TableHead>Tickets</TableHead>
                 <TableHead>Last sync</TableHead>
@@ -585,6 +705,11 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
                   <TableCell>
                     <div className="font-medium">{row.displayName || row.mailboxAddress}</div>
                     <div className="text-xs text-muted-foreground">{row.mailboxAddress}</div>
+                    {row.lastSyncError ? (
+                      <div className="mt-1 max-w-xs truncate text-xs text-destructive" title={row.lastSyncError}>
+                        {row.lastSyncError}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
@@ -597,6 +722,9 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    <SyncHealthBadge mailbox={row} />
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={row.hasCredentials ? "secondary" : "destructive"}>
                       {row.hasCredentials ? "Set" : "Missing"}
                     </Badge>
@@ -604,7 +732,7 @@ function MailboxesList({ roleDef }: { roleDef: RoleDef }) {
                   <TableCell>{row.ticketCount ?? 0}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {row.lastSyncAt
-                      ? format(new Date(row.lastSyncAt), "dd MMM yyyy HH:mm")
+                      ? formatDistanceToNow(new Date(row.lastSyncAt), { addSuffix: true })
                       : "—"}
                   </TableCell>
                   <TableCell>

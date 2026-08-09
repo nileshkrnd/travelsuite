@@ -1164,12 +1164,15 @@ model Employee {
 }
 
 /// Grants an Employee explicit access to a Property (view/create/edit/submit/approve).
+/// One row per (Employee, Property) grant, OR one row with PropertyID = NULL meaning "all properties".
+/// A partial unique index (see migration) allows at most one "all properties" row per employee.
 model EmployeePropertyAccess {
   employeePropertyAccessId BigInt    @id @default(autoincrement()) @map("EmployeePropertyAccessID")
   tenantId                 Int       @map("TenantID")
   companyId                Int       @map("CompanyID")
   employeeId               Int       @map("EmployeeID")
-  propertyId               Int       @map("PropertyID")
+  /// NULL = access to all properties.
+  propertyId               Int?      @map("PropertyID")
   canView                  Boolean   @default(true) @map("CanView")
   canCreate                Boolean   @default(false) @map("CanCreate")
   canEdit                  Boolean   @default(false) @map("CanEdit")
@@ -1181,8 +1184,8 @@ model EmployeePropertyAccess {
   createdBy                Int       @map("CreatedBy")
   createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
 
-  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
 
   @@unique([employeeId, propertyId], map: "EmployeePropertyAccess_Employee_Property_key")
   @@index([propertyId], map: "EmployeePropertyAccess_PropertyID_idx")

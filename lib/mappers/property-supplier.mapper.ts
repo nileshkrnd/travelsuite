@@ -1,4 +1,4 @@
-import type { PropertySupplier } from "@/types";
+import type { PropertySupplier, SupplierPropertyGrant } from "@/types";
 
 export interface PropertySupplierRow {
   propertySupplierId: bigint | number;
@@ -41,4 +41,34 @@ export function toAppPropertySupplier(row: PropertySupplierRow): PropertySupplie
     createdBy: row.createdBy,
     createdAt: toIso(row.createdDtTm),
   };
+}
+
+/** Groups the flat per-row rows (one row per property) into one grant per supplier. */
+export function toAppSupplierPropertyGrants(rows: PropertySupplierRow[]): SupplierPropertyGrant[] {
+  const bySupplier = new Map<number, PropertySupplierRow[]>();
+  for (const row of rows) {
+    const supplierId = Number(row.supplierId);
+    const list = bySupplier.get(supplierId);
+    if (list) list.push(row);
+    else bySupplier.set(supplierId, [row]);
+  }
+
+  return [...bySupplier.entries()].map(([supplierId, group]) => {
+    const first = group[0]!;
+    return {
+      supplierId,
+      supplierName: first.supplier?.supplierName,
+      properties: group.map((r) => ({
+        propertyId: r.propertyId,
+        propertyCode: r.property?.propertyCode,
+        propertyName: r.property?.propertyName ?? undefined,
+      })),
+      isPrimary: group.some((r) => r.isPrimary),
+      isActive: first.isActive,
+      validFrom: toDateOnly(first.validFrom),
+      validTo: toDateOnly(first.validTo),
+      createdBy: first.createdBy,
+      createdAt: toIso(first.createdDtTm),
+    };
+  });
 }

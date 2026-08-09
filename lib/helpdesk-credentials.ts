@@ -6,6 +6,12 @@ export type HelpdeskMailboxCredentials = {
   ms365TenantId?: string;
   ms365ClientId?: string;
   ms365ClientSecret?: string;
+  /** Meta WhatsApp Cloud API */
+  waPhoneNumberId?: string;
+  waBusinessAccountId?: string;
+  waAccessToken?: string;
+  waAppSecret?: string;
+  waVerifyToken?: string;
 };
 
 function encryptionKey(): Buffer {
@@ -54,6 +60,21 @@ export function mergeMailboxCredentials(
   if (patch.ms365ClientId !== undefined) next.ms365ClientId = patch.ms365ClientId.trim() || undefined;
   if (patch.ms365ClientSecret !== undefined && patch.ms365ClientSecret.trim()) {
     next.ms365ClientSecret = patch.ms365ClientSecret.trim();
+  }
+  if (patch.waPhoneNumberId !== undefined) {
+    next.waPhoneNumberId = patch.waPhoneNumberId.trim() || undefined;
+  }
+  if (patch.waBusinessAccountId !== undefined) {
+    next.waBusinessAccountId = patch.waBusinessAccountId.trim() || undefined;
+  }
+  if (patch.waAccessToken !== undefined && patch.waAccessToken.trim()) {
+    next.waAccessToken = patch.waAccessToken.trim();
+  }
+  if (patch.waAppSecret !== undefined && patch.waAppSecret.trim()) {
+    next.waAppSecret = patch.waAppSecret.trim();
+  }
+  if (patch.waVerifyToken !== undefined && patch.waVerifyToken.trim()) {
+    next.waVerifyToken = patch.waVerifyToken.trim();
   }
   return encryptMailboxCredentials(next);
 }

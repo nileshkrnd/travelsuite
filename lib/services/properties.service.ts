@@ -82,6 +82,15 @@ export async function listProperties(options?: {
   global?: boolean;
   /** When set alongside tenantId, also merges in globally-managed properties. */
   includeGlobal?: boolean;
+  countryId?: number;
+  stateId?: number;
+  cityId?: number;
+  areaId?: number;
+  search?: string;
+  /** When true, API requires countryId + cityId (for large catalogs / access pickers). */
+  requireLocation?: boolean;
+  /** Max rows to return (server caps at 2000). */
+  take?: number;
 }): Promise<Property[]> {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
@@ -92,6 +101,13 @@ export async function listProperties(options?: {
   }
   if (options?.global) params.set("global", "true");
   if (options?.includeGlobal) params.set("includeGlobal", "true");
+  if (options?.countryId !== undefined) params.set("countryId", String(options.countryId));
+  if (options?.stateId !== undefined) params.set("stateId", String(options.stateId));
+  if (options?.cityId !== undefined) params.set("cityId", String(options.cityId));
+  if (options?.areaId !== undefined) params.set("areaId", String(options.areaId));
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.requireLocation) params.set("requireLocation", "true");
+  if (options?.take !== undefined) params.set("take", String(options.take));
   const qs = params.toString();
   const res = await fetch(`/api/properties${qs ? `?${qs}` : ""}`, { cache: "no-store" });
   if (!res.ok) throw new PropertiesApiError(await parseError(res), res.status);
