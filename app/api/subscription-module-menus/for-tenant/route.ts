@@ -144,7 +144,7 @@ export async function GET(request: Request) {
             filtered = filtered.filter((m) => allowed.has(m.subscriptionModuleMenuId));
           }
         } else if (user?.userTypeId !== UserType.TenantAdmin) {
-          // Non–Tenant Admin with no Employee / Access Role → no menus.
+          // Non–Tenant Admin with no Employee / SupplierUser Access Role → no menus.
           filtered = [];
         }
         // Tenant Admin without a resolvable Access Role keeps Module Access menus.

@@ -35,6 +35,7 @@ import { ContractCancellationPoliciesPanel } from "@/components/masters/Contract
 import { ContractPromotionsPanel } from "@/components/masters/ContractPromotionsPanel";
 import { ContractStopSalesPanel } from "@/components/masters/ContractStopSalesPanel";
 import { ContractBlackoutsPanel } from "@/components/masters/ContractBlackoutsPanel";
+import { ContractExcelImportExport } from "@/components/masters/ContractExcelImportExport";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
   const [entry, setEntry] = useState<PropertyContract | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [excelEpoch, setExcelEpoch] = useState(0);
   const canEdit = can(roleDef, "contracts", "edit");
   const canCreate = can(roleDef, "contracts", "create");
   const canDelete = can(roleDef, "contracts", "delete");
@@ -199,6 +201,12 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
               <Printer className="h-4 w-4" />
               Print / Review
             </Button>
+            <ContractExcelImportExport
+              propertyContractId={entry.propertyContractKey}
+              actorKey={actorKey}
+              canEdit={canEdit || canCreate}
+              onImported={() => setExcelEpoch((n) => n + 1)}
+            />
           </div>
         }
       />
@@ -306,6 +314,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
 
         <TabsContent value="season-periods" className="mt-4">
           <ContractSeasonPeriodsPanel
+            key={`season-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -315,6 +324,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
 
         <TabsContent value="rate-plans" className="mt-4">
           <ContractRatePlansPanel
+            key={`plans-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -324,6 +334,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
 
         <TabsContent value="rates" className="mt-4">
           <ContractRatesPanel
+            key={`rates-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -333,6 +344,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
 
         <TabsContent value="inventory" className="mt-4">
           <ContractInventoryPanel
+            key={`inventory-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -341,6 +353,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="supplements" className="mt-4">
           <ContractSupplementsPanel
+            key={`supplements-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -349,6 +362,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="child-policies" className="mt-4">
           <ContractChildPoliciesPanel
+            key={`child-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -357,6 +371,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="cancellation-policies" className="mt-4">
           <ContractCancellationPoliciesPanel
+            key={`cancel-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -365,6 +380,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="promotions" className="mt-4">
           <ContractPromotionsPanel
+            key={`promo-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -373,6 +389,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="stop-sales" className="mt-4">
           <ContractStopSalesPanel
+            key={`stop-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}
@@ -381,6 +398,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="blackouts" className="mt-4">
           <ContractBlackoutsPanel
+            key={`blackout-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}

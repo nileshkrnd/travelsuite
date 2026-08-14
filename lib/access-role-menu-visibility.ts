@@ -5,7 +5,8 @@ type Db = PrismaClient;
 
 /**
  * Resolve which Access Role + company scope drives menu permissions for a user.
- * Prefer Employee.accessRoleId; Tenant Admin falls back to Access Role named "Tenant Admin".
+ * Prefer Employee.accessRoleId, then SupplierUser.accessRoleId;
+ * Tenant Admin falls back to Access Role named "Tenant Admin".
  */
 export async function resolveUserAccessRoleScope(
   db: Db,
@@ -26,6 +27,19 @@ export async function resolveUserAccessRoleScope(
           isActive: true,
         },
       },
+      supplierUser: {
+        select: {
+          accessRoleId: true,
+          isActive: true,
+          accessRole: {
+            select: {
+              companyId: true,
+              tenantId: true,
+              isActive: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!user || user.tenantId !== tenantId) return null;
@@ -37,8 +51,19 @@ export async function resolveUserAccessRoleScope(
     };
   }
 
-  // Tenant Admin (and similar companyKey=0) → Access Role "Tenant Admin" for the tenant.
-  if (user.userTypeId === UserType.TenantAdmin || user.companyId === 0) {
+  // Supplier portal user → Access Role assigned on SupplierUser.
+  if (user.supplierUser?.isActive && user.supplierUser.accessRole?.isActive) {
+    const role = user.supplierUser.accessRole;
+    if (role.tenantId !== tenantId) return null;
+    return {
+      accessRoleId: user.supplierUser.accessRoleId,
+      // Prefer the role's company scope; fall back to the user/supplier company.
+      companyId: role.companyId > 0 ? role.companyId : user.companyId,
+    };
+  }
+
+  // Tenant Admin → Access Role "Tenant Admin" for the tenant.
+  if (user.userTypeId === UserType.TenantAdmin) {
     const role = await db.accessRole.findFirst({
       where: {
         tenantId,
