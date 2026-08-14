@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { buildAvailabilityAriHints } from "@/lib/api/availability-calendar-ari-helpers";
+import { buildAvailabilityClosureHints } from "@/lib/api/availability-calendar-closure-helpers";
 import {
   monthDateRange,
   parseDateOnly,
@@ -47,13 +48,24 @@ export async function loadAvailabilityCalendar(options: {
     })
   );
 
-  const { hints, currencyCode } = await buildAvailabilityAriHints({
-    tenantId,
-    propertyId,
-    days,
-    propertyRoomIds: roomIds,
-  });
+  const [{ hints, currencyCode }, closureHints] = await Promise.all([
+    buildAvailabilityAriHints({
+      tenantId,
+      propertyId,
+      days,
+      propertyRoomIds: roomIds,
+    }),
+    buildAvailabilityClosureHints({
+      tenantId,
+      propertyId,
+      days,
+      propertyRoomIds: roomIds,
+    }),
+  ]);
   const ariByKey = new Map(hints.map((h) => [`${h.propertyRoomId}:${h.availabilityDate}`, h]));
+  const closureByKey = new Map(
+    closureHints.map((h) => [`${h.propertyRoomId}:${h.availabilityDate}`, h])
+  );
 
   const availCells = [];
   for (const room of rooms) {
@@ -62,8 +74,11 @@ export async function loadAvailabilityCalendar(options: {
       const key = `${propertyRoomId}:${availabilityDate}`;
       const saved = savedByKey.get(key);
       const ari = ariByKey.get(key);
+      const closure = closureByKey.get(key);
       const contractAllotment = ari?.inventoryAllotment ?? null;
       const hasSavedAvail = saved != null;
+      const contractStopSale = closure?.contractStopSale ?? false;
+      const contractBlackout = closure?.contractBlackout ?? false;
 
       availCells.push({
         propertyRoomAvailabilityKey: saved?.propertyRoomAvailabilityId,
@@ -81,6 +96,8 @@ export async function loadAvailabilityCalendar(options: {
         dailyInventoryQty: saved?.dailyInventoryQty ?? null,
         contractInventoryStopSell: ari?.contractInventoryStopSell ?? false,
         contractInventoryClosed: ari?.contractInventoryClosed ?? false,
+        contractStopSale,
+        contractBlackout,
       });
     }
   }

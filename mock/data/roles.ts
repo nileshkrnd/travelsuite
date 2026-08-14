@@ -107,6 +107,7 @@ const EXTRANET_KEYS: ModuleKey[] = [
   "seasons",
   "propertyRooms",
   "extranetInventory",
+  "extranetAvailability",
   "rates",
   "promotions",
   "stopSales",

@@ -40,6 +40,10 @@ export interface AvailabilityCalendarCell {
   dailyInventoryQty?: number | null;
   contractInventoryStopSell?: boolean;
   contractInventoryClosed?: boolean;
+  /** Active contract stop-sale period applies to this room/day. */
+  contractStopSale?: boolean;
+  /** Active contract blackout applies to this room/day. */
+  contractBlackout?: boolean;
 }
 
 export interface AvailabilityCalendarPayload {

@@ -1054,6 +1054,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "contracts", labelKey: "sidebar.contracts", icon: "FileSignature", path: "extranet/contracts" },
       { key: "rates", labelKey: "sidebar.rates", icon: "BadgeDollarSign", path: "extranet/rates" },
       { key: "extranetInventory", labelKey: "sidebar.extranetInventory", icon: "Boxes", path: "extranet/inventory" },
+      { key: "extranetAvailability", labelKey: "sidebar.extranetAvailability", icon: "CalendarCheck", path: "extranet/availability" },
       { key: "supplement", labelKey: "sidebar.supplement", icon: "PlusCircle", path: "extranet/supplement" },
       { key: "promotions", labelKey: "sidebar.promotions", icon: "Megaphone", path: "extranet/promotions" },
       { key: "stopSales", labelKey: "sidebar.stopSales", icon: "Ban", path: "extranet/stop-sales" },

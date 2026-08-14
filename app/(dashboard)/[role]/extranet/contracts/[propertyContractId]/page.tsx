@@ -10,6 +10,12 @@ import {
   CalendarDays,
   FileSignature,
   Tags,
+  PlusCircle,
+  Baby,
+  Ban,
+  CalendarOff,
+  CircleOff,
+  Megaphone,
   Pencil,
   Power,
   PowerOff,
@@ -22,6 +28,12 @@ import { ContractSeasonPeriodsPanel } from "@/components/masters/ContractSeasonP
 import { ContractRatePlansPanel } from "@/components/masters/ContractRatePlansPanel";
 import { ContractRatesPanel } from "@/components/masters/ContractRatesPanel";
 import { ContractInventoryPanel } from "@/components/masters/ContractInventoryPanel";
+import { ContractSupplementsPanel } from "@/components/masters/ContractSupplementsPanel";
+import { ContractChildPoliciesPanel } from "@/components/masters/ContractChildPoliciesPanel";
+import { ContractCancellationPoliciesPanel } from "@/components/masters/ContractCancellationPoliciesPanel";
+import { ContractPromotionsPanel } from "@/components/masters/ContractPromotionsPanel";
+import { ContractStopSalesPanel } from "@/components/masters/ContractStopSalesPanel";
+import { ContractBlackoutsPanel } from "@/components/masters/ContractBlackoutsPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +79,19 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
           ? "rates"
           : tabParam === "inventory"
             ? "inventory"
-            : "details";
+            : tabParam === "supplements"
+              ? "supplements"
+              : tabParam === "child-policies"
+                ? "child-policies"
+                : tabParam === "cancellation-policies"
+                  ? "cancellation-policies"
+                  : tabParam === "promotions"
+                    ? "promotions"
+                    : tabParam === "stop-sales"
+                      ? "stop-sales"
+                      : tabParam === "blackouts"
+                        ? "blackouts"
+              : "details";
 
   useEffect(() => {
     const id = Number(propertyContractId);
@@ -145,7 +169,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title={entry.contractName}
-        description="Property contract details, season periods, rate plans, and contracted rates."
+        description="Property contract details, season periods, rate plans, rates, inventory, supplements, child policies, cancellation policies, promotions, stop sales, and blackouts."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/extranet/contracts`} />}>
@@ -193,6 +217,30 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
             <TabsTrigger value="inventory" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
               <Boxes className="h-4 w-4" />
               Inventory
+            </TabsTrigger>
+            <TabsTrigger value="supplements" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <PlusCircle className="h-4 w-4" />
+              Supplements
+            </TabsTrigger>
+            <TabsTrigger value="child-policies" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Baby className="h-4 w-4" />
+              Child Policies
+            </TabsTrigger>
+            <TabsTrigger value="cancellation-policies" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Ban className="h-4 w-4" />
+              Cancellation
+            </TabsTrigger>
+            <TabsTrigger value="promotions" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Megaphone className="h-4 w-4" />
+              Promotions
+            </TabsTrigger>
+            <TabsTrigger value="stop-sales" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <CircleOff className="h-4 w-4" />
+              Stop Sales
+            </TabsTrigger>
+            <TabsTrigger value="blackouts" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <CalendarOff className="h-4 w-4" />
+              Blackouts
             </TabsTrigger>
           </TabsList>
         </div>
@@ -277,6 +325,54 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
 
         <TabsContent value="inventory" className="mt-4">
           <ContractInventoryPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="supplements" className="mt-4">
+          <ContractSupplementsPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="child-policies" className="mt-4">
+          <ContractChildPoliciesPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="cancellation-policies" className="mt-4">
+          <ContractCancellationPoliciesPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="promotions" className="mt-4">
+          <ContractPromotionsPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="stop-sales" className="mt-4">
+          <ContractStopSalesPanel
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="blackouts" className="mt-4">
+          <ContractBlackoutsPanel
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}

@@ -1,0 +1,92 @@
+"use client";
+
+import { Suspense, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { CalendarOff } from "lucide-react";
+import { AccessGate } from "@/components/shared/AccessGate";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
+import { PropertyContractBlackoutsList } from "@/components/masters/PropertyContractBlackoutsList";
+import { useSessionStore } from "@/lib/store/session.store";
+import { useTenantStore } from "@/lib/store/tenant.store";
+import { useExtranetPropertyScopeStore } from "@/lib/store/extranet-property-scope.store";
+import { can } from "@/config/permissions";
+import type { Property, RoleDef } from "@/types";
+
+function PropertyBlackoutsPage({ roleDef }: { roleDef: RoleDef }) {
+  const searchParams = useSearchParams();
+  const sessionUser = useSessionStore((s) => s.user);
+  const activeTenant = useTenantStore((s) => s.tenant);
+  const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+
+  const scope = useExtranetPropertyScopeStore();
+  const propertyId = scope.propertyId;
+  const propertyLabel = scope.propertyLabel;
+
+  useEffect(() => {
+    if (scope.propertyId) return;
+    const urlPropertyId = Number(searchParams.get("propertyId") ?? 0);
+    if (Number.isFinite(urlPropertyId) && urlPropertyId > 0) {
+      scope.setProperty({ propertyId: urlPropertyId, propertyLabel: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const canEdit = can(roleDef, "contracts", "edit");
+  const canCreate = can(roleDef, "contracts", "create");
+  const canDelete = can(roleDef, "contracts", "delete");
+
+  function selectProperty(id: number | null, property: Property | null) {
+    scope.setProperty({
+      propertyId: id,
+      propertyLabel: property
+        ? property.propertyDisplayName || property.propertyName || property.propertyCode
+        : null,
+      countryId: property?.countryId ?? null,
+      stateId: property?.stateId ?? null,
+      cityId: property?.cityId ?? null,
+      areaId: property?.areaId ?? null,
+    });
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <PageHeader
+        icon={CalendarOff}
+        title="Blackout Dates"
+        description="Closed booking dates for peak periods, events, and restrictions across supplier contracts."
+      />
+
+      <ExtranetPropertyScope
+        tenantId={tenantKey}
+        propertyId={propertyId}
+        propertyLabel={propertyLabel}
+        onPropertyChange={selectProperty}
+        emptyHeading="Select a property to view blackouts"
+        emptyDescription="Choose the property whose blackout dates you want to review or manage."
+      >
+        {propertyId && propertyId > 0 ? (
+          <PropertyContractBlackoutsList
+            tenantId={tenantKey}
+            propertyId={propertyId}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        ) : null}
+      </ExtranetPropertyScope>
+    </div>
+  );
+}
+
+export default function ExtranetBlackoutDatesPage() {
+  return (
+    <AccessGate module="blackoutDates">
+      {(roleDef) => (
+        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+          <PropertyBlackoutsPage roleDef={roleDef} />
+        </Suspense>
+      )}
+    </AccessGate>
+  );
+}

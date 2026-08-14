@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ban,
   CalendarCheck,
+  CalendarX2,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -41,6 +42,8 @@ type CellState = {
   dailyRateAmount: number | null;
   contractInventoryStopSell: boolean;
   contractInventoryClosed: boolean;
+  contractStopSale: boolean;
+  contractBlackout: boolean;
 };
 
 function cellKey(roomId: number, date: string) {
@@ -110,6 +113,8 @@ function cellFromPayload(cell: AvailabilityCalendarCell): CellState {
     dailyRateAmount: cell.dailyRateAmount ?? null,
     contractInventoryStopSell: cell.contractInventoryStopSell ?? false,
     contractInventoryClosed: cell.contractInventoryClosed ?? false,
+    contractStopSale: cell.contractStopSale ?? false,
+    contractBlackout: cell.contractBlackout ?? false,
   };
 }
 
@@ -181,6 +186,8 @@ export function AvailabilityCalendar({
         dailyRateAmount: null,
         contractInventoryStopSell: false,
         contractInventoryClosed: false,
+        contractStopSale: false,
+        contractBlackout: false,
       }
     );
   }
@@ -291,6 +298,10 @@ export function AvailabilityCalendar({
             <span className="flex items-center gap-1">
               <span className="inline-block h-3 w-3 rounded-sm bg-destructive/20 ring-1 ring-destructive/40" />
               Stop sell
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm bg-violet-500/20 ring-1 ring-violet-500/40" />
+              Blackout
             </span>
           </div>
           {canEdit && (
@@ -409,23 +420,32 @@ function AvailabilityCell({
   const allotment = effectiveAllotment(state);
   const rate = effectiveRate(state);
   const hasAllotment = allotment != null;
-  const blocked =
-    state.stopSell || state.contractInventoryStopSell || state.contractInventoryClosed;
+  const stopSellBlocked =
+    state.stopSell ||
+    state.contractInventoryStopSell ||
+    state.contractStopSale;
+  const blackoutBlocked = state.contractInventoryClosed || state.contractBlackout;
+  const blocked = stopSellBlocked || blackoutBlocked;
   const rateOverridden = state.dailyRateAmount != null;
   const showAllotmentOverride = allotmentOverridden(state);
 
-  const tone = blocked
+  const tone = stopSellBlocked
     ? "bg-destructive/10 ring-destructive/30"
-    : hasAllotment && allotment === 0
-      ? "bg-amber-500/10 ring-amber-500/30"
-      : hasAllotment && allotment > 0
-        ? "bg-emerald-500/5 ring-emerald-500/20"
-        : "bg-background ring-border/50";
+    : blackoutBlocked
+      ? "bg-violet-500/10 ring-violet-500/30"
+      : hasAllotment && allotment === 0
+        ? "bg-amber-500/10 ring-amber-500/30"
+        : hasAllotment && allotment > 0
+          ? "bg-emerald-500/5 ring-emerald-500/20"
+          : "bg-background ring-border/50";
 
   const cellContent = (
     <>
-      {blocked && (
+      {stopSellBlocked && (
         <Ban className="absolute right-1 top-1 h-3 w-3 text-destructive/80" aria-hidden />
+      )}
+      {!stopSellBlocked && blackoutBlocked && (
+        <CalendarX2 className="absolute right-1 top-1 h-3 w-3 text-violet-600/80 dark:text-violet-400/80" aria-hidden />
       )}
       <div className="grid w-full grid-cols-2 gap-1 px-1 py-1.5 tabular-nums">
         <span
@@ -530,9 +550,23 @@ function AvailabilityCell({
             Stop sell (daily)
           </label>
 
-          {(state.contractInventoryStopSell || state.contractInventoryClosed) && (
+          {(state.contractInventoryStopSell || state.contractStopSale) && (
             <p className="text-[10px] text-destructive">
-              {state.contractInventoryClosed ? "Contract inventory closed" : "Contract stop sell active"}
+              {state.contractStopSale && state.contractInventoryStopSell
+                ? "Contract inventory stop sell and stop-sale period active"
+                : state.contractStopSale
+                  ? "Stop-sale period active"
+                  : "Contract inventory stop sell active"}
+            </p>
+          )}
+
+          {(state.contractInventoryClosed || state.contractBlackout) && (
+            <p className="text-[10px] text-violet-700 dark:text-violet-400">
+              {state.contractBlackout && state.contractInventoryClosed
+                ? "Contract inventory closed and blackout active"
+                : state.contractBlackout
+                  ? "Blackout period active"
+                  : "Contract inventory closed"}
             </p>
           )}
         </div>
@@ -544,6 +578,18 @@ function AvailabilityCell({
           <dd className="text-right font-mono tabular-nums">
             {rate != null ? `${formatAmount(rate)}${currencyCode ? ` ${currencyCode}` : ""}` : "—"}
           </dd>
+          {stopSellBlocked && (
+            <>
+              <dt className="text-destructive">Stop sell</dt>
+              <dd className="text-right text-destructive">Active</dd>
+            </>
+          )}
+          {blackoutBlocked && (
+            <>
+              <dt className="text-violet-700 dark:text-violet-400">Blackout</dt>
+              <dd className="text-right text-violet-700 dark:text-violet-400">Active</dd>
+            </>
+          )}
         </dl>
       )}
     </PopoverContent>

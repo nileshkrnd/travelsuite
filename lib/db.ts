@@ -47,7 +47,22 @@ function adminClientIsStale(client: AdminPrismaClient): boolean {
     !("propertyContractRateDay" in client) ||
     !("propertyRoomAvailability" in client) ||
     !("inventoryType" in client) ||
-    !("propertyContractInventory" in client)
+    !("propertyContractInventory" in client) ||
+    !("supplementType" in client) ||
+    !("propertyContractSupplement" in client) ||
+    !("childPolicyType" in client) ||
+    !("propertyContractChildPolicy" in client) ||
+    !("cancellationPolicyType" in client) ||
+    !("propertyContractCancellationPolicy" in client) ||
+    !("promotionType" in client) ||
+    !("promotionBenefitType" in client) ||
+    !("propertyContractPromotion" in client) ||
+    !("stopSaleType" in client) ||
+    !("stopSaleReason" in client) ||
+    !("propertyContractStopSale" in client) ||
+    !("blackoutType" in client) ||
+    !("blackoutReason" in client) ||
+    !("propertyContractBlackout" in client)
   );
 }
 

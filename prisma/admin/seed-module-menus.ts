@@ -625,6 +625,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
         { name: "Contracts", url: "extranet/contracts", icon: "FileSignature" },
         { name: "Rates", url: "extranet/rates", icon: "BadgeDollarSign" },
         { name: "Inventory", url: "extranet/inventory", icon: "Boxes" },
+        { name: "Availability Calendar", url: "extranet/availability", icon: "CalendarCheck" },
         { name: "Supplement", url: "extranet/supplement", icon: "PlusCircle" },
         { name: "Promotions", url: "extranet/promotions", icon: "Megaphone" },
         { name: "Stop Sales", url: "extranet/stop-sales", icon: "Ban" },
