@@ -9,6 +9,7 @@ import {
   Boxes,
   CalendarDays,
   FileSignature,
+  Printer,
   Tags,
   PlusCircle,
   Baby,
@@ -191,6 +192,13 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
                 Modify
               </Button>
             )}
+            <Button
+              nativeButton={false}
+              render={<Link href={`/${role}/extranet/contracts/${entry.propertyContractKey}/print`} />}
+            >
+              <Printer className="h-4 w-4" />
+              Print / Review
+            </Button>
           </div>
         }
       />

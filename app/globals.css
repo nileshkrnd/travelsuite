@@ -129,6 +129,15 @@
   }
 }
 
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+}
+
 @keyframes ts-route {
   to {
     stroke-dashoffset: -320;

@@ -66,6 +66,8 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "promotions",
   "stopSales",
   "blackoutDates",
+  "childPolicies",
+  "cancellationPolicies",
   "accountGroup",
   "ledger",
   "chartOfAccounts",
