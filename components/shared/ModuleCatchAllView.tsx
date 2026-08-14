@@ -55,6 +55,10 @@ const REAL_MODULE_KEYS = new Set<ModuleKey>([
   "subAgency",
   "corporateAccounts",
   "supplier",
+  "contracts",
+  "seasons",
+  "propertyRooms",
+  "extranetAvailability",
   "accountGroup",
   "ledger",
   "chartOfAccounts",
@@ -112,14 +116,20 @@ type ModuleCatchAllViewProps = {
 };
 
 export function ModuleCatchAllView({ pathPrefix }: ModuleCatchAllViewProps) {
-  const { module: moduleSegments } = useParams<{ module?: string[] }>();
+  const params = useParams<{ module?: string | string[] }>();
   const t = useTranslations("sidebar");
   const user = useSessionStore((s) => s.user);
   const roles = useRolesStore((s) => s.roles);
   const roleDef = user ? roles.find((r) => r.id === user.roleId) : undefined;
 
+  const moduleSegments = useMemo(() => {
+    const raw = params.module;
+    if (!raw) return [] as string[];
+    return Array.isArray(raw) ? raw : [raw];
+  }, [params.module]);
+
   const path = useMemo(() => {
-    const rest = (moduleSegments ?? []).join("/");
+    const rest = moduleSegments.join("/");
     return rest ? `${pathPrefix}/${rest}` : pathPrefix;
   }, [moduleSegments, pathPrefix]);
 

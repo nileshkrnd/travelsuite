@@ -178,6 +178,9 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
           children: [
             { name: "Property", url: "masters/property", icon: "Building" },
             { name: "Property Supplier", url: "masters/property-supplier", icon: "Store" },
+            { name: "Rate Plan Type", url: "masters/rate-plan-type", icon: "Tags" },
+            { name: "Meal Plan", url: "masters/meal-plan", icon: "UtensilsCrossed" },
+            { name: "Rate Basis", url: "masters/rate-basis", icon: "Scale" },
           ],
         },
       ],
@@ -618,6 +621,8 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
         { name: "Extranet Dashboard", url: "extranet/dashboard", icon: "LayoutDashboard" },
         { name: "Property Management", url: "extranet/property", icon: "Home" },
         { name: "Contracts", url: "extranet/contracts", icon: "FileSignature" },
+        { name: "Property Season", url: "extranet/seasons", icon: "CalendarRange" },
+        { name: "Property Room", url: "extranet/rooms", icon: "BedDouble" },
         { name: "Inventory", url: "extranet/inventory", icon: "Boxes" },
         { name: "Rates", url: "extranet/rates", icon: "BadgeDollarSign" },
         { name: "Availability Calendar", url: "extranet/availability", icon: "CalendarCheck" },

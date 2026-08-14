@@ -300,8 +300,9 @@ model Currency {
   modifiedBy        Int?      @map("ModifiedBy")
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  companies Company[]
-  suppliers Supplier[]
+  companies         Company[]
+  suppliers         Supplier[]
+  propertyContracts PropertyContract[]
 
   @@map("Currency")
 }
@@ -450,6 +451,36 @@ model SupplierType {
   @@map("SupplierType")
 }
 
+/// Contract type lookup (FIT / Group / Corporate / …). Global, not tenant-scoped.
+model ContractType {
+  contractTypeId BigInt    @id @default(autoincrement()) @map("ContractTypeID")
+  name           String    @unique @map("ContractTypeName") @db.VarChar(100)
+  isActive       Boolean   @default(true) @map("IsActive")
+  createdBy      Int       @map("CreatedBy")
+  createdDtTm    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy     Int?      @map("ModifiedBy")
+  modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contracts PropertyContract[]
+
+  @@map("ContractType")
+}
+
+/// Contract status lookup (Draft / Active / Expired / …). Global, not tenant-scoped.
+model ContractStatus {
+  contractStatusId BigInt    @id @default(autoincrement()) @map("ContractStatusID")
+  name             String    @unique @map("ContractStatusName") @db.VarChar(100)
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contracts PropertyContract[]
+
+  @@map("ContractStatus")
+}
+
 /// Supplier org master — travel supply-side partner (Hotelier, DMC, Transport, Activity Provider, …). Tenant + Company scoped.
 model Supplier {
   supplierId             BigInt    @id @default(autoincrement()) @map("SupplierID")
@@ -485,6 +516,7 @@ model Supplier {
   currency      Currency           @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
   propertyLinks PropertySupplier[]
   supplierUsers SupplierUser[]
+  contracts     PropertyContract[]
 
   @@unique([tenantId, supplierCode], map: "Supplier_Tenant_Code_key")
   @@index([tenantId, companyId], map: "Supplier_TenantID_CompanyID_idx")
@@ -537,6 +569,8 @@ model SupplierUser {
   accessRole AccessRole @relation(fields: [accessRoleId], references: [accessRoleId], onDelete: Restrict)
   user       User       @relation(fields: [userId], references: [userId], onDelete: Restrict)
 
+  contractContacts PropertyContract[]
+
   @@unique([supplierId, email], map: "SupplierUser_Supplier_Email_key")
   @@index([accessRoleId], map: "SupplierUser_AccessRoleID_idx")
   @@map("SupplierUser")
@@ -567,6 +601,381 @@ model SupplierPropertyAccess {
   @@index([userId], map: "SupplierPropertyAccess_UserID_idx")
   @@index([tenantId, companyId], map: "SupplierPropertyAccess_TenantID_CompanyID_idx")
   @@map("SupplierPropertyAccess")
+}
+
+/// Supplier contract for a Property — rates/terms agreement, uploaded document, validity window.
+model PropertyContract {
+  propertyContractId BigInt    @id @default(autoincrement()) @map("PropertyContractID")
+  tenantId           Int       @map("TenantID")
+  companyId          Int       @map("CompanyID")
+  propertyId         Int       @map("PropertyID")
+  supplierId         BigInt    @map("SupplierID")
+  contractNumber     String    @map("ContractNumber") @db.VarChar(100)
+  contractName       String    @map("ContractName") @db.VarChar(200)
+  contractTypeId     BigInt    @map("ContractTypeID")
+  startDate          DateTime  @map("StartDate") @db.Date
+  endDate            DateTime  @map("EndDate") @db.Date
+  contractCurrencyId Int       @map("ContractCurrencyID")
+  contractStatusId   BigInt    @map("ContractStatusID")
+  contractVersion    Int       @default(1) @map("ContractVersion")
+  signedDate         DateTime? @map("SignedDate") @db.Date
+  signedByEmployeeId Int?      @map("SignedByEmployeeID")
+  supplierContactId  BigInt?   @map("SupplierContactID")
+  paymentTerms       String?   @map("PaymentTerms") @db.Text
+  generalTerms       String?   @map("GeneralTerms") @db.Text
+  remarks            String?   @map("Remarks") @db.Text
+  contractFileUrl    String?   @map("ContractFileUrl") @db.VarChar(500)
+  contractFileName   String?   @map("ContractFileName") @db.VarChar(255)
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  property         Property       @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  supplier         Supplier       @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
+  contractType     ContractType   @relation(fields: [contractTypeId], references: [contractTypeId], onDelete: Restrict)
+  contractStatus   ContractStatus @relation(fields: [contractStatusId], references: [contractStatusId], onDelete: Restrict)
+  currency         Currency       @relation(fields: [contractCurrencyId], references: [currencyId], onDelete: Restrict)
+  signedByEmployee Employee?      @relation(fields: [signedByEmployeeId], references: [employeeId], onDelete: SetNull)
+  supplierContact  SupplierUser?  @relation(fields: [supplierContactId], references: [supplierUserId], onDelete: SetNull)
+  seasonPeriods    PropertyContractSeasonPeriod[]
+  ratePlans        PropertyContractRatePlan[]
+  rates            PropertyContractRate[]
+  inventories      PropertyContractInventory[]
+
+  @@unique([tenantId, propertyId, contractNumber], map: "PropertyContract_Tenant_Property_Number_key")
+  @@index([tenantId, companyId], map: "PropertyContract_TenantID_CompanyID_idx")
+  @@index([propertyId], map: "PropertyContract_PropertyID_idx")
+  @@index([supplierId], map: "PropertyContract_SupplierID_idx")
+  @@index([contractStatusId], map: "PropertyContract_ContractStatusID_idx")
+  @@map("PropertyContract")
+}
+
+/// Property-level season definition (Low / High / Peak, …). Tenant + Company + Property scoped.
+model PropertySeason {
+  propertySeasonId BigInt    @id @default(autoincrement()) @map("PropertySeasonID")
+  tenantId         Int       @map("TenantID")
+  companyId        Int       @map("CompanyID")
+  propertyId       Int       @map("PropertyID")
+  /// LOW | HIGH | PEAK | custom codes
+  seasonCode       String    @map("SeasonCode") @db.VarChar(50)
+  seasonName       String    @map("SeasonName") @db.VarChar(100)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  property      Property                        @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  seasonPeriods PropertyContractSeasonPeriod[]
+
+  @@unique([tenantId, propertyId, seasonCode], map: "PropertySeason_Tenant_Property_Code_key")
+  @@index([tenantId, companyId], map: "PropertySeason_TenantID_CompanyID_idx")
+  @@index([propertyId], map: "PropertySeason_PropertyID_idx")
+  @@map("PropertySeason")
+}
+
+/// Date range linking a PropertyContract to a PropertySeason (e.g. High Season 01-Jun → 31-Aug).
+model PropertyContractSeasonPeriod {
+  propertyContractSeasonPeriodId BigInt    @id @default(autoincrement()) @map("PropertyContractSeasonPeriodID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  propertyContractId             BigInt    @map("PropertyContractID")
+  propertySeasonId               BigInt    @map("PropertySeasonID")
+  fromDate                       DateTime  @map("FromDate") @db.Date
+  toDate                         DateTime  @map("ToDate") @db.Date
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  propertySeason   PropertySeason   @relation(fields: [propertySeasonId], references: [propertySeasonId], onDelete: Restrict)
+  contractRates    PropertyContractRate[]
+  contractInventories PropertyContractInventory[]
+
+  @@index([tenantId, companyId], map: "PropertyContractSeasonPeriod_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractSeasonPeriod_PropertyContractID_idx")
+  @@index([propertySeasonId], map: "PropertyContractSeasonPeriod_PropertySeasonID_idx")
+  @@map("PropertyContractSeasonPeriod")
+}
+
+/// Rate plan on a property contract — FIT-BB, Corporate-HB, … Tenant + Company + Contract scoped.
+model PropertyContractRatePlan {
+  propertyContractRatePlanId BigInt    @id @default(autoincrement()) @map("PropertyContractRatePlanID")
+  tenantId                   Int       @map("TenantID")
+  companyId                  Int       @map("CompanyID")
+  propertyContractId         BigInt    @map("PropertyContractID")
+  ratePlanCode               String    @map("RatePlanCode") @db.VarChar(50)
+  ratePlanName               String    @map("RatePlanName") @db.VarChar(150)
+  ratePlanTypeId             BigInt    @map("RatePlanTypeID")
+  mealPlanId                 BigInt    @map("MealPlanID")
+  rateBasisId                BigInt    @map("RateBasisID")
+  isActive                   Boolean   @default(true) @map("IsActive")
+  displayOrder               Int       @default(0) @map("DisplayOrder")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  ratePlanType     RatePlanType     @relation(fields: [ratePlanTypeId], references: [ratePlanTypeId], onDelete: Restrict)
+  mealPlan         MealPlan         @relation(fields: [mealPlanId], references: [mealPlanId], onDelete: Restrict)
+  rateBasis        RateBasis        @relation(fields: [rateBasisId], references: [rateBasisId], onDelete: Restrict)
+  contractRates    PropertyContractRate[]
+
+  @@unique([tenantId, propertyContractId, ratePlanCode], map: "PropertyContractRatePlan_Tenant_Contract_Code_key")
+  @@index([tenantId, companyId], map: "PropertyContractRatePlan_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractRatePlan_PropertyContractID_idx")
+  @@index([ratePlanTypeId], map: "PropertyContractRatePlan_RatePlanTypeID_idx")
+  @@index([mealPlanId], map: "PropertyContractRatePlan_MealPlanID_idx")
+  @@index([rateBasisId], map: "PropertyContractRatePlan_RateBasisID_idx")
+  @@map("PropertyContractRatePlan")
+}
+
+/// Contracted rate for a season period + rate plan + room type + occupancy.
+model PropertyContractRate {
+  propertyContractRateId         BigInt    @id @default(autoincrement()) @map("PropertyContractRateID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  propertyContractId             BigInt    @map("PropertyContractID")
+  propertyContractSeasonPeriodId BigInt    @map("PropertyContractSeasonPeriodID")
+  propertyContractRatePlanId     BigInt    @map("PropertyContractRatePlanID")
+  /// Property room type (PropertyRoom master — domain PropertyRoomTypeID).
+  propertyRoomId                 BigInt    @map("PropertyRoomTypeID")
+  occupancyTypeId                BigInt    @map("OccupancyTypeID")
+  rateAmount                     Decimal   @map("RateAmount") @db.Decimal(18, 4)
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract       PropertyContract             @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  seasonPeriod           PropertyContractSeasonPeriod @relation(fields: [propertyContractSeasonPeriodId], references: [propertyContractSeasonPeriodId], onDelete: Restrict)
+  ratePlan               PropertyContractRatePlan     @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
+  propertyRoom           PropertyRoom                 @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  occupancyType          OccupancyType                @relation(fields: [occupancyTypeId], references: [occupancyTypeId], onDelete: Restrict)
+  rateDays               PropertyContractRateDay[]
+
+  @@unique([tenantId, propertyContractId, propertyContractSeasonPeriodId, propertyContractRatePlanId, propertyRoomId, occupancyTypeId], map: "PropertyContractRate_Unique_key")
+  @@index([tenantId, companyId], map: "PropertyContractRate_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractRate_PropertyContractID_idx")
+  @@index([propertyContractSeasonPeriodId], map: "PropertyContractRate_SeasonPeriodID_idx")
+  @@index([propertyContractRatePlanId], map: "PropertyContractRate_RatePlanID_idx")
+  @@index([propertyRoomId], map: "PropertyContractRate_PropertyRoomTypeID_idx")
+  @@index([occupancyTypeId], map: "PropertyContractRate_OccupancyTypeID_idx")
+  @@map("PropertyContractRate")
+}
+
+/// Occupancy Type master — Single, Double, Triple, … Tenant + Company scoped.
+model OccupancyType {
+  occupancyTypeId   BigInt    @id @default(autoincrement()) @map("OccupancyTypeID")
+  tenantId          Int       @map("TenantID")
+  companyId         Int       @map("CompanyID")
+  occupancyTypeCode String    @map("OccupancyTypeCode") @db.VarChar(50)
+  occupancyTypeName String    @map("OccupancyTypeName") @db.VarChar(100)
+  description       String?   @map("Description") @db.VarChar(500)
+  displayOrder      Int       @default(0) @map("DisplayOrder")
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRates PropertyContractRate[]
+
+  @@unique([tenantId, companyId, occupancyTypeCode], map: "OccupancyType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "OccupancyType_TenantID_CompanyID_idx")
+  @@map("OccupancyType")
+}
+
+/// Day of week master — Monday–Sunday. Global reference data.
+model DayOfWeek {
+  dayOfWeekId   BigInt    @id @default(autoincrement()) @map("DayOfWeekID")
+  dayOfWeekCode String    @unique @map("DayOfWeekCode") @db.VarChar(10)
+  dayOfWeekName String    @map("DayOfWeekName") @db.VarChar(20)
+  shortName     String    @map("ShortName") @db.VarChar(3)
+  displayOrder  Int       @default(0) @map("DisplayOrder")
+  isActive      Boolean   @default(true) @map("IsActive")
+  createdBy     Int       @map("CreatedBy")
+  createdDtTm   DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy    Int?      @map("ModifiedBy")
+  modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRateDays PropertyContractRateDay[]
+
+  @@map("DayOfWeek")
+}
+
+/// Applicable days for a contracted rate (Mon–Sun flags per PropertyContractRate).
+model PropertyContractRateDay {
+  propertyContractRateDayId BigInt    @id @default(autoincrement()) @map("PropertyContractRateDayID")
+  propertyContractRateId    BigInt    @map("PropertyContractRateID")
+  dayOfWeekId               BigInt    @map("DayOfWeekID")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm              DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRate PropertyContractRate @relation(fields: [propertyContractRateId], references: [propertyContractRateId], onDelete: Cascade)
+  dayOfWeek    DayOfWeek            @relation(fields: [dayOfWeekId], references: [dayOfWeekId], onDelete: Restrict)
+
+  @@unique([propertyContractRateId, dayOfWeekId], map: "PropertyContractRateDay_Rate_Day_key")
+  @@index([propertyContractRateId], map: "PropertyContractRateDay_PropertyContractRateID_idx")
+  @@index([dayOfWeekId], map: "PropertyContractRateDay_DayOfWeekID_idx")
+  @@map("PropertyContractRateDay")
+}
+
+/// Daily room inventory for a property room type (ARI — availability).
+model PropertyRoomAvailability {
+  propertyRoomAvailabilityId BigInt    @id @default(autoincrement()) @map("PropertyRoomAvailabilityID")
+  tenantId                   Int       @map("TenantID")
+  companyId                  Int       @map("CompanyID")
+  propertyId                 Int       @map("PropertyID")
+  /// Property room type (PropertyRoom master — domain PropertyRoomTypeID).
+  propertyRoomId             BigInt    @map("PropertyRoomTypeID")
+  availabilityDate           DateTime  @map("AvailabilityDate") @db.Date
+  availableUnits             Int       @default(0) @map("AvailableUnits")
+  stopSell                   Boolean   @default(false) @map("StopSell")
+  minLengthOfStay            Int?      @map("MinLengthOfStay")
+  maxLengthOfStay            Int?      @map("MaxLengthOfStay")
+  isActive                   Boolean   @default(true) @map("IsActive")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  property     Property     @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+
+  @@unique([tenantId, propertyRoomId, availabilityDate], map: "PropertyRoomAvailability_Room_Date_key")
+  @@index([tenantId, companyId], map: "PropertyRoomAvailability_TenantID_CompanyID_idx")
+  @@index([propertyId, availabilityDate], map: "PropertyRoomAvailability_Property_Date_idx")
+  @@index([propertyRoomId], map: "PropertyRoomAvailability_PropertyRoomTypeID_idx")
+  @@map("PropertyRoomAvailability")
+}
+
+/// Inventory type lookup — Allotment / Free Sale / On Request. Global reference data.
+model InventoryType {
+  inventoryTypeId   BigInt    @id @default(autoincrement()) @map("InventoryTypeID")
+  inventoryTypeCode String    @unique @map("InventoryTypeCode") @db.VarChar(50)
+  inventoryTypeName String    @map("InventoryTypeName") @db.VarChar(100)
+  description       String?   @map("Description") @db.VarChar(500)
+  displayOrder      Int       @default(0) @map("DisplayOrder")
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractInventories PropertyContractInventory[]
+
+  @@map("InventoryType")
+}
+
+/// Contracted inventory for a season period + room type (allotment, release days, stop sell).
+model PropertyContractInventory {
+  propertyContractInventoryId    BigInt    @id @default(autoincrement()) @map("PropertyContractInventoryID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  propertyContractId             BigInt    @map("PropertyContractID")
+  propertyContractSeasonPeriodId BigInt    @map("PropertyContractSeasonPeriodID")
+  /// Property room type (PropertyRoom master — domain PropertyRoomTypeID).
+  propertyRoomId                 BigInt    @map("PropertyRoomTypeID")
+  inventoryTypeId                BigInt    @map("InventoryTypeID")
+  allotmentQty                   Int       @default(0) @map("AllotmentQty")
+  releaseDays                    Int       @default(0) @map("ReleaseDays")
+  isStopSell                     Boolean   @default(false) @map("IsStopSell")
+  isClosed                       Boolean   @default(false) @map("IsClosed")
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract PropertyContract             @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  seasonPeriod     PropertyContractSeasonPeriod @relation(fields: [propertyContractSeasonPeriodId], references: [propertyContractSeasonPeriodId], onDelete: Restrict)
+  propertyRoom     PropertyRoom                 @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  inventoryType    InventoryType                @relation(fields: [inventoryTypeId], references: [inventoryTypeId], onDelete: Restrict)
+
+  @@unique([tenantId, propertyContractId, propertyContractSeasonPeriodId, propertyRoomId], map: "PropertyContractInventory_Unique_key")
+  @@index([tenantId, companyId], map: "PropertyContractInventory_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractInventory_PropertyContractID_idx")
+  @@index([propertyContractSeasonPeriodId], map: "PropertyContractInventory_SeasonPeriodID_idx")
+  @@index([propertyRoomId], map: "PropertyContractInventory_PropertyRoomTypeID_idx")
+  @@index([inventoryTypeId], map: "PropertyContractInventory_InventoryTypeID_idx")
+  @@map("PropertyContractInventory")
+}
+
+/// Rate Plan Type master — FIT, Corporate, Group, … Tenant + Company scoped.
+model RatePlanType {
+  ratePlanTypeId   BigInt    @id @default(autoincrement()) @map("RatePlanTypeID")
+  tenantId         Int       @map("TenantID")
+  companyId        Int       @map("CompanyID")
+  ratePlanTypeCode String    @map("RatePlanTypeCode") @db.VarChar(50)
+  ratePlanTypeName String    @map("RatePlanTypeName") @db.VarChar(100)
+  description      String?   @map("Description") @db.VarChar(500)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRatePlans PropertyContractRatePlan[]
+
+  @@unique([tenantId, companyId, ratePlanTypeCode], map: "RatePlanType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "RatePlanType_TenantID_CompanyID_idx")
+  @@map("RatePlanType")
+}
+
+/// Meal Plan master — RO, BB, HB, FB, AI, … Tenant + Company scoped.
+model MealPlan {
+  mealPlanId    BigInt    @id @default(autoincrement()) @map("MealPlanID")
+  tenantId      Int       @map("TenantID")
+  companyId     Int       @map("CompanyID")
+  mealPlanCode  String    @map("MealPlanCode") @db.VarChar(20)
+  mealPlanName  String    @map("MealPlanName") @db.VarChar(100)
+  description   String?   @map("Description") @db.VarChar(500)
+  displayOrder  Int       @default(0) @map("DisplayOrder")
+  isActive      Boolean   @default(true) @map("IsActive")
+  createdBy     Int       @map("CreatedBy")
+  createdDtTm   DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy    Int?      @map("ModifiedBy")
+  modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRatePlans PropertyContractRatePlan[]
+
+  @@unique([tenantId, companyId, mealPlanCode], map: "MealPlan_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "MealPlan_TenantID_CompanyID_idx")
+  @@map("MealPlan")
+}
+
+/// Rate Basis master — Per Room, Per Person, … Tenant + Company scoped.
+model RateBasis {
+  rateBasisId   BigInt    @id @default(autoincrement()) @map("RateBasisID")
+  tenantId      Int       @map("TenantID")
+  companyId     Int       @map("CompanyID")
+  rateBasisCode String    @map("RateBasisCode") @db.VarChar(50)
+  rateBasisName String    @map("RateBasisName") @db.VarChar(100)
+  description   String?   @map("Description") @db.VarChar(500)
+  displayOrder  Int       @default(0) @map("DisplayOrder")
+  isActive      Boolean   @default(true) @map("IsActive")
+  createdBy     Int       @map("CreatedBy")
+  createdDtTm   DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy    Int?      @map("ModifiedBy")
+  modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  contractRatePlans PropertyContractRatePlan[]
+
+  @@unique([tenantId, companyId, rateBasisCode], map: "RateBasis_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "RateBasis_TenantID_CompanyID_idx")
+  @@map("RateBasis")
 }
 
 /// Amenity/Facility Category master — classifies amenities & facilities as Property, Room, or Both. Global.
@@ -674,9 +1083,226 @@ model RoomType {
   isDeleted      Boolean   @default(false) @map("IsDeleted")
 
   category RoomCategory @relation(fields: [roomCategoryId], references: [roomCategoryId], onDelete: Restrict)
+  propertyRooms PropertyRoom[]
 
   @@index([roomCategoryId], map: "RoomType_RoomCategoryID_idx")
   @@map("RoomTypeMaster")
+}
+
+/// Property-specific room type — maps a property room code/name to a global RoomType with occupancy and attributes.
+model PropertyRoom {
+  propertyRoomId   BigInt    @id @default(autoincrement()) @map("PropertyRoomID")
+  tenantId         Int       @map("TenantID")
+  companyId        Int       @map("CompanyID")
+  propertyId       Int       @map("PropertyID")
+  roomTypeId       BigInt    @map("RoomTypeID")
+  /// Property-specific room code (maps to RoomTypeCode in the domain model).
+  roomCode         String    @map("RoomCode") @db.VarChar(50)
+  /// Property-specific room name (maps to RoomTypeName in the domain model).
+  roomName         String    @map("RoomName") @db.VarChar(200)
+  description      String?   @map("Description") @db.Text
+  maxAdult         Int       @default(0) @map("MaxAdult")
+  maxChild         Int       @default(0) @map("MaxChild")
+  maxOccupancy     Int       @default(0) @map("MaxOccupancy")
+  roomSize         Decimal?  @map("RoomSize") @db.Decimal(10, 2)
+  roomSizeUnitId   BigInt?   @map("RoomSizeUnitID")
+  smokingTypeId    BigInt?   @map("SmokingTypeID")
+  viewTypeId       BigInt?   @map("ViewTypeID")
+  extraBedAllowed  Boolean   @default(false) @map("ExtraBedAllowed")
+  maxExtraBed      Int       @default(0) @map("MaxExtraBed")
+  isActive         Boolean   @default(true) @map("IsActive")
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  property     Property      @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [roomTypeId], onDelete: Restrict)
+  roomSizeUnit RoomSizeUnit? @relation(fields: [roomSizeUnitId], references: [roomSizeUnitId], onDelete: SetNull)
+  smokingType  SmokingType?  @relation(fields: [smokingTypeId], references: [smokingTypeId], onDelete: SetNull)
+  viewType     ViewType?     @relation(fields: [viewTypeId], references: [viewTypeId], onDelete: SetNull)
+
+  beds      PropertyRoomTypeBed[]
+  views     PropertyRoomTypeView[]
+  extraBeds PropertyRoomTypeExtraBed[]
+  media     PropertyRoomTypeMedia[]
+  contractRates PropertyContractRate[]
+  availability  PropertyRoomAvailability[]
+  contractInventories PropertyContractInventory[]
+
+  @@unique([tenantId, propertyId, roomCode], map: "PropertyRoom_Tenant_Property_Code_key")
+  @@index([tenantId, companyId], map: "PropertyRoom_TenantID_CompanyID_idx")
+  @@index([propertyId], map: "PropertyRoom_PropertyID_idx")
+  @@index([roomTypeId], map: "PropertyRoom_RoomTypeID_idx")
+  @@index([roomSizeUnitId], map: "PropertyRoom_RoomSizeUnitID_idx")
+  @@index([smokingTypeId], map: "PropertyRoom_SmokingTypeID_idx")
+  @@index([viewTypeId], map: "PropertyRoom_ViewTypeID_idx")
+  @@map("PropertyRoom")
+}
+
+/// Bed configuration for a Property's room type — which bed types and how many. TenantID + CompanyID scoped.
+model PropertyRoomTypeBed {
+  propertyRoomTypeBedId BigInt    @id @default(autoincrement()) @map("PropertyRoomTypeBedID")
+  tenantId              Int       @map("TenantID")
+  companyId             Int       @map("CompanyID")
+  /// References PropertyRoom (the property's room-type configuration).
+  propertyRoomId        BigInt    @map("PropertyRoomTypeID")
+  bedTypeId             BigInt    @map("BedTypeID")
+  bedCount              Int       @default(1) @map("BedCount")
+  isExtraBed            Boolean   @default(false) @map("IsExtraBed")
+  isActive              Boolean   @default(true) @map("IsActive")
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("ModifiedBy")
+  modifiedDtTm          DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  bedType      BedType      @relation("PropertyRoomBed", fields: [bedTypeId], references: [bedTypeId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyRoomTypeBed_TenantID_CompanyID_idx")
+  @@index([propertyRoomId], map: "PropertyRoomTypeBed_PropertyRoomTypeID_idx")
+  @@index([bedTypeId], map: "PropertyRoomTypeBed_BedTypeID_idx")
+  @@map("PropertyRoomTypeBed")
+}
+
+/// View configuration for a Property's room type — which views apply, with one optional primary view. TenantID + CompanyID scoped.
+model PropertyRoomTypeView {
+  propertyRoomTypeViewId BigInt    @id @default(autoincrement()) @map("PropertyRoomTypeViewID")
+  tenantId               Int       @map("TenantID")
+  companyId              Int       @map("CompanyID")
+  /// References PropertyRoom (the property's room-type configuration).
+  propertyRoomId         BigInt    @map("PropertyRoomTypeID")
+  viewTypeId             BigInt    @map("ViewTypeID")
+  isPrimary              Boolean   @default(false) @map("IsPrimary")
+  isActive               Boolean   @default(true) @map("IsActive")
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("ModifiedBy")
+  modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  viewType     ViewType     @relation(fields: [viewTypeId], references: [viewTypeId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyRoomTypeView_TenantID_CompanyID_idx")
+  @@index([propertyRoomId], map: "PropertyRoomTypeView_PropertyRoomTypeID_idx")
+  @@index([viewTypeId], map: "PropertyRoomTypeView_ViewTypeID_idx")
+  @@map("PropertyRoomTypeView")
+}
+
+/// Extra-bed policy for a Property's room type — which bed types may be added, limits, and eligibility. TenantID + CompanyID scoped.
+model PropertyRoomTypeExtraBed {
+  propertyRoomTypeExtraBedId BigInt    @id @default(autoincrement()) @map("PropertyRoomTypeExtraBedID")
+  tenantId                   Int       @map("TenantID")
+  companyId                  Int       @map("CompanyID")
+  /// References PropertyRoom (the property's room-type configuration).
+  propertyRoomId             BigInt    @map("PropertyRoomTypeID")
+  extraBedTypeId             BigInt    @map("ExtraBedTypeID")
+  maxQuantity                Int       @default(1) @map("MaxQuantity")
+  adultAllowed                Boolean   @default(true) @map("AdultAllowed")
+  childAllowed                Boolean   @default(true) @map("ChildAllowed")
+  isComplimentary             Boolean   @default(false) @map("IsComplimentary")
+  isActive                    Boolean   @default(true) @map("IsActive")
+  createdBy                   Int       @map("CreatedBy")
+  createdDtTm                 DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                  Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  extraBedType BedType      @relation("PropertyRoomExtraBed", fields: [extraBedTypeId], references: [bedTypeId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyRoomTypeExtraBed_TenantID_CompanyID_idx")
+  @@index([propertyRoomId], map: "PropertyRoomTypeExtraBed_PropertyRoomTypeID_idx")
+  @@index([extraBedTypeId], map: "PropertyRoomTypeExtraBed_ExtraBedTypeID_idx")
+  @@map("PropertyRoomTypeExtraBed")
+}
+
+/// Media Type lookup — Image, Video, Virtual Tour, … Global.
+model MediaType {
+  mediaTypeId  BigInt    @id @default(autoincrement()) @map("MediaTypeID")
+  name         String    @unique @map("MediaTypeName") @db.VarChar(100)
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  media PropertyRoomTypeMedia[]
+
+  @@map("MediaType")
+}
+
+/// Media Category lookup — Room, Bathroom, View, Bed, Amenities, … Global.
+model MediaCategory {
+  mediaCategoryId BigInt    @id @default(autoincrement()) @map("MediaCategoryID")
+  name            String    @unique @map("MediaCategoryName") @db.VarChar(100)
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  media PropertyRoomTypeMedia[]
+
+  @@map("MediaCategory")
+}
+
+/// Media (photos/videos/virtual tours) for a Property's room type. TenantID + CompanyID scoped.
+model PropertyRoomTypeMedia {
+  propertyRoomTypeMediaId BigInt    @id @default(autoincrement()) @map("PropertyRoomTypeMediaID")
+  tenantId                Int       @map("TenantID")
+  companyId               Int       @map("CompanyID")
+  propertyId              Int       @map("PropertyID")
+  /// References PropertyRoom (the property's room-type configuration).
+  propertyRoomId          BigInt    @map("PropertyRoomTypeID")
+  mediaTypeId             BigInt    @map("MediaTypeID")
+  mediaCategoryId         BigInt    @map("MediaCategoryID")
+  mediaUrl                String    @map("MediaURL") @db.VarChar(1000)
+  thumbnailUrl            String?   @map("ThumbnailURL") @db.VarChar(1000)
+  fileName                String?   @map("FileName") @db.VarChar(255)
+  fileType                String?   @map("FileType") @db.VarChar(50)
+  altText                 String?   @map("AltText") @db.VarChar(500)
+  caption                 String?   @map("Caption") @db.VarChar(500)
+  displayOrder            Int       @default(0) @map("DisplayOrder")
+  isPrimary               Boolean   @default(false) @map("IsPrimary")
+  isActive                Boolean   @default(true) @map("IsActive")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  property      Property      @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  propertyRoom  PropertyRoom  @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  mediaType     MediaType     @relation(fields: [mediaTypeId], references: [mediaTypeId], onDelete: Restrict)
+  mediaCategory MediaCategory @relation(fields: [mediaCategoryId], references: [mediaCategoryId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyRoomTypeMedia_TenantID_CompanyID_idx")
+  @@index([propertyId], map: "PropertyRoomTypeMedia_PropertyID_idx")
+  @@index([propertyRoomId], map: "PropertyRoomTypeMedia_PropertyRoomTypeID_idx")
+  @@index([mediaTypeId], map: "PropertyRoomTypeMedia_MediaTypeID_idx")
+  @@index([mediaCategoryId], map: "PropertyRoomTypeMedia_MediaCategoryID_idx")
+  @@map("PropertyRoomTypeMedia")
+}
+
+/// Room size unit master — SQM, SQFT, … Global.
+model RoomSizeUnit {
+  roomSizeUnitId   BigInt    @id @default(autoincrement()) @map("RoomSizeUnitID")
+  roomSizeUnitCode String    @unique @map("RoomSizeUnitCode") @db.VarChar(50)
+  roomSizeUnitName String    @map("RoomSizeUnitName") @db.VarChar(200)
+  description      String?   @map("Description") @db.Text
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDateTime") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
+  isDeleted        Boolean   @default(false) @map("IsDeleted")
+
+  propertyRooms PropertyRoom[]
+
+  @@map("RoomSizeUnitMaster")
 }
 
 /// Bed Type master — Single, Twin, Double, Queen, King, Sofa Bed, … Global.
@@ -693,6 +1319,9 @@ model BedType {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted    Boolean   @default(false) @map("IsDeleted")
+
+  roomBedAssignments      PropertyRoomTypeBed[]      @relation("PropertyRoomBed")
+  roomExtraBedAssignments PropertyRoomTypeExtraBed[] @relation("PropertyRoomExtraBed")
 
   @@map("BedTypeMaster")
 }
@@ -711,6 +1340,8 @@ model SmokingType {
   modifiedDtTm    DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted       Boolean   @default(false) @map("IsDeleted")
 
+  propertyRooms PropertyRoom[]
+
   @@map("SmokingTypeMaster")
 }
 
@@ -727,6 +1358,9 @@ model ViewType {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted    Boolean   @default(false) @map("IsDeleted")
+
+  propertyRooms      PropertyRoom[]
+  roomViewAssignments PropertyRoomTypeView[]
 
   @@map("ViewTypeMaster")
 }
@@ -917,6 +1551,11 @@ model Property {
   facilityLinks  PropertyFacility[]
   supplierLinks  PropertySupplier[]
   employeeAccess EmployeePropertyAccess[]
+  contracts      PropertyContract[]
+  seasons        PropertySeason[]
+  rooms              PropertyRoom[]
+  roomTypeMedia      PropertyRoomTypeMedia[]
+  roomAvailability   PropertyRoomAvailability[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -1151,6 +1790,7 @@ model Employee {
   branch            Branch                   @relation(fields: [branchId], references: [branchId], onDelete: Restrict)
   user              User                     @relation(fields: [userId], references: [userId], onDelete: Restrict)
   propertyAccess    EmployeePropertyAccess[]
+  signedContracts   PropertyContract[]
 
   @@unique([tenantId, companyId, employeeNumber], map: "Employee_Tenant_Company_Number_key")
   @@index([tenantId, companyId], map: "Employee_TenantID_CompanyID_idx")

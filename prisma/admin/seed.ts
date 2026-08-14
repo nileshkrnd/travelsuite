@@ -214,6 +214,62 @@ async function seedSupplierTypes() {
   );
 }
 
+async function seedMediaTypes() {
+  const names = ["Image", "Video", "Virtual Tour"];
+  for (const name of names) {
+    await prisma.mediaType.upsert({
+      where: { name },
+      create: { name, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"MediaType"', 'MediaTypeID'), (SELECT COALESCE(MAX("MediaTypeID"), 1) FROM "MediaType"))`
+  );
+}
+
+async function seedMediaCategories() {
+  const names = ["Room", "Bathroom", "View", "Bed", "Amenities", "Other"];
+  for (const name of names) {
+    await prisma.mediaCategory.upsert({
+      where: { name },
+      create: { name, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"MediaCategory"', 'MediaCategoryID'), (SELECT COALESCE(MAX("MediaCategoryID"), 1) FROM "MediaCategory"))`
+  );
+}
+
+async function seedContractTypes() {
+  const names = ["FIT", "Group", "Corporate", "Government", "Long Stay"];
+  for (const name of names) {
+    await prisma.contractType.upsert({
+      where: { name },
+      create: { name, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"ContractType"', 'ContractTypeID'), (SELECT COALESCE(MAX("ContractTypeID"), 1) FROM "ContractType"))`
+  );
+}
+
+async function seedContractStatuses() {
+  const names = ["Draft", "Active", "Expired", "Terminated", "Renewed"];
+  for (const name of names) {
+    await prisma.contractStatus.upsert({
+      where: { name },
+      create: { name, isActive: true, createdBy: CREATED_BY },
+      update: { isActive: true },
+    });
+  }
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"ContractStatus"', 'ContractStatusID'), (SELECT COALESCE(MAX("ContractStatusID"), 1) FROM "ContractStatus"))`
+  );
+}
+
 const AMENITY_FACILITY_CATEGORY_SEEDS: Array<{
   code: string;
   name: string;
@@ -2415,6 +2471,10 @@ async function main() {
   await seedLocationTypes();
   await seedLocations();
   await seedSupplierTypes();
+  await seedContractTypes();
+  await seedContractStatuses();
+  await seedMediaTypes();
+  await seedMediaCategories();
   await seedAmenityFacilityCategories();
   await seedAmenities();
   await seedFacilities();

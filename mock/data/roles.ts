@@ -104,6 +104,8 @@ const MID_OFFICE_KEYS: ModuleKey[] = [
 const EXTRANET_KEYS: ModuleKey[] = [
   "extranetDashboard",
   "contracts",
+  "seasons",
+  "propertyRooms",
   "extranetInventory",
   "rates",
   "promotions",

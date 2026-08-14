@@ -14,6 +14,9 @@ export type ModuleKey =
   | "adminProduct"
   | "property"
   | "propertySupplier"
+  | "ratePlanType"
+  | "mealPlan"
+  | "rateBasis"
   | "adminMasters"
   | "department"
   | "designation"
@@ -183,6 +186,8 @@ export type ModuleKey =
   | "extranetDashboard"
   | "extranetProperty"
   | "contracts"
+  | "seasons"
+  | "propertyRooms"
   | "extranetInventory"
   | "rates"
   | "extranetAvailability"
@@ -775,6 +780,24 @@ export const MENU_ITEMS: MenuItem[] = [
             icon: "Store",
             path: "masters/property-supplier",
           },
+          {
+            key: "ratePlanType",
+            labelKey: "sidebar.ratePlanType",
+            icon: "Tags",
+            path: "masters/rate-plan-type",
+          },
+          {
+            key: "mealPlan",
+            labelKey: "sidebar.mealPlan",
+            icon: "UtensilsCrossed",
+            path: "masters/meal-plan",
+          },
+          {
+            key: "rateBasis",
+            labelKey: "sidebar.rateBasis",
+            icon: "Scale",
+            path: "masters/rate-basis",
+          },
         ],
       },
     ],
@@ -1026,6 +1049,8 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "extranetDashboard", labelKey: "sidebar.extranetDashboard", icon: "LayoutDashboard", path: "extranet/dashboard" },
       { key: "extranetProperty", labelKey: "sidebar.extranetProperty", icon: "Home", path: "extranet/property" },
       { key: "contracts", labelKey: "sidebar.contracts", icon: "FileSignature", path: "extranet/contracts" },
+      { key: "seasons", labelKey: "sidebar.seasons", icon: "CalendarRange", path: "extranet/seasons" },
+      { key: "propertyRooms", labelKey: "sidebar.propertyRooms", icon: "BedDouble", path: "extranet/rooms" },
       { key: "extranetInventory", labelKey: "sidebar.extranetInventory", icon: "Boxes", path: "extranet/inventory" },
       { key: "rates", labelKey: "sidebar.rates", icon: "BadgeDollarSign", path: "extranet/rates" },
       { key: "extranetAvailability", labelKey: "sidebar.extranetAvailability", icon: "CalendarCheck", path: "extranet/availability" },
