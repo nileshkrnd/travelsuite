@@ -1448,8 +1448,8 @@ const FORMS: Record<string, PrototypeFormSchema> = {
       },
     ],
   },
-  extranetProperty: {
-    moduleKey: "extranetProperty",
+  extranetSelectProperty: {
+    moduleKey: "extranetSelectProperty",
     sections: [
       {
         title: "Property details",
@@ -1615,6 +1615,35 @@ const FORMS: Record<string, PrototypeFormSchema> = {
           { key: "stopSell", label: "Stop sell", type: "select", options: yesNo, sample: "no" },
           { key: "minLos", label: "Min length of stay", type: "number", sample: "1" },
           { key: "maxLos", label: "Max length of stay", type: "number", sample: "14" },
+          { key: "status", label: "Status", type: "select", options: extranetStatusOpts, sample: "active" },
+        ],
+      },
+    ],
+  },
+  supplement: {
+    moduleKey: "supplement",
+    sections: [
+      {
+        title: "Supplement",
+        fields: [
+          { key: "property", label: "Property", type: "select", options: properties, required: true, sample: "prop_grand_plaza" },
+          { key: "supplementName", label: "Supplement name", type: "text", required: true, sample: "Airport Transfer", span: 2 },
+          {
+            key: "supplementType",
+            label: "Type",
+            type: "select",
+            options: [
+              { value: "meal", label: "Meal upgrade" },
+              { value: "transfer", label: "Transfer" },
+              { value: "extra_bed", label: "Extra bed" },
+              { value: "activity", label: "Activity" },
+              { value: "other", label: "Other" },
+            ],
+            sample: "transfer",
+          },
+          { key: "price", label: "Price", type: "number", sample: "45" },
+          { key: "validFrom", label: "Valid from", type: "date", sample: "2026-08-01" },
+          { key: "validTo", label: "Valid to", type: "date", sample: "2026-12-31" },
           { key: "status", label: "Status", type: "select", options: extranetStatusOpts, sample: "active" },
         ],
       },

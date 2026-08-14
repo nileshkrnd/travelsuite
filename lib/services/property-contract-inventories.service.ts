@@ -1,4 +1,5 @@
 import type { InventoryType, PropertyContractInventory } from "@/types/property-contract-inventory";
+import type { PropertyContractInventoryMatrixPayload } from "@/types/property-contract-inventory-matrix";
 import {
   toAppInventoryType,
   toAppPropertyContractInventory,
@@ -61,12 +62,14 @@ export interface PropertyContractInventoryWriteInput {
 export async function listPropertyContractInventories(options?: {
   tenantId?: number;
   companyId?: number;
+  propertyId?: number;
   propertyContractId?: number;
   activeOnly?: boolean;
 }): Promise<PropertyContractInventory[]> {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
+  if (options?.propertyId !== undefined) params.set("propertyId", String(options.propertyId));
   if (options?.propertyContractId !== undefined) {
     params.set("propertyContractId", String(options.propertyContractId));
   }
@@ -131,4 +134,37 @@ export async function deletePropertyContractInventory(propertyContractInventoryI
     method: "DELETE",
   });
   if (!res.ok) throw new PropertyContractInventoryApiError(await parseError(res), res.status);
+}
+
+export async function getPropertyContractInventoryMatrix(options: {
+  propertyContractId: number;
+  propertyContractSeasonPeriodId: number;
+  inventoryTypeId: number;
+}): Promise<PropertyContractInventoryMatrixPayload> {
+  const params = new URLSearchParams({
+    propertyContractId: String(options.propertyContractId),
+    propertyContractSeasonPeriodId: String(options.propertyContractSeasonPeriodId),
+    inventoryTypeId: String(options.inventoryTypeId),
+  });
+  const res = await fetch(`/api/property-contract-inventories/matrix?${params}`, { cache: "no-store" });
+  if (!res.ok) throw new PropertyContractInventoryApiError(await parseError(res), res.status);
+  return (await res.json()) as PropertyContractInventoryMatrixPayload;
+}
+
+export async function savePropertyContractInventoryMatrix(input: {
+  tenantId: number;
+  companyId: number;
+  propertyContractId: number;
+  propertyContractSeasonPeriodId: number;
+  inventoryTypeId: number;
+  createdBy: number;
+  cells: PropertyContractInventoryMatrixPayload["cells"];
+}): Promise<{ saved: number; removed: number }> {
+  const res = await fetch("/api/property-contract-inventories/matrix", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new PropertyContractInventoryApiError(await parseError(res), res.status);
+  return (await res.json()) as { saved: number; removed: number };
 }

@@ -58,6 +58,7 @@ export * from "./property-contract-rate-plan";
 export * from "./property-contract-rate";
 export * from "./property-contract-rate-matrix";
 export * from "./property-contract-inventory";
+export * from "./property-contract-inventory-matrix";
 export * from "./day-of-week";
 export * from "./occupancy-type";
 export * from "./property-room";

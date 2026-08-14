@@ -2,25 +2,22 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarCheck } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
-import { AvailabilityCalendar } from "@/components/masters/AvailabilityCalendar";
+import { PropertyContractInventoryList } from "@/components/masters/PropertyContractInventoryList";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useExtranetPropertyScopeStore } from "@/lib/store/extranet-property-scope.store";
-import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { can } from "@/config/permissions";
 import type { Property, RoleDef } from "@/types";
 
-function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
+function PropertyInventoryPage({ roleDef }: { roleDef: RoleDef }) {
   const searchParams = useSearchParams();
   const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
-  const actorKey = sessionUser?.userKey ?? 0;
-  const companyKey = resolveSessionCompanyKey(sessionUser) ?? 0;
 
   const scope = useExtranetPropertyScopeStore();
   const propertyId = scope.propertyId;
@@ -35,7 +32,9 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canEdit = can(roleDef, "extranetAvailability", "edit");
+  const canEdit = can(roleDef, "contracts", "edit");
+  const canCreate = can(roleDef, "contracts", "create");
+  const canDelete = can(roleDef, "contracts", "delete");
 
   function selectProperty(id: number | null, property: Property | null) {
     scope.setProperty({
@@ -53,9 +52,9 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={CalendarCheck}
-        title="Availability Calendar"
-        description="Allotment (supplier available units) and rates by room type and day — from contracts with daily overrides."
+        icon={Boxes}
+        title="Contract Inventory"
+        description="Allotment and inventory rules across supplier contracts for the selected property."
       />
 
       <ExtranetPropertyScope
@@ -63,33 +62,29 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
         propertyId={propertyId}
         propertyLabel={propertyLabel}
         onPropertyChange={selectProperty}
-        emptyHeading="Select a property to view availability"
-        emptyDescription="Choose the property whose room inventory you want to manage on the calendar."
+        emptyHeading="Select a property to view inventory"
+        emptyDescription="Choose the property whose contract inventory you want to review or enter."
       >
-        {propertyId && propertyId > 0 && companyKey > 0 ? (
-          <AvailabilityCalendar
+        {propertyId && propertyId > 0 ? (
+          <PropertyContractInventoryList
             tenantId={tenantKey}
-            companyId={companyKey}
             propertyId={propertyId}
-            actorKey={actorKey}
             canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
           />
-        ) : propertyId && propertyId > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Select a company context to save availability updates.
-          </p>
         ) : null}
       </ExtranetPropertyScope>
     </div>
   );
 }
 
-export default function ExtranetAvailabilityPage() {
+export default function ExtranetInventoryPage() {
   return (
-    <AccessGate module="extranetAvailability">
+    <AccessGate module="extranetInventory">
       {(roleDef) => (
         <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
-          <AvailabilityCalendarPage roleDef={roleDef} />
+          <PropertyInventoryPage roleDef={roleDef} />
         </Suspense>
       )}
     </AccessGate>

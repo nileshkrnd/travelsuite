@@ -7,7 +7,7 @@ import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Boxes, Loader2, Save, X } from "lucide-react";
+import { Boxes, CalendarDays, Loader2, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -208,7 +208,11 @@ export function PropertyContractInventoryForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <Section title="Inventory scope" description="Season period and room type for this contract.">
+      <Section
+        icon={CalendarDays}
+        title="Inventory scope"
+        description="Season period and room type for this contract."
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <Label>Season period</Label>
@@ -258,7 +262,11 @@ export function PropertyContractInventoryForm({
         </div>
       </Section>
 
-      <Section title="Inventory rules" description="Allotment quantity, release policy, and sale flags.">
+      <Section
+        icon={Boxes}
+        title="Inventory rules"
+        description="Allotment quantity, release policy, and sale flags."
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <Label>Inventory type</Label>

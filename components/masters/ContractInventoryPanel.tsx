@@ -60,6 +60,14 @@ export function ContractInventoryPanel({
 
   const base = `/${role}/extranet/contracts/${contract.propertyContractKey}`;
 
+  function matrixHref(seasonPeriodId?: number, inventoryTypeId?: number) {
+    const params = new URLSearchParams();
+    if (seasonPeriodId) params.set("seasonPeriodId", String(seasonPeriodId));
+    if (inventoryTypeId) params.set("inventoryTypeId", String(inventoryTypeId));
+    const qs = params.toString();
+    return qs ? `${base}/inventory/new?${qs}` : `${base}/inventory/new`;
+  }
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -145,9 +153,9 @@ export function ContractInventoryPanel({
           </p>
         </div>
         {(canCreate || canEdit) && (
-          <Button nativeButton={false} render={<Link href={`${base}/inventory/new`} />}>
+          <Button nativeButton={false} render={<Link href={matrixHref()} />}>
             <Plus className="h-4 w-4" />
-            Add inventory
+            Enter inventory
           </Button>
         )}
       </div>
@@ -160,9 +168,9 @@ export function ContractInventoryPanel({
           description="Define allotment or free-sale inventory per season period and room type."
           action={
             (canCreate || canEdit) ? (
-              <Button nativeButton={false} render={<Link href={`${base}/inventory/new`} />}>
+              <Button nativeButton={false} render={<Link href={matrixHref()} />}>
                 <Plus className="h-4 w-4" />
-                Add inventory
+                Enter inventory
               </Button>
             ) : undefined
           }
@@ -170,8 +178,19 @@ export function ContractInventoryPanel({
       ) : (
         grouped.map((group) => (
           <Card key={group.seasonPeriodId}>
-            <div className="border-b px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
               <p className="text-sm font-medium">{group.label}</p>
+              {(canCreate || canEdit) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={matrixHref(group.seasonPeriodId)} />}
+                >
+                  Open matrix
+                </Button>
+              )}
             </div>
             <Table>
               <TableHeader>

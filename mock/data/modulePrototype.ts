@@ -614,7 +614,7 @@ const EXTRANET_PROTOTYPE_NAMES: Record<string, string[]> = {
     "Channel sync issues",
     "Contracts expiring soon",
   ],
-  extranetProperty: PROPERTIES,
+  extranetSelectProperty: PROPERTIES,
   contracts: [
     "Rate Contract 2026 — Grand Plaza Hotel",
     "Allotment Agreement — Marina Bay Resort",
@@ -638,6 +638,14 @@ const EXTRANET_PROTOTYPE_NAMES: Record<string, string[]> = {
     "Corporate Rate — Skyline Business Hotel",
     "Long Stay Rate — Coral Beach Resort",
     "Package Rate (BB) — Palm Grove Suites",
+  ],
+  supplement: [
+    "Extra Bed — Grand Plaza Hotel",
+    "Airport Transfer — Marina Bay Resort",
+    "Half Board Upgrade — Desert Oasis Villas",
+    "Late Checkout — Skyline Business Hotel",
+    "Spa Package — Coral Beach Resort",
+    "Gala Dinner — Palm Grove Suites",
   ],
   extranetAvailability: [
     "ARI Sync — Deluxe Room — Grand Plaza Hotel",
@@ -713,7 +721,7 @@ const EXTRANET_KPI_SETS: Record<
     { label: "Bookings this month", icon: "CalendarCheck", format: "number", min: 40, max: 320 },
     { label: "Occupancy rate", icon: "TrendingUp", format: "percent", min: 55, max: 92 },
   ],
-  extranetProperty: [
+  extranetSelectProperty: [
     { label: "Active properties", icon: "Home", format: "number", min: 6, max: 40 },
     { label: "Pending approval", icon: "Hourglass", format: "number", min: 0, max: 6 },
     { label: "Total rooms", icon: "BedDouble", format: "number", min: 80, max: 650 },
@@ -736,6 +744,12 @@ const EXTRANET_KPI_SETS: Record<
     { label: "Avg nightly rate", icon: "Wallet", format: "money", min: 80, max: 950 },
     { label: "Rate parity issues", icon: "XCircle", format: "number", min: 0, max: 8 },
     { label: "Rate changes this week", icon: "RefreshCw", format: "number", min: 3, max: 40 },
+  ],
+  supplement: [
+    { label: "Active supplements", icon: "PlusCircle", format: "number", min: 4, max: 35 },
+    { label: "Bookings with add-ons", icon: "ShoppingBag", format: "number", min: 8, max: 120 },
+    { label: "Avg supplement value", icon: "Wallet", format: "money", min: 15, max: 180 },
+    { label: "Supplement revenue", icon: "TrendingUp", format: "money", min: 8000, max: 95000 },
   ],
   extranetAvailability: [
     { label: "Nights synced today", icon: "RefreshCw", format: "number", min: 200, max: 2400 },
@@ -801,10 +815,11 @@ const EXTRANET_STATUSES = [
 /** Extranet keys whose row amount is money-valued, with a domain-specific column label. */
 const EXTRANET_MONEY_AMOUNT_LABELS: Record<string, string> = {
   extranetDashboard: "Value",
-  extranetProperty: "Room Revenue",
+  extranetSelectProperty: "Room Revenue",
   contracts: "Contract Value",
   extranetInventory: "Inventory Value",
   rates: "Nightly Rate",
+  supplement: "Supplement Price",
   promotions: "Promo Revenue",
   extranetConnectivity: "Channel Revenue",
   extranetBookings: "Booking Value",

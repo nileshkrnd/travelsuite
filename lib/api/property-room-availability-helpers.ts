@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { buildAvailabilityAriHints } from "@/lib/api/availability-calendar-ari-helpers";
 import {
   monthDateRange,
   parseDateOnly,
@@ -26,6 +27,8 @@ export async function loadAvailabilityCalendar(options: {
     orderBy: [{ displayOrder: "asc" }, { roomName: "asc" }],
   });
 
+  const roomIds = rooms.map((r) => Number(r.propertyRoomId));
+
   const rows = (await prisma.propertyRoomAvailability.findMany({
     where: {
       tenantId,
@@ -37,27 +40,62 @@ export async function loadAvailabilityCalendar(options: {
     orderBy: [{ availabilityDate: "asc" }, { propertyRoomId: "asc" }],
   })) as PropertyRoomAvailabilityRow[];
 
+  const savedByKey = new Map(
+    rows.map((row) => {
+      const s = serializePropertyRoomAvailabilityRow(row);
+      return [`${s.propertyRoomId}:${s.availabilityDate}`, s] as const;
+    })
+  );
+
+  const { hints, currencyCode } = await buildAvailabilityAriHints({
+    tenantId,
+    propertyId,
+    days,
+    propertyRoomIds: roomIds,
+  });
+  const ariByKey = new Map(hints.map((h) => [`${h.propertyRoomId}:${h.availabilityDate}`, h]));
+
+  const availCells = [];
+  for (const room of rooms) {
+    const propertyRoomId = Number(room.propertyRoomId);
+    for (const availabilityDate of days) {
+      const key = `${propertyRoomId}:${availabilityDate}`;
+      const saved = savedByKey.get(key);
+      const ari = ariByKey.get(key);
+      const contractAllotment = ari?.inventoryAllotment ?? null;
+      const hasSavedAvail = saved != null;
+
+      availCells.push({
+        propertyRoomAvailabilityKey: saved?.propertyRoomAvailabilityId,
+        propertyRoomId,
+        availabilityDate,
+        availableUnits: hasSavedAvail
+          ? (saved.availableUnits ?? saved.dailyInventoryQty ?? null)
+          : contractAllotment,
+        stopSell: hasSavedAvail ? saved.stopSell : (ari?.contractInventoryStopSell ?? false),
+        minLengthOfStay: saved?.minLengthOfStay ?? null,
+        maxLengthOfStay: saved?.maxLengthOfStay ?? null,
+        contractRate: ari?.contractRate ?? null,
+        inventoryAllotment: contractAllotment,
+        dailyRateAmount: saved?.dailyRateAmount ?? null,
+        dailyInventoryQty: saved?.dailyInventoryQty ?? null,
+        contractInventoryStopSell: ari?.contractInventoryStopSell ?? false,
+        contractInventoryClosed: ari?.contractInventoryClosed ?? false,
+      });
+    }
+  }
+
   return {
     year,
     month,
     propertyId,
+    currencyCode,
     rooms: rooms.map((r) => ({
       propertyRoomId: Number(r.propertyRoomId),
       roomCode: r.roomCode,
       roomName: r.roomName,
     })),
-    cells: rows.map((row) => {
-      const s = serializePropertyRoomAvailabilityRow(row);
-      return {
-        propertyRoomAvailabilityKey: s.propertyRoomAvailabilityId,
-        propertyRoomId: s.propertyRoomId,
-        availabilityDate: s.availabilityDate,
-        availableUnits: s.availableUnits,
-        stopSell: s.stopSell,
-        minLengthOfStay: s.minLengthOfStay,
-        maxLengthOfStay: s.maxLengthOfStay,
-      };
-    }),
+    cells: availCells,
     days,
   };
 }
@@ -87,6 +125,10 @@ export async function saveAvailabilityCalendarUpdates(input: {
       const availabilityDate = parseDateOnly(update.availabilityDate);
       const availableUnits = Math.max(0, Math.floor(update.availableUnits));
       const stopSell = update.stopSell ?? false;
+      const dailyRateAmount =
+        update.dailyRateAmount === undefined || update.dailyRateAmount === null
+          ? null
+          : update.dailyRateAmount;
 
       await tx.propertyRoomAvailability.upsert({
         where: {
@@ -104,6 +146,7 @@ export async function saveAvailabilityCalendarUpdates(input: {
           availabilityDate,
           availableUnits,
           stopSell,
+          dailyRateAmount,
           minLengthOfStay: update.minLengthOfStay ?? null,
           maxLengthOfStay: update.maxLengthOfStay ?? null,
           isActive: true,
@@ -112,6 +155,8 @@ export async function saveAvailabilityCalendarUpdates(input: {
         update: {
           availableUnits,
           stopSell,
+          dailyRateAmount,
+          dailyInventoryQty: null,
           minLengthOfStay: update.minLengthOfStay ?? null,
           maxLengthOfStay: update.maxLengthOfStay ?? null,
           modifiedBy: createdBy,

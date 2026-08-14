@@ -38,12 +38,14 @@ export interface PropertyContractRateWriteInput {
 export async function listPropertyContractRates(options?: {
   tenantId?: number;
   companyId?: number;
+  propertyId?: number;
   propertyContractId?: number;
   activeOnly?: boolean;
 }): Promise<PropertyContractRate[]> {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
+  if (options?.propertyId !== undefined) params.set("propertyId", String(options.propertyId));
   if (options?.propertyContractId !== undefined) {
     params.set("propertyContractId", String(options.propertyContractId));
   }

@@ -184,12 +184,13 @@ export type ModuleKey =
   // Extranet
   | "extranet"
   | "extranetDashboard"
-  | "extranetProperty"
+  | "extranetSelectProperty"
   | "contracts"
   | "seasons"
   | "propertyRooms"
-  | "extranetInventory"
   | "rates"
+  | "extranetInventory"
+  | "supplement"
   | "extranetAvailability"
   | "promotions"
   | "stopSales"
@@ -1047,18 +1048,17 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "extranet",
     children: [
       { key: "extranetDashboard", labelKey: "sidebar.extranetDashboard", icon: "LayoutDashboard", path: "extranet/dashboard" },
-      { key: "extranetProperty", labelKey: "sidebar.extranetProperty", icon: "Home", path: "extranet/property" },
-      { key: "contracts", labelKey: "sidebar.contracts", icon: "FileSignature", path: "extranet/contracts" },
+      { key: "extranetSelectProperty", labelKey: "sidebar.extranetSelectProperty", icon: "Building2", path: "extranet/select-property" },
       { key: "seasons", labelKey: "sidebar.seasons", icon: "CalendarRange", path: "extranet/seasons" },
       { key: "propertyRooms", labelKey: "sidebar.propertyRooms", icon: "BedDouble", path: "extranet/rooms" },
-      { key: "extranetInventory", labelKey: "sidebar.extranetInventory", icon: "Boxes", path: "extranet/inventory" },
+      { key: "contracts", labelKey: "sidebar.contracts", icon: "FileSignature", path: "extranet/contracts" },
       { key: "rates", labelKey: "sidebar.rates", icon: "BadgeDollarSign", path: "extranet/rates" },
-      { key: "extranetAvailability", labelKey: "sidebar.extranetAvailability", icon: "CalendarCheck", path: "extranet/availability" },
+      { key: "extranetInventory", labelKey: "sidebar.extranetInventory", icon: "Boxes", path: "extranet/inventory" },
+      { key: "supplement", labelKey: "sidebar.supplement", icon: "PlusCircle", path: "extranet/supplement" },
       { key: "promotions", labelKey: "sidebar.promotions", icon: "Megaphone", path: "extranet/promotions" },
       { key: "stopSales", labelKey: "sidebar.stopSales", icon: "Ban", path: "extranet/stop-sales" },
       { key: "blackoutDates", labelKey: "sidebar.blackoutDates", icon: "CalendarOff", path: "extranet/blackout-dates" },
       { key: "extranetConnectivity", labelKey: "sidebar.extranetConnectivity", icon: "Workflow", path: "extranet/connectivity" },
-      { key: "extranetReviews", labelKey: "sidebar.extranetReviews", icon: "Star", path: "extranet/reviews" },
       { key: "extranetBookings", labelKey: "sidebar.extranetBookings", icon: "CalendarCheck", path: "extranet/bookings" },
       { key: "extranetReports", labelKey: "sidebar.extranetReports", icon: "BarChart3", path: "extranet/reports" },
     ],

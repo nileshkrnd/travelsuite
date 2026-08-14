@@ -30,9 +30,17 @@ import {
 import type { AvailabilityCalendarCell } from "@/types/property-room-availability";
 
 type CellState = {
-  availableUnits: number | null;
+  /** Contract allotment — baseline available units from supplier inventory. */
+  contractAllotment: number | null;
+  /** Daily override; null means use contract allotment. */
+  dailyAllotment: number | null;
+  hasSavedRow: boolean;
   stopSell: boolean;
   dirty: boolean;
+  contractRate: number | null;
+  dailyRateAmount: number | null;
+  contractInventoryStopSell: boolean;
+  contractInventoryClosed: boolean;
 };
 
 function cellKey(roomId: number, date: string) {
@@ -65,6 +73,46 @@ function monthLabel(year: number, month: number) {
   });
 }
 
+function formatAmount(value: number | null) {
+  if (value == null) return "—";
+  return Number.isInteger(value) ? String(value) : value.toFixed(0);
+}
+
+function effectiveAllotment(state: CellState) {
+  return state.dailyAllotment ?? state.contractAllotment;
+}
+
+function effectiveRate(state: CellState) {
+  return state.dailyRateAmount ?? state.contractRate;
+}
+
+function allotmentOverridden(state: CellState) {
+  return state.dailyAllotment != null && state.dailyAllotment !== state.contractAllotment;
+}
+
+function cellFromPayload(cell: AvailabilityCalendarCell): CellState {
+  const contractAllotment = cell.inventoryAllotment ?? null;
+  const hasSavedRow = cell.propertyRoomAvailabilityKey != null;
+
+  let dailyAllotment: number | null = null;
+  if (hasSavedRow) {
+    dailyAllotment =
+      cell.availableUnits ?? cell.dailyInventoryQty ?? null;
+  }
+
+  return {
+    contractAllotment,
+    dailyAllotment,
+    hasSavedRow,
+    stopSell: hasSavedRow ? (cell.stopSell ?? false) : (cell.stopSell ?? false),
+    dirty: false,
+    contractRate: cell.contractRate ?? null,
+    dailyRateAmount: cell.dailyRateAmount ?? null,
+    contractInventoryStopSell: cell.contractInventoryStopSell ?? false,
+    contractInventoryClosed: cell.contractInventoryClosed ?? false,
+  };
+}
+
 interface AvailabilityCalendarProps {
   tenantId: number;
   companyId: number;
@@ -85,6 +133,7 @@ export function AvailabilityCalendar({
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currencyCode, setCurrencyCode] = useState<string | null>(null);
   const [rooms, setRooms] = useState<{ propertyRoomId: number; roomCode: string; roomName: string }[]>([]);
   const [days, setDays] = useState<string[]>([]);
   const [cells, setCells] = useState<Map<string, CellState>>(new Map());
@@ -96,13 +145,11 @@ export function AvailabilityCalendar({
       const payload = await getAvailabilityCalendar({ tenantId, propertyId, year, month });
       setRooms(payload.rooms);
       setDays(payload.days);
+      setCurrencyCode(payload.currencyCode ?? null);
+
       const next = new Map<string, CellState>();
       for (const cell of payload.cells) {
-        next.set(cellKey(cell.propertyRoomId, cell.availabilityDate), {
-          availableUnits: cell.availableUnits,
-          stopSell: cell.stopSell,
-          dirty: false,
-        });
+        next.set(cellKey(cell.propertyRoomId, cell.availabilityDate), cellFromPayload(cell));
       }
       setCells(next);
     } catch (err) {
@@ -123,17 +170,37 @@ export function AvailabilityCalendar({
   }
 
   function getCell(roomId: number, date: string): CellState {
-    return cells.get(cellKey(roomId, date)) ?? { availableUnits: null, stopSell: false, dirty: false };
+    return (
+      cells.get(cellKey(roomId, date)) ?? {
+        contractAllotment: null,
+        dailyAllotment: null,
+        hasSavedRow: false,
+        stopSell: false,
+        dirty: false,
+        contractRate: null,
+        dailyRateAmount: null,
+        contractInventoryStopSell: false,
+        contractInventoryClosed: false,
+      }
+    );
   }
 
-  function updateCell(roomId: number, date: string, patch: Partial<Pick<CellState, "availableUnits" | "stopSell">>) {
+  function updateCell(
+    roomId: number,
+    date: string,
+    patch: Partial<Pick<CellState, "dailyAllotment" | "stopSell" | "dailyRateAmount">>
+  ) {
     setCells((prev) => {
       const key = cellKey(roomId, date);
-      const current = prev.get(key) ?? { availableUnits: null, stopSell: false, dirty: false };
+      const current = prev.get(key) ?? getCell(roomId, date);
       const next = new Map(prev);
       next.set(key, {
-        availableUnits: patch.availableUnits !== undefined ? patch.availableUnits : current.availableUnits,
+        ...current,
+        dailyAllotment:
+          patch.dailyAllotment !== undefined ? patch.dailyAllotment : current.dailyAllotment,
         stopSell: patch.stopSell !== undefined ? patch.stopSell : current.stopSell,
+        dailyRateAmount:
+          patch.dailyRateAmount !== undefined ? patch.dailyRateAmount : current.dailyRateAmount,
         dirty: true,
       });
       return next;
@@ -148,19 +215,20 @@ export function AvailabilityCalendar({
 
   async function handleSave() {
     if (!canEdit || dirtyCount === 0) return;
-    const updates: AvailabilityCalendarCell[] = [];
+    const updates: Parameters<typeof saveAvailabilityCalendar>[0]["updates"] = [];
     for (const [key, state] of cells.entries()) {
       if (!state.dirty) continue;
       const [roomIdStr, date] = key.split(":");
       const propertyRoomId = Number(roomIdStr);
       if (!propertyRoomId || !date) continue;
+
+      const allotment = effectiveAllotment(state) ?? 0;
       updates.push({
         propertyRoomId,
         availabilityDate: date,
-        availableUnits: state.availableUnits ?? 0,
+        availableUnits: allotment,
         stopSell: state.stopSell,
-        minLengthOfStay: null,
-        maxLengthOfStay: null,
+        dailyRateAmount: state.dailyRateAmount,
       });
     }
     if (updates.length === 0) return;
@@ -174,10 +242,10 @@ export function AvailabilityCalendar({
         createdBy: actorKey,
         updates,
       });
-      toast.success(`Saved ${result.saved} availability ${result.saved === 1 ? "entry" : "entries"}`);
+      toast.success(`Saved ${result.saved} day ${result.saved === 1 ? "update" : "updates"}`);
       await load();
     } catch (err) {
-      toast.error(err instanceof PropertyRoomAvailabilityApiError ? err.message : "Failed to save availability");
+      toast.error(err instanceof PropertyRoomAvailabilityApiError ? err.message : "Failed to save calendar");
     } finally {
       setSaving(false);
     }
@@ -208,18 +276,18 @@ export function AvailabilityCalendar({
           >
             Today
           </Button>
+          {currencyCode && (
+            <span className="text-xs text-muted-foreground">
+              Rates in <span className="font-mono font-medium">{currencyCode}</span>
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-sm bg-emerald-500/20 ring-1 ring-emerald-500/40" />
-              Available
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-sm bg-amber-500/20 ring-1 ring-amber-500/40" />
-              Zero
-            </span>
+            <span className="font-medium text-foreground">ARI</span>
+            <span className="text-emerald-700 dark:text-emerald-400">Allotment</span>
+            <span className="text-blue-700 dark:text-blue-400">Rate</span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-3 w-3 rounded-sm bg-destructive/20 ring-1 ring-destructive/40" />
               Stop sell
@@ -228,7 +296,7 @@ export function AvailabilityCalendar({
           {canEdit && (
             <Button type="button" size="sm" disabled={saving || dirtyCount === 0} onClick={() => void handleSave()}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
+              Save changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
             </Button>
           )}
         </div>
@@ -252,20 +320,40 @@ export function AvailabilityCalendar({
               <table className="w-full min-w-max border-collapse text-xs">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    <th className="sticky left-0 z-20 min-w-[11rem] border-r bg-muted/95 px-3 py-2 text-left font-medium">
+                    <th
+                      rowSpan={2}
+                      className="sticky left-0 z-20 min-w-[12rem] border-r bg-muted/95 px-3 py-2 text-left text-xs font-medium align-bottom"
+                    >
                       Room type
                     </th>
                     {days.map((date) => (
                       <th
                         key={date}
                         className={cn(
-                          "min-w-[2.25rem] px-0.5 py-2 text-center font-medium",
+                          "min-w-[4.5rem] border-l px-1 py-1.5 text-center text-xs font-medium",
                           isWeekend(date) && "bg-muted/60",
                           date === today && "bg-primary/10 text-primary"
                         )}
                       >
-                        <div className="tabular-nums">{dayNumber(date)}</div>
+                        <div className="tabular-nums text-sm">{dayNumber(date)}</div>
                         <div className="text-[10px] font-normal text-muted-foreground">{dayOfWeekShort(date)}</div>
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="border-b bg-muted/30 text-[10px] text-muted-foreground">
+                    {days.map((date) => (
+                      <th
+                        key={`${date}-ari`}
+                        className={cn(
+                          "border-l px-1 py-1 text-center font-normal",
+                          isWeekend(date) && "bg-muted/40",
+                          date === today && "bg-primary/5"
+                        )}
+                      >
+                        <div className="grid grid-cols-2 gap-1">
+                          <span>Allot</span>
+                          <span>Rate</span>
+                        </div>
                       </th>
                     ))}
                   </tr>
@@ -273,7 +361,7 @@ export function AvailabilityCalendar({
                 <tbody>
                   {rooms.map((room) => (
                     <tr key={room.propertyRoomId} className="border-b last:border-b-0">
-                      <td className="sticky left-0 z-10 border-r bg-background px-3 py-2 align-top">
+                      <td className="sticky left-0 z-10 border-r bg-background px-3 py-2 align-top text-xs">
                         <div className="font-medium leading-tight">{room.roomName}</div>
                         <div className="text-[10px] text-muted-foreground">{room.roomCode}</div>
                       </td>
@@ -284,6 +372,7 @@ export function AvailabilityCalendar({
                             key={date}
                             date={date}
                             today={today}
+                            currencyCode={currencyCode}
                             state={state}
                             canEdit={canEdit}
                             onChange={(patch) => updateCell(room.propertyRoomId, date, patch)}
@@ -305,92 +394,199 @@ export function AvailabilityCalendar({
 function AvailabilityCell({
   date,
   today,
+  currencyCode,
   state,
   canEdit,
   onChange,
 }: {
   date: string;
   today: string;
+  currencyCode: string | null;
   state: CellState;
   canEdit: boolean;
-  onChange: (patch: Partial<Pick<CellState, "availableUnits" | "stopSell">>) => void;
+  onChange: (patch: Partial<Pick<CellState, "dailyAllotment" | "stopSell" | "dailyRateAmount">>) => void;
 }) {
-  const units = state.availableUnits;
-  const hasValue = units !== null;
-  const display = hasValue ? String(units) : "—";
+  const allotment = effectiveAllotment(state);
+  const rate = effectiveRate(state);
+  const hasAllotment = allotment != null;
+  const blocked =
+    state.stopSell || state.contractInventoryStopSell || state.contractInventoryClosed;
+  const rateOverridden = state.dailyRateAmount != null;
+  const showAllotmentOverride = allotmentOverridden(state);
 
-  const tone = state.stopSell
-    ? "bg-destructive/15 text-destructive ring-destructive/30"
-    : hasValue && units === 0
-      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-amber-500/30"
-      : hasValue && units > 0
-        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-emerald-500/30"
-        : "bg-transparent text-muted-foreground";
+  const tone = blocked
+    ? "bg-destructive/10 ring-destructive/30"
+    : hasAllotment && allotment === 0
+      ? "bg-amber-500/10 ring-amber-500/30"
+      : hasAllotment && allotment > 0
+        ? "bg-emerald-500/5 ring-emerald-500/20"
+        : "bg-background ring-border/50";
 
-  const cellButton = (
-    <button
-      type="button"
-      disabled={!canEdit}
-      className={cn(
-        "mx-auto flex h-8 w-8 items-center justify-center rounded-md text-[11px] font-medium tabular-nums ring-1 ring-transparent transition-colors",
-        tone,
-        date === today && "ring-primary/50",
-        isWeekend(date) && !hasValue && "bg-muted/30",
-        canEdit && "hover:ring-border cursor-pointer",
-        !canEdit && "cursor-default"
+  const cellContent = (
+    <>
+      {blocked && (
+        <Ban className="absolute right-1 top-1 h-3 w-3 text-destructive/80" aria-hidden />
       )}
-    >
-      {state.stopSell ? <Ban className="h-3.5 w-3.5" /> : display}
-    </button>
+      <div className="grid w-full grid-cols-2 gap-1 px-1 py-1.5 tabular-nums">
+        <span
+          className={cn(
+            "text-center font-semibold",
+            hasAllotment && allotment === 0 && "text-amber-700 dark:text-amber-400",
+            hasAllotment && allotment > 0 && "text-emerald-700 dark:text-emerald-400",
+            !hasAllotment && "text-muted-foreground",
+            showAllotmentOverride && "underline decoration-dotted decoration-emerald-500/60"
+          )}
+        >
+          {hasAllotment ? allotment : "·"}
+        </span>
+        <span
+          className={cn(
+            "text-center font-medium text-blue-700 dark:text-blue-400",
+            rateOverridden && "underline decoration-dotted decoration-blue-500/60",
+            rate == null && "text-muted-foreground"
+          )}
+        >
+          {formatAmount(rate)}
+        </span>
+      </div>
+    </>
   );
 
-  if (!canEdit) {
-    return (
-      <td className={cn("px-0.5 py-1 text-center align-middle", isWeekend(date) && "bg-muted/20")}>
-        {cellButton}
-      </td>
-    );
-  }
+  const popoverBody = (
+    <PopoverContent className="w-72 space-y-3" align="center" side="bottom">
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{date}</p>
+        <p className="text-xs text-muted-foreground">
+          Allotment is the supplier&apos;s available units for this day. Rate can be overridden daily.
+        </p>
+        {state.dirty && (
+          <Badge variant="outline" className="text-[10px]">
+            Unsaved
+          </Badge>
+        )}
+      </div>
 
-  return (
-    <td className={cn("px-0.5 py-1 text-center align-middle", isWeekend(date) && "bg-muted/20")}>
-      <Popover>
-        <PopoverTrigger render={cellButton} />
-        <PopoverContent className="w-52 space-y-3" align="center">
-          <div className="space-y-1">
-            <p className="text-xs font-medium">{date}</p>
-            {state.dirty && (
-              <Badge variant="outline" className="text-[10px]">
-                Unsaved
-              </Badge>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`units-${date}`} className="text-xs">
-              Available units
+      {canEdit ? (
+        <div className="space-y-3 border-t pt-3">
+          <div className="space-y-1.5">
+            <Label htmlFor={`allotment-${date}`} className="text-xs">
+              Allotment (available units)
             </Label>
             <Input
-              id={`units-${date}`}
+              id={`allotment-${date}`}
               type="number"
               min={0}
               className="h-8"
-              value={units ?? ""}
-              placeholder="0"
+              value={state.dailyAllotment ?? ""}
+              placeholder={
+                state.contractAllotment != null
+                  ? `Contract: ${state.contractAllotment}`
+                  : "No contract allotment"
+              }
               onChange={(e) => {
                 const raw = e.target.value;
-                onChange({ availableUnits: raw === "" ? 0 : Math.max(0, Number(raw) || 0) });
+                onChange({ dailyAllotment: raw === "" ? null : Math.max(0, Number(raw) || 0) });
               }}
             />
+            {state.contractAllotment != null && (
+              <p className="text-[10px] text-muted-foreground">
+                Contract allotment: {state.contractAllotment} units
+              </p>
+            )}
           </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor={`rate-${date}`} className="text-xs">
+              Rate {currencyCode ? `(${currencyCode})` : ""}
+            </Label>
+            <Input
+              id={`rate-${date}`}
+              type="number"
+              min={0}
+              step="0.01"
+              className="h-8"
+              value={state.dailyRateAmount ?? ""}
+              placeholder={
+                state.contractRate != null ? `Contract: ${formatAmount(state.contractRate)}` : "No contract rate"
+              }
+              onChange={(e) => {
+                const raw = e.target.value;
+                onChange({ dailyRateAmount: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+              }}
+            />
+            {state.contractRate != null && (
+              <p className="text-[10px] text-muted-foreground">
+                Contract rate: {formatAmount(state.contractRate)}
+                {currencyCode ? ` ${currencyCode}` : ""}
+              </p>
+            )}
+          </div>
+
           <label className="flex items-center gap-2 text-xs">
             <Checkbox
               checked={state.stopSell}
               onCheckedChange={(checked) => onChange({ stopSell: checked === true })}
             />
-            Stop sell
+            Stop sell (daily)
           </label>
-        </PopoverContent>
-      </Popover>
+
+          {(state.contractInventoryStopSell || state.contractInventoryClosed) && (
+            <p className="text-[10px] text-destructive">
+              {state.contractInventoryClosed ? "Contract inventory closed" : "Contract stop sell active"}
+            </p>
+          )}
+        </div>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-2 gap-y-1 border-t pt-3 text-xs">
+          <dt className="text-muted-foreground">Allotment</dt>
+          <dd className="text-right font-mono tabular-nums">{hasAllotment ? allotment : "—"}</dd>
+          <dt className="text-muted-foreground">Rate</dt>
+          <dd className="text-right font-mono tabular-nums">
+            {rate != null ? `${formatAmount(rate)}${currencyCode ? ` ${currencyCode}` : ""}` : "—"}
+          </dd>
+        </dl>
+      )}
+    </PopoverContent>
+  );
+
+  return (
+    <td
+      className={cn(
+        "relative border-l p-0 align-middle",
+        isWeekend(date) && "bg-muted/10",
+        date === today && "bg-primary/5"
+      )}
+    >
+      {canEdit ? (
+        <Popover>
+          <PopoverTrigger
+            nativeButton={false}
+            render={
+              <button
+                type="button"
+                className={cn(
+                  "relative flex min-h-[2.5rem] w-full min-w-[4.5rem] items-center justify-center rounded-none ring-1 ring-inset transition-colors",
+                  tone,
+                  canEdit && "cursor-pointer hover:bg-muted/30",
+                  state.dirty && "ring-2 ring-primary/40"
+                )}
+              />
+            }
+          >
+            {cellContent}
+          </PopoverTrigger>
+          {popoverBody}
+        </Popover>
+      ) : (
+        <div
+          className={cn(
+            "relative flex min-h-[2.5rem] w-full min-w-[4.5rem] items-center justify-center ring-1 ring-inset",
+            tone
+          )}
+        >
+          {cellContent}
+        </div>
+      )}
     </td>
   );
 }

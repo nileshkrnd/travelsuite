@@ -9,6 +9,8 @@ export type PropertyRoomAvailabilityRow = {
   availabilityDate: Date;
   availableUnits: number;
   stopSell: boolean;
+  dailyRateAmount: { toString(): string } | null;
+  dailyInventoryQty: number | null;
   minLengthOfStay: number | null;
   maxLengthOfStay: number | null;
   isActive: boolean;
@@ -39,6 +41,8 @@ export function serializePropertyRoomAvailabilityRow(row: PropertyRoomAvailabili
     availabilityDate: formatDateOnly(row.availabilityDate),
     availableUnits: row.availableUnits,
     stopSell: row.stopSell,
+    dailyRateAmount: row.dailyRateAmount != null ? Number(row.dailyRateAmount.toString()) : null,
+    dailyInventoryQty: row.dailyInventoryQty,
     minLengthOfStay: row.minLengthOfStay,
     maxLengthOfStay: row.maxLengthOfStay,
     isActive: row.isActive,

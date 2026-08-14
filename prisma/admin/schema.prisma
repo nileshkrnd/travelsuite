@@ -842,6 +842,10 @@ model PropertyRoomAvailability {
   availabilityDate           DateTime  @map("AvailabilityDate") @db.Date
   availableUnits             Int       @default(0) @map("AvailableUnits")
   stopSell                   Boolean   @default(false) @map("StopSell")
+  /// Optional daily rate override (falls back to contract rate when null).
+  dailyRateAmount            Decimal?  @map("DailyRateAmount") @db.Decimal(18, 4)
+  /// Optional daily inventory override (falls back to contract allotment when null).
+  dailyInventoryQty          Int?      @map("DailyInventoryQty")
   minLengthOfStay            Int?      @map("MinLengthOfStay")
   maxLengthOfStay            Int?      @map("MaxLengthOfStay")
   isActive                   Boolean   @default(true) @map("IsActive")

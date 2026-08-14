@@ -21,12 +21,16 @@ export async function GET(request: Request) {
     const tenantIdParam = searchParams.get("tenantId");
     const companyIdParam = searchParams.get("companyId");
     const propertyContractIdParam = searchParams.get("propertyContractId");
+    const propertyIdParam = searchParams.get("propertyId");
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const where: Prisma.PropertyContractRateWhereInput = {};
     if (tenantIdParam) where.tenantId = Number(tenantIdParam);
     if (companyIdParam) where.companyId = Number(companyIdParam);
     if (propertyContractIdParam) where.propertyContractId = BigInt(propertyContractIdParam);
+    if (propertyIdParam) {
+      where.propertyContract = { propertyId: Number(propertyIdParam) };
+    }
     if (activeOnly) where.isActive = true;
 
     const rows = await prisma.propertyContractRate.findMany({

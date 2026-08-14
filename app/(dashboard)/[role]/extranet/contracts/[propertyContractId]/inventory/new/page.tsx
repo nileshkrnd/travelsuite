@@ -8,7 +8,7 @@ import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
-import { PropertyContractInventoryForm } from "@/components/masters/PropertyContractInventoryForm";
+import { PropertyContractInventoryMatrixForm } from "@/components/masters/PropertyContractInventoryMatrixForm";
 import { getPropertyContract, PropertyContractsApiError } from "@/lib/services/property-contracts.service";
 import { can } from "@/config/permissions";
 import type { PropertyContract } from "@/types";
@@ -74,8 +74,8 @@ function NewContractInventory() {
   return (
     <div className="min-w-0 space-y-6 overflow-x-clip p-6">
       <PageHeader
-        title="Add contract inventory"
-        description={`Define inventory rules for ${contract.contractName}`}
+        title="Contract inventory"
+        description={`Enter inventory matrix for ${contract.contractName}`}
         actions={
           <Button
             variant="outline"
@@ -89,7 +89,7 @@ function NewContractInventory() {
           </Button>
         }
       />
-      <PropertyContractInventoryForm lockedContract={contract} />
+      <PropertyContractInventoryMatrixForm contract={contract} />
     </div>
   );
 }
