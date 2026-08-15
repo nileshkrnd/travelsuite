@@ -11,6 +11,10 @@ export interface PropertyRoomAvailability {
   availabilityDate: string;
   availableUnits: number;
   stopSell: boolean;
+  /** Closed to arrival (CTA) — no check-in on this date. */
+  closedToArrival: boolean;
+  /** Closed to departure (CTD) — no check-out on this date. */
+  closedToDeparture: boolean;
   minLengthOfStay: number | null;
   maxLengthOfStay: number | null;
   isActive: boolean;
@@ -26,15 +30,44 @@ export interface AvailabilityCalendarRoom {
   roomName: string;
 }
 
+export interface AvailabilityCalendarRatePlan {
+  propertyContractRatePlanId: number;
+  propertyContractId: number;
+  contractLabel?: string | null;
+  ratePlanCode: string;
+  ratePlanName: string;
+  mealPlanCode: string;
+  mealPlanName: string;
+  ratePlanTypeCode?: string | null;
+  ratePlanTypeName?: string | null;
+  displayOrder: number;
+}
+
+export interface AvailabilityCalendarOccupancy {
+  occupancyTypeId: number;
+  occupancyTypeCode: string;
+  occupancyTypeName: string;
+  displayOrder: number;
+}
+
+export interface AvailabilityCalendarOccupancyRate {
+  propertyContractRatePlanId: number;
+  occupancyTypeId: number;
+  rateAmount: number;
+}
+
 export interface AvailabilityCalendarCell {
   propertyRoomAvailabilityKey?: number;
   propertyRoomId: number;
   availabilityDate: string;
   availableUnits?: number | null;
   stopSell?: boolean;
+  closedToArrival?: boolean;
+  closedToDeparture?: boolean;
   minLengthOfStay?: number | null;
   maxLengthOfStay?: number | null;
   contractRate?: number | null;
+  occupancyRates?: AvailabilityCalendarOccupancyRate[];
   inventoryAllotment?: number | null;
   dailyRateAmount?: number | null;
   dailyInventoryQty?: number | null;
@@ -52,6 +85,8 @@ export interface AvailabilityCalendarPayload {
   propertyId: number;
   currencyCode?: string | null;
   rooms: AvailabilityCalendarRoom[];
+  ratePlans: AvailabilityCalendarRatePlan[];
+  occupancies: AvailabilityCalendarOccupancy[];
   cells: AvailabilityCalendarCell[];
   days: string[];
 }
@@ -59,8 +94,10 @@ export interface AvailabilityCalendarPayload {
 export interface AvailabilityCalendarUpdate {
   propertyRoomId: number;
   availabilityDate: string;
-  availableUnits: number;
+  availableUnits?: number;
   stopSell?: boolean;
+  closedToArrival?: boolean;
+  closedToDeparture?: boolean;
   dailyRateAmount?: number | null;
   dailyInventoryQty?: number | null;
   minLengthOfStay?: number | null;

@@ -7,7 +7,10 @@ import {
   CalendarX2,
   ChevronLeft,
   ChevronRight,
+  ListTodo,
   Loader2,
+  LogIn,
+  LogOut,
   Save,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,7 +31,13 @@ import {
   saveAvailabilityCalendar,
   PropertyRoomAvailabilityApiError,
 } from "@/lib/services/property-room-availability.service";
-import type { AvailabilityCalendarCell } from "@/types/property-room-availability";
+import type {
+  AvailabilityCalendarCell,
+  AvailabilityCalendarOccupancy,
+  AvailabilityCalendarOccupancyRate,
+  AvailabilityCalendarRatePlan,
+} from "@/types/property-room-availability";
+import { AvailabilityBulkChangeDialog } from "@/components/masters/AvailabilityBulkChangeDialog";
 
 type ViewMode = "week" | "fortnight" | "month";
 
@@ -39,9 +48,12 @@ type CellState = {
   dailyAllotment: number | null;
   hasSavedRow: boolean;
   stopSell: boolean;
+  closedToArrival: boolean;
+  closedToDeparture: boolean;
   dirty: boolean;
   contractRate: number | null;
   dailyRateAmount: number | null;
+  occupancyRates: AvailabilityCalendarOccupancyRate[];
   minLengthOfStay: number | null;
   maxLengthOfStay: number | null;
   contractInventoryStopSell: boolean;
@@ -53,21 +65,22 @@ type CellState = {
 type CellPatch = Partial<
   Pick<
     CellState,
-    "dailyAllotment" | "stopSell" | "dailyRateAmount" | "minLengthOfStay" | "maxLengthOfStay"
+    "dailyAllotment" | "stopSell" | "closedToArrival" | "closedToDeparture" | "dailyRateAmount" | "minLengthOfStay" | "maxLengthOfStay"
   >
 >;
 
 type RestrictionKind = "open" | "stopSell" | "blackout" | "closed" | "soldOut" | "none";
 
-const METRICS = [
-  { id: "allotment", label: "Allotment", short: "Allot" },
-  { id: "rate", label: "Rate", short: "Rate" },
-  { id: "minLos", label: "Min LOS", short: "Min" },
-  { id: "maxLos", label: "Max LOS", short: "Max" },
-  { id: "status", label: "Status", short: "Status" },
+const INVENTORY_METRICS = [
+  { id: "allotment", label: "Allotment" },
+  { id: "minLos", label: "Min LOS" },
+  { id: "maxLos", label: "Max LOS" },
+  { id: "cta", label: "No check-in" },
+  { id: "ctd", label: "No check-out" },
+  { id: "status", label: "Status" },
 ] as const;
 
-type MetricId = (typeof METRICS)[number]["id"];
+type InventoryMetricId = (typeof INVENTORY_METRICS)[number]["id"];
 
 function cellKey(roomId: number, date: string) {
   return `${roomId}:${date}`;
@@ -150,6 +163,34 @@ function rangeLabel(days: string[]) {
   return `${left} – ${right}`;
 }
 
+function occupancyShort(code: string) {
+  const map: Record<string, string> = {
+    SINGLE: "SGL",
+    DOUBLE: "DBL",
+    TRIPLE: "TPL",
+    QUAD: "QAD",
+    QUADRUPLE: "QAD",
+  };
+  const upper = code.toUpperCase();
+  return map[upper] ?? upper.slice(0, 3);
+}
+
+function ratePlanShortLabel(plan: AvailabilityCalendarRatePlan) {
+  return plan.mealPlanCode || plan.ratePlanCode;
+}
+
+function occupancyRateAmount(
+  rates: AvailabilityCalendarOccupancyRate[],
+  planId: number,
+  occupancyTypeId: number
+): number | null {
+  return (
+    rates.find(
+      (r) => r.propertyContractRatePlanId === planId && r.occupancyTypeId === occupancyTypeId
+    )?.rateAmount ?? null
+  );
+}
+
 function formatAmount(value: number | null) {
   if (value == null) return "—";
   return Number.isInteger(value) ? String(value) : value.toFixed(0);
@@ -173,9 +214,12 @@ function emptyCell(): CellState {
     dailyAllotment: null,
     hasSavedRow: false,
     stopSell: false,
+    closedToArrival: false,
+    closedToDeparture: false,
     dirty: false,
     contractRate: null,
     dailyRateAmount: null,
+    occupancyRates: [],
     minLengthOfStay: null,
     maxLengthOfStay: null,
     contractInventoryStopSell: false,
@@ -199,9 +243,12 @@ function cellFromPayload(cell: AvailabilityCalendarCell): CellState {
     dailyAllotment,
     hasSavedRow,
     stopSell: cell.stopSell ?? false,
+    closedToArrival: cell.closedToArrival ?? false,
+    closedToDeparture: cell.closedToDeparture ?? false,
     dirty: false,
     contractRate: cell.contractRate ?? null,
     dailyRateAmount: cell.dailyRateAmount ?? null,
+    occupancyRates: cell.occupancyRates ?? [],
     minLengthOfStay: cell.minLengthOfStay ?? null,
     maxLengthOfStay: cell.maxLengthOfStay ?? null,
     contractInventoryStopSell: cell.contractInventoryStopSell ?? false,
@@ -315,7 +362,11 @@ export function AvailabilityCalendar({
   const [saving, setSaving] = useState(false);
   const [currencyCode, setCurrencyCode] = useState<string | null>(null);
   const [rooms, setRooms] = useState<{ propertyRoomId: number; roomCode: string; roomName: string }[]>([]);
+  const [ratePlans, setRatePlans] = useState<AvailabilityCalendarRatePlan[]>([]);
+  const [occupancies, setOccupancies] = useState<AvailabilityCalendarOccupancy[]>([]);
+  const [selectedRatePlanIds, setSelectedRatePlanIds] = useState<number[] | null>(null);
   const [cells, setCells] = useState<Map<string, CellState>>(new Map());
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const visibleDays = useMemo(
     () => buildVisibleDays(viewMode, year, month, rangeStart),
@@ -340,6 +391,8 @@ export function AvailabilityCalendar({
       );
 
       const roomMap = new Map<number, { propertyRoomId: number; roomCode: string; roomName: string }>();
+      const planMap = new Map<number, AvailabilityCalendarRatePlan>();
+      const occMap = new Map<number, AvailabilityCalendarOccupancy>();
       const next = new Map<string, CellState>();
       let currency: string | null = null;
 
@@ -348,13 +401,35 @@ export function AvailabilityCalendar({
         for (const room of payload.rooms) {
           roomMap.set(room.propertyRoomId, room);
         }
+        for (const plan of payload.ratePlans ?? []) {
+          planMap.set(plan.propertyContractRatePlanId, plan);
+        }
+        for (const occ of payload.occupancies ?? []) {
+          occMap.set(occ.occupancyTypeId, occ);
+        }
         for (const cell of payload.cells) {
           if (!days.includes(cell.availabilityDate)) continue;
           next.set(cellKey(cell.propertyRoomId, cell.availabilityDate), cellFromPayload(cell));
         }
       }
 
+      const nextPlans = [...planMap.values()].sort((a, b) => {
+        if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+        return a.ratePlanCode.localeCompare(b.ratePlanCode);
+      });
+      const nextOccupancies = [...occMap.values()].sort((a, b) => {
+        if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+        return a.occupancyTypeCode.localeCompare(b.occupancyTypeCode);
+      });
+
       setRooms([...roomMap.values()].sort((a, b) => a.roomName.localeCompare(b.roomName)));
+      setRatePlans(nextPlans);
+      setOccupancies(nextOccupancies);
+      setSelectedRatePlanIds((prev) => {
+        if (prev == null) return nextPlans.map((p) => p.propertyContractRatePlanId);
+        const keep = prev.filter((id) => planMap.has(id));
+        return keep.length > 0 ? keep : nextPlans.map((p) => p.propertyContractRatePlanId);
+      });
       setCurrencyCode(currency);
       setCells(next);
     } catch (err) {
@@ -415,6 +490,8 @@ export function AvailabilityCalendar({
     let stopSell = 0;
     let blackout = 0;
     let soldOut = 0;
+    let noCheckIn = 0;
+    let noCheckOut = 0;
     let withAllotment = 0;
     let totalUnits = 0;
 
@@ -426,6 +503,8 @@ export function AvailabilityCalendar({
         if (kind === "stopSell") stopSell += 1;
         if (kind === "blackout" || kind === "closed") blackout += 1;
         if (kind === "soldOut") soldOut += 1;
+        if (state.closedToArrival) noCheckIn += 1;
+        if (state.closedToDeparture) noCheckOut += 1;
         const allotment = effectiveAllotment(state);
         if (allotment != null && allotment > 0 && kind === "open") {
           withAllotment += 1;
@@ -434,7 +513,7 @@ export function AvailabilityCalendar({
       }
     }
 
-    return { open, stopSell, blackout, soldOut, withAllotment, totalUnits };
+    return { open, stopSell, blackout, soldOut, noCheckIn, noCheckOut, withAllotment, totalUnits };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getCell reads cells map
   }, [rooms, visibleDays, cells]);
 
@@ -453,6 +532,8 @@ export function AvailabilityCalendar({
         availabilityDate: date,
         availableUnits: allotment,
         stopSell: state.stopSell,
+        closedToArrival: state.closedToArrival,
+        closedToDeparture: state.closedToDeparture,
         dailyRateAmount: state.dailyRateAmount,
         minLengthOfStay: state.minLengthOfStay,
         maxLengthOfStay: state.maxLengthOfStay,
@@ -477,6 +558,17 @@ export function AvailabilityCalendar({
       setSaving(false);
     }
   }
+
+  const visibleRatePlans = useMemo(() => {
+    if (selectedRatePlanIds == null || selectedRatePlanIds.length === 0) return ratePlans;
+    const allow = new Set(selectedRatePlanIds);
+    return ratePlans.filter((p) => allow.has(p.propertyContractRatePlanId));
+  }, [ratePlans, selectedRatePlanIds]);
+
+  const showContractOnRateRows = useMemo(() => {
+    const ids = new Set(visibleRatePlans.map((p) => p.propertyContractId));
+    return ids.size > 1;
+  }, [visibleRatePlans]);
 
   const periodTitle =
     viewMode === "month" ? monthLabel(year, month) : rangeLabel(visibleDays);
@@ -534,20 +626,34 @@ export function AvailabilityCalendar({
         </div>
 
         {canEdit && (
-          <Button type="button" size="sm" disabled={saving || dirtyCount === 0} onClick={() => void handleSave()}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saving || loading || rooms.length === 0}
+              onClick={() => setBulkOpen(true)}
+            >
+              <ListTodo className="h-4 w-4" />
+              Bulk change
+            </Button>
+            <Button type="button" size="sm" disabled={saving || dirtyCount === 0} onClick={() => void handleSave()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
+            </Button>
+          </div>
         )}
       </div>
 
       {!loading && rooms.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <SummaryChip label="Open room-days" value={String(summary.open)} tone="emerald" />
           <SummaryChip label="Units available" value={String(summary.totalUnits)} tone="blue" />
           <SummaryChip label="Stop sell" value={String(summary.stopSell)} tone="destructive" />
           <SummaryChip label="Blackout / closed" value={String(summary.blackout)} tone="violet" />
           <SummaryChip label="Sold out (0)" value={String(summary.soldOut)} tone="amber" />
+          <SummaryChip label="No check-in" value={String(summary.noCheckIn)} tone="orange" />
+          <SummaryChip label="No check-out" value={String(summary.noCheckOut)} tone="rose" />
         </div>
       )}
 
@@ -558,9 +664,54 @@ export function AvailabilityCalendar({
         <LegendSwatch className="bg-violet-500/20 ring-violet-500/40" label="Blackout (BO)" />
         <LegendSwatch className="bg-slate-500/20 ring-slate-500/40" label="Closed (CL)" />
         <LegendSwatch className="bg-amber-500/20 ring-amber-500/40" label="Sold out" />
+        <LegendSwatch className="bg-orange-500/20 ring-orange-500/40" label="No check-in (CTA)" />
+        <LegendSwatch className="bg-rose-500/20 ring-rose-500/40" label="No check-out (CTD)" />
         <span className="underline decoration-dotted">Underlined = daily override</span>
         <span>Min / Max = length of stay restrictions</span>
+        <span className="text-blue-700 dark:text-blue-400">SGL / DBL / TPL = occupancy rates from contract rate plans</span>
       </div>
+
+      {ratePlans.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium text-muted-foreground">Rate plans</span>
+          <Button
+            type="button"
+            size="xs"
+            variant={
+              selectedRatePlanIds != null && selectedRatePlanIds.length === ratePlans.length
+                ? "secondary"
+                : "outline"
+            }
+            onClick={() => setSelectedRatePlanIds(ratePlans.map((p) => p.propertyContractRatePlanId))}
+          >
+            All
+          </Button>
+          {ratePlans.map((plan) => {
+            const id = plan.propertyContractRatePlanId;
+            const active = selectedRatePlanIds?.includes(id) ?? true;
+            return (
+              <Button
+                key={id}
+                type="button"
+                size="xs"
+                variant={active ? "secondary" : "outline"}
+                onClick={() => {
+                  setSelectedRatePlanIds((prev) => {
+                    const current = prev ?? ratePlans.map((p) => p.propertyContractRatePlanId);
+                    if (current.includes(id) && current.length === 1) return current;
+                    return current.includes(id)
+                      ? current.filter((x) => x !== id)
+                      : [...current, id];
+                  });
+                }}
+              >
+                {ratePlanShortLabel(plan)}
+                <span className="ml-1 font-normal text-muted-foreground">{plan.ratePlanCode}</span>
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -583,7 +734,7 @@ export function AvailabilityCalendar({
                     <th className="sticky left-0 z-40 min-w-[11rem] border-r bg-muted px-3 py-2 text-left text-xs font-medium">
                       Room / ARI
                     </th>
-                    <th className="sticky left-[11rem] z-40 min-w-[4.75rem] border-r bg-muted px-2 py-2 text-left text-[10px] font-medium text-muted-foreground">
+                    <th className="sticky left-[11rem] z-40 min-w-[7.5rem] border-r bg-muted px-2 py-2 text-left text-[10px] font-medium text-muted-foreground">
                       Metric
                     </th>
                     {visibleDays.map((date) => (
@@ -615,6 +766,9 @@ export function AvailabilityCalendar({
                       today={today}
                       currencyCode={currencyCode}
                       canEdit={canEdit}
+                      ratePlans={visibleRatePlans}
+                      occupancies={occupancies}
+                      showContractOnRateRows={showContractOnRateRows}
                       getCell={getCell}
                       onChange={(date, patch) => updateCell(room.propertyRoomId, date, patch)}
                     />
@@ -625,6 +779,21 @@ export function AvailabilityCalendar({
           )}
         </CardContent>
       </Card>
+
+      {canEdit && (
+        <AvailabilityBulkChangeDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          tenantId={tenantId}
+          companyId={companyId}
+          propertyId={propertyId}
+          actorKey={actorKey}
+          rooms={rooms}
+          defaultFrom={visibleDays[0] ?? today}
+          defaultTo={visibleDays[visibleDays.length - 1] ?? today}
+          onApplied={load}
+        />
+      )}
     </div>
   );
 }
@@ -636,7 +805,7 @@ function SummaryChip({
 }: {
   label: string;
   value: string;
-  tone: "emerald" | "blue" | "destructive" | "violet" | "amber";
+  tone: "emerald" | "blue" | "destructive" | "violet" | "amber" | "orange" | "rose";
 }) {
   const tones: Record<typeof tone, string> = {
     emerald: "border-emerald-500/25 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300",
@@ -644,6 +813,8 @@ function SummaryChip({
     destructive: "border-destructive/25 bg-destructive/5 text-destructive",
     violet: "border-violet-500/25 bg-violet-500/5 text-violet-800 dark:text-violet-300",
     amber: "border-amber-500/25 bg-amber-500/5 text-amber-800 dark:text-amber-300",
+    orange: "border-orange-500/25 bg-orange-500/5 text-orange-800 dark:text-orange-300",
+    rose: "border-rose-500/25 bg-rose-500/5 text-rose-800 dark:text-rose-300",
   };
   return (
     <div className={cn("rounded-md border px-3 py-2", tones[tone])}>
@@ -668,6 +839,9 @@ function RoomAriBlock({
   today,
   currencyCode,
   canEdit,
+  ratePlans,
+  occupancies,
+  showContractOnRateRows,
   getCell,
   onChange,
 }: {
@@ -676,23 +850,42 @@ function RoomAriBlock({
   today: string;
   currencyCode: string | null;
   canEdit: boolean;
+  ratePlans: AvailabilityCalendarRatePlan[];
+  occupancies: AvailabilityCalendarOccupancy[];
+  showContractOnRateRows: boolean;
   getCell: (roomId: number, date: string) => CellState;
   onChange: (date: string, patch: CellPatch) => void;
 }) {
+  const occupancyRows = ratePlans.flatMap((plan) =>
+    occupancies.map((occ) => ({
+      id: `${plan.propertyContractRatePlanId}:${occ.occupancyTypeId}`,
+      plan,
+      occ,
+      label: [
+        showContractOnRateRows && plan.contractLabel ? plan.contractLabel : null,
+        ratePlanShortLabel(plan),
+        occupancyShort(occ.occupancyTypeCode),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    }))
+  );
+  const rowCount = INVENTORY_METRICS.length + occupancyRows.length;
+
   return (
     <>
-      {METRICS.map((metric, metricIndex) => (
+      {INVENTORY_METRICS.map((metric, metricIndex) => (
         <tr
           key={`${room.propertyRoomId}-${metric.id}`}
           className={cn(
             "border-b",
-            metricIndex === METRICS.length - 1 && "border-b-2 border-border/80",
+            metricIndex === INVENTORY_METRICS.length - 1 && occupancyRows.length === 0 && "border-b-2 border-border/80",
             metric.id === "status" && "bg-muted/10"
           )}
         >
           {metricIndex === 0 ? (
             <td
-              rowSpan={METRICS.length}
+              rowSpan={rowCount}
               className="sticky left-0 z-20 border-r bg-background px-3 py-2 align-top"
             >
               <div className="font-medium leading-tight">{room.roomName}</div>
@@ -719,6 +912,39 @@ function RoomAriBlock({
           })}
         </tr>
       ))}
+      {occupancyRows.map((row, rowIndex) => (
+        <tr
+          key={`${room.propertyRoomId}-rate-${row.id}`}
+          className={cn(
+            "border-b bg-blue-500/[0.03]",
+            rowIndex === occupancyRows.length - 1 && "border-b-2 border-border/80"
+          )}
+        >
+          <td className="sticky left-[11rem] z-20 border-r bg-background px-2 py-1 text-[10px] font-medium leading-tight text-blue-800 dark:text-blue-300">
+            {row.label}
+          </td>
+          {days.map((date) => {
+            const state = getCell(room.propertyRoomId, date);
+            const amount = occupancyRateAmount(
+              state.occupancyRates,
+              row.plan.propertyContractRatePlanId,
+              row.occ.occupancyTypeId
+            );
+            return (
+              <OccupancyRateCell
+                key={`${date}-${row.id}`}
+                date={date}
+                today={today}
+                amount={amount}
+                currencyCode={currencyCode}
+                state={state}
+                canEdit={canEdit}
+                onChange={(patch) => onChange(date, patch)}
+              />
+            );
+          })}
+        </tr>
+      ))}
     </>
   );
 }
@@ -734,14 +960,13 @@ function MetricCell({
 }: {
   date: string;
   today: string;
-  metric: MetricId;
+  metric: InventoryMetricId;
   currencyCode: string | null;
   state: CellState;
   canEdit: boolean;
   onChange: (patch: CellPatch) => void;
 }) {
   const allotment = effectiveAllotment(state);
-  const rate = effectiveRate(state);
   const kind = restrictionKind(state);
   const stopSellBlocked = isStopSell(state);
   const blackoutBlocked = isBlackout(state);
@@ -757,33 +982,41 @@ function MetricCell({
       allotment != null && allotment > 0 && "font-semibold text-emerald-700 dark:text-emerald-400",
       allotmentOverridden(state) && "underline decoration-dotted decoration-emerald-500/70"
     );
-  } else if (metric === "rate") {
-    display = formatAmount(rate);
-    valueClass = cn(
-      rate == null ? "text-muted-foreground" : "font-medium text-blue-700 dark:text-blue-400",
-      state.dailyRateAmount != null && "underline decoration-dotted decoration-blue-500/70"
-    );
   } else if (metric === "minLos") {
     display = state.minLengthOfStay != null ? String(state.minLengthOfStay) : "·";
     valueClass = state.minLengthOfStay != null ? "font-medium tabular-nums" : "text-muted-foreground";
   } else if (metric === "maxLos") {
     display = state.maxLengthOfStay != null ? String(state.maxLengthOfStay) : "·";
     valueClass = state.maxLengthOfStay != null ? "font-medium tabular-nums" : "text-muted-foreground";
+  } else if (metric === "cta") {
+    display = state.closedToArrival ? "CTA" : "·";
+    valueClass = state.closedToArrival
+      ? "rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-orange-500/15 text-orange-800 dark:text-orange-300"
+      : "text-muted-foreground";
+  } else if (metric === "ctd") {
+    display = state.closedToDeparture ? "CTD" : "·";
+    valueClass = state.closedToDeparture
+      ? "rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-rose-500/15 text-rose-800 dark:text-rose-300"
+      : "text-muted-foreground";
   } else {
     display = statusLabel(kind);
     valueClass = cn("rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide", statusTone(kind));
   }
 
   const cellTone =
-    kind === "stopSell"
-      ? "bg-destructive/5"
-      : kind === "blackout"
-        ? "bg-violet-500/5"
-        : kind === "closed"
-          ? "bg-slate-500/5"
-          : kind === "soldOut"
-            ? "bg-amber-500/5"
-            : "";
+    metric === "cta" && state.closedToArrival
+      ? "bg-orange-500/5"
+      : metric === "ctd" && state.closedToDeparture
+        ? "bg-rose-500/5"
+        : kind === "stopSell"
+          ? "bg-destructive/5"
+          : kind === "blackout"
+            ? "bg-violet-500/5"
+            : kind === "closed"
+              ? "bg-slate-500/5"
+              : kind === "soldOut"
+                ? "bg-amber-500/5"
+                : "";
 
   const cellContent = (
     <>
@@ -792,6 +1025,12 @@ function MetricCell({
       )}
       {metric === "status" && !stopSellBlocked && blackoutBlocked && (
         <CalendarX2 className="absolute right-0.5 top-0.5 h-2.5 w-2.5 text-violet-600/70" aria-hidden />
+      )}
+      {metric === "cta" && state.closedToArrival && (
+        <LogIn className="absolute right-0.5 top-0.5 h-2.5 w-2.5 text-orange-600/70" aria-hidden />
+      )}
+      {metric === "ctd" && state.closedToDeparture && (
+        <LogOut className="absolute right-0.5 top-0.5 h-2.5 w-2.5 text-rose-600/70" aria-hidden />
       )}
       <span className={valueClass}>{display}</span>
     </>
@@ -815,7 +1054,7 @@ function MetricCell({
                 "relative flex h-8 w-full min-w-[3.75rem] items-center justify-center px-1 tabular-nums transition-colors hover:bg-muted/40",
                 cellTone,
                 state.dirty && "ring-2 ring-inset ring-primary/35",
-                metric === "status" && "text-[10px]"
+                (metric === "status" || metric === "cta" || metric === "ctd") && "text-[10px]"
               )}
             />
           }
@@ -828,6 +1067,76 @@ function MetricCell({
           state={state}
           canEdit={canEdit}
           onChange={onChange}
+          ratePlans={ratePlans}
+          occupancies={occupancies}
+        />
+      </Popover>
+    </td>
+  );
+}
+
+function OccupancyRateCell({
+  date,
+  today,
+  amount,
+  currencyCode,
+  state,
+  canEdit,
+  onChange,
+  ratePlans,
+  occupancies,
+}: {
+  date: string;
+  today: string;
+  amount: number | null;
+  currencyCode: string | null;
+  state: CellState;
+  canEdit: boolean;
+  onChange: (patch: CellPatch) => void;
+  ratePlans: AvailabilityCalendarRatePlan[];
+  occupancies: AvailabilityCalendarOccupancy[];
+}) {
+  return (
+    <td
+      className={cn(
+        "border-l p-0 align-middle",
+        isWeekend(date) && "bg-muted/10",
+        date === today && "bg-primary/5"
+      )}
+    >
+      <Popover>
+        <PopoverTrigger
+          nativeButton={false}
+          render={
+            <button
+              type="button"
+              className={cn(
+                "relative flex h-8 w-full min-w-[3.75rem] items-center justify-center px-1 tabular-nums transition-colors hover:bg-muted/40",
+                isStopSell(state) && "bg-destructive/5",
+                isBlackout(state) && "bg-violet-500/5",
+                state.dirty && "ring-2 ring-inset ring-primary/35"
+              )}
+            />
+          }
+        >
+          <span
+            className={cn(
+              amount == null
+                ? "text-muted-foreground"
+                : "font-medium text-blue-700 dark:text-blue-400"
+            )}
+          >
+            {formatAmount(amount)}
+          </span>
+        </PopoverTrigger>
+        <DayEditorPopover
+          date={date}
+          currencyCode={currencyCode}
+          state={state}
+          canEdit={canEdit}
+          onChange={onChange}
+          ratePlans={ratePlans}
+          occupancies={occupancies}
         />
       </Popover>
     </td>
@@ -840,12 +1149,16 @@ function DayEditorPopover({
   state,
   canEdit,
   onChange,
+  ratePlans = [],
+  occupancies = [],
 }: {
   date: string;
   currencyCode: string | null;
   state: CellState;
   canEdit: boolean;
   onChange: (patch: CellPatch) => void;
+  ratePlans?: AvailabilityCalendarRatePlan[];
+  occupancies?: AvailabilityCalendarOccupancy[];
 }) {
   const allotment = effectiveAllotment(state);
   const rate = effectiveRate(state);
@@ -881,7 +1194,8 @@ function DayEditorPopover({
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          Edit daily ARI: allotment, rate, length of stay, and stop sell. Contract blackouts remain read-only.
+          Edit daily ARI: allotment, rate, length of stay, stop sell, and no check-in / no check-out.
+          Contract blackouts remain read-only.
         </p>
         {state.dirty && (
           <Badge variant="outline" className="text-[10px]">
@@ -995,6 +1309,22 @@ function DayEditorPopover({
             Stop sell (daily)
           </label>
 
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox
+              checked={state.closedToArrival}
+              onCheckedChange={(checked) => onChange({ closedToArrival: checked === true })}
+            />
+            Close on arrival — no check-in
+          </label>
+
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox
+              checked={state.closedToDeparture}
+              onCheckedChange={(checked) => onChange({ closedToDeparture: checked === true })}
+            />
+            Close on departure — no check-out
+          </label>
+
           {(state.contractInventoryStopSell || state.contractStopSale) && (
             <p className="text-[10px] text-destructive">
               {state.contractStopSale && state.contractInventoryStopSell
@@ -1027,6 +1357,18 @@ function DayEditorPopover({
           <dd className="text-right font-mono tabular-nums">{state.minLengthOfStay ?? "—"}</dd>
           <dt className="text-muted-foreground">Max LOS</dt>
           <dd className="text-right font-mono tabular-nums">{state.maxLengthOfStay ?? "—"}</dd>
+          {state.closedToArrival && (
+            <>
+              <dt className="text-orange-700 dark:text-orange-400">No check-in</dt>
+              <dd className="text-right text-orange-700 dark:text-orange-400">Closed to arrival</dd>
+            </>
+          )}
+          {state.closedToDeparture && (
+            <>
+              <dt className="text-rose-700 dark:text-rose-400">No check-out</dt>
+              <dd className="text-right text-rose-700 dark:text-rose-400">Closed to departure</dd>
+            </>
+          )}
           {stopSellBlocked && (
             <>
               <dt className="text-destructive">Stop sell</dt>

@@ -857,6 +857,10 @@ model PropertyRoomAvailability {
   availabilityDate           DateTime  @map("AvailabilityDate") @db.Date
   availableUnits             Int       @default(0) @map("AvailableUnits")
   stopSell                   Boolean   @default(false) @map("StopSell")
+  /// Closed to arrival (CTA) — no check-in on this date.
+  closedToArrival            Boolean   @default(false) @map("ClosedToArrival")
+  /// Closed to departure (CTD) — no check-out on this date.
+  closedToDeparture          Boolean   @default(false) @map("ClosedToDeparture")
   /// Optional daily rate override (falls back to contract rate when null).
   dailyRateAmount            Decimal?  @map("DailyRateAmount") @db.Decimal(18, 4)
   /// Optional daily inventory override (falls back to contract allotment when null).
@@ -2269,6 +2273,7 @@ model Property {
   rooms              PropertyRoom[]
   roomTypeMedia      PropertyRoomTypeMedia[]
   roomAvailability   PropertyRoomAvailability[]
+  setupNotes         PropertySetupNote[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -2279,6 +2284,25 @@ model Property {
   @@index([cityId], map: "Property_CityID_idx")
   @@index([createdDtTm], map: "Property_CreatedDtTm_idx")
   @@map("Property")
+}
+
+/// Operational note on a property's commercial-readiness setup (Extranet "Select Property" go-live dashboard).
+model PropertySetupNote {
+  propertySetupNoteId BigInt   @id @default(autoincrement()) @map("PropertySetupNoteID")
+  tenantId            Int      @map("TenantID")
+  companyId           Int      @map("CompanyID")
+  propertyId          Int      @map("PropertyID")
+  /// Optional readiness step this note relates to (e.g. "contractRates"); null = general note.
+  stepCode            String?  @map("StepCode") @db.VarChar(50)
+  note                String   @map("Note") @db.Text
+  priority            String   @default("normal") @map("Priority") @db.VarChar(20)
+  createdBy           Int      @map("CreatedBy")
+  createdDtTm         DateTime @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+
+  property Property @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+
+  @@index([tenantId, companyId, propertyId], map: "PropertySetupNote_Tenant_Company_Property_idx")
+  @@map("PropertySetupNote")
 }
 
 /// Property media (photos/videos), attached to a Property. One row per property may be marked the cover image (enforced by a partial unique index in the migration).

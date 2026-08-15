@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -14,8 +14,11 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { listPropertySeasons } from "@/lib/services/property-seasons.service";
-import { createPropertyContractSeasonPeriod } from "@/lib/services/property-contract-season-periods.service";
-import type { PropertyContract, PropertySeason } from "@/types";
+import {
+  createPropertyContractSeasonPeriod,
+  listPropertyContractSeasonPeriods,
+} from "@/lib/services/property-contract-season-periods.service";
+import type { PropertyContract, PropertyContractSeasonPeriod, PropertySeason } from "@/types";
 
 let tempIdSeq = 0;
 function nextTempId() {
@@ -34,13 +37,52 @@ function emptyRow(): SeasonPeriodRow {
   return { tempId: nextTempId(), propertySeasonId: 0, fromDate: "", toDate: "" };
 }
 
-function rowError(row: SeasonPeriodRow): string | null {
+function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string): boolean {
+  return aFrom <= bTo && bFrom <= aTo;
+}
+
+function fieldError(row: SeasonPeriodRow): string | null {
   const touched = row.propertySeasonId > 0 || row.fromDate || row.toDate;
   if (!touched) return null;
   if (!row.propertySeasonId) return "Season is required";
   if (!row.fromDate || !row.toDate) return "From and To dates are required";
   if (row.toDate < row.fromDate) return "To date must be on or after from date";
   return null;
+}
+
+/** Field errors plus overlap checks — against existing periods on this contract and other rows in this batch. */
+function computeRowErrors(
+  rows: SeasonPeriodRow[],
+  existing: PropertyContractSeasonPeriod[]
+): Map<string, string> {
+  const errors = new Map<string, string>();
+  for (const row of rows) {
+    const basic = fieldError(row);
+    if (basic) {
+      errors.set(row.tempId, basic);
+      continue;
+    }
+    if (!(row.propertySeasonId > 0 && row.fromDate && row.toDate)) continue;
+
+    const existingHit = existing.find((p) => rangesOverlap(row.fromDate, row.toDate, p.fromDate, p.toDate));
+    if (existingHit) {
+      errors.set(row.tempId, `Overlaps an existing period (${existingHit.fromDate} to ${existingHit.toDate})`);
+      continue;
+    }
+
+    const rowHit = rows.find(
+      (other) =>
+        other.tempId !== row.tempId &&
+        other.propertySeasonId > 0 &&
+        other.fromDate &&
+        other.toDate &&
+        rangesOverlap(row.fromDate, row.toDate, other.fromDate, other.toDate)
+    );
+    if (rowHit) {
+      errors.set(row.tempId, "Overlaps another row in this batch");
+    }
+  }
+  return errors;
 }
 
 /** Add multiple contract season date ranges in one go — a row per period, saved together. */
@@ -56,6 +98,7 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
   const returnHref = `/${role}/extranet/contracts/${contract.propertyContractKey}?tab=season-periods`;
 
   const [seasons, setSeasons] = useState<PropertySeason[]>([]);
+  const [existingPeriods, setExistingPeriods] = useState<PropertyContractSeasonPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<SeasonPeriodRow[]>([emptyRow()]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -68,9 +111,17 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
     }
     let cancelled = false;
     setLoading(true);
-    listPropertySeasons({ tenantId: tenantKey, propertyId: contract.propertyId, activeOnly: true })
-      .then((rows) => {
-        if (!cancelled) setSeasons(rows);
+    Promise.all([
+      listPropertySeasons({ tenantId: tenantKey, propertyId: contract.propertyId, activeOnly: true }),
+      listPropertyContractSeasonPeriods({
+        propertyContractId: contract.propertyContractKey,
+        activeOnly: true,
+      }),
+    ])
+      .then(([seasonRows, periodRows]) => {
+        if (cancelled) return;
+        setSeasons(seasonRows);
+        setExistingPeriods(periodRows);
       })
       .catch(() => {
         if (!cancelled) toast.error("Failed to load seasons");
@@ -81,7 +132,9 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
     return () => {
       cancelled = true;
     };
-  }, [tenantKey, contract.propertyId]);
+  }, [tenantKey, contract.propertyId, contract.propertyContractKey]);
+
+  const rowErrors = useMemo(() => computeRowErrors(rows, existingPeriods), [rows, existingPeriods]);
 
   function updateRow(tempId: string, patch: Partial<SeasonPeriodRow>) {
     setRows((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, ...patch } : r)));
@@ -93,7 +146,7 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
 
   async function handleSubmit() {
     setSubmitError(null);
-    if (rows.some((r) => rowError(r))) {
+    if (rowErrors.size > 0) {
       setSubmitError("Fix the highlighted rows before saving.");
       return;
     }
@@ -158,7 +211,7 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
         ) : (
           <div className="space-y-3">
             {rows.map((row) => {
-              const error = rowError(row);
+              const error = rowErrors.get(row.tempId) ?? null;
               return (
                 <div key={row.tempId} className="rounded-lg border border-border p-3">
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(0,150px))_auto] sm:items-end">

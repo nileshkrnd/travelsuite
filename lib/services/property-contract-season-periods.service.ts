@@ -36,6 +36,7 @@ export interface PropertyContractSeasonPeriodWriteInput {
 export async function listPropertyContractSeasonPeriods(options?: {
   tenantId?: number;
   companyId?: number;
+  propertyId?: number;
   propertyContractId?: number;
   propertySeasonId?: number;
   activeOnly?: boolean;
@@ -43,6 +44,7 @@ export async function listPropertyContractSeasonPeriods(options?: {
   const params = new URLSearchParams();
   if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
   if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
+  if (options?.propertyId !== undefined) params.set("propertyId", String(options.propertyId));
   if (options?.propertyContractId !== undefined) {
     params.set("propertyContractId", String(options.propertyContractId));
   }

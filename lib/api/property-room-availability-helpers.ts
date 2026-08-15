@@ -48,7 +48,7 @@ export async function loadAvailabilityCalendar(options: {
     })
   );
 
-  const [{ hints, currencyCode }, closureHints] = await Promise.all([
+  const [{ hints, currencyCode, ratePlans, occupancies }, closureHints] = await Promise.all([
     buildAvailabilityAriHints({
       tenantId,
       propertyId,
@@ -88,9 +88,12 @@ export async function loadAvailabilityCalendar(options: {
           ? (saved.availableUnits ?? saved.dailyInventoryQty ?? null)
           : contractAllotment,
         stopSell: hasSavedAvail ? saved.stopSell : (ari?.contractInventoryStopSell ?? false),
+        closedToArrival: saved?.closedToArrival ?? false,
+        closedToDeparture: saved?.closedToDeparture ?? false,
         minLengthOfStay: saved?.minLengthOfStay ?? null,
         maxLengthOfStay: saved?.maxLengthOfStay ?? null,
         contractRate: ari?.contractRate ?? null,
+        occupancyRates: ari?.occupancyRates ?? [],
         inventoryAllotment: contractAllotment,
         dailyRateAmount: saved?.dailyRateAmount ?? null,
         dailyInventoryQty: saved?.dailyInventoryQty ?? null,
@@ -112,6 +115,8 @@ export async function loadAvailabilityCalendar(options: {
       roomCode: r.roomCode,
       roomName: r.roomName,
     })),
+    ratePlans,
+    occupancies,
     cells: availCells,
     days,
   };
@@ -134,18 +139,31 @@ export async function saveAvailabilityCalendarUpdates(input: {
   });
   const validRoomSet = new Set(validRooms.map((r) => Number(r.propertyRoomId)));
 
+  const allotmentFallback = new Map<string, number>();
+  const needsAllotmentFallback = updates.some((u) => u.availableUnits == null && validRoomSet.has(u.propertyRoomId));
+  if (needsAllotmentFallback) {
+    const days = [...new Set(updates.map((u) => u.availabilityDate))];
+    const { hints } = await buildAvailabilityAriHints({
+      tenantId,
+      propertyId,
+      days,
+      propertyRoomIds: [...validRoomSet],
+    });
+    for (const hint of hints) {
+      if (hint.inventoryAllotment != null) {
+        allotmentFallback.set(`${hint.propertyRoomId}:${hint.availabilityDate}`, hint.inventoryAllotment);
+      }
+    }
+  }
+
   let saved = 0;
   await prisma.$transaction(async (tx) => {
     for (const update of updates) {
       if (!validRoomSet.has(update.propertyRoomId)) continue;
 
       const availabilityDate = parseDateOnly(update.availabilityDate);
-      const availableUnits = Math.max(0, Math.floor(update.availableUnits));
-      const stopSell = update.stopSell ?? false;
-      const dailyRateAmount =
-        update.dailyRateAmount === undefined || update.dailyRateAmount === null
-          ? null
-          : update.dailyRateAmount;
+      const availableUnits =
+        update.availableUnits != null ? Math.max(0, Math.floor(update.availableUnits)) : undefined;
 
       await tx.propertyRoomAvailability.upsert({
         where: {
@@ -161,21 +179,42 @@ export async function saveAvailabilityCalendarUpdates(input: {
           propertyId,
           propertyRoomId: BigInt(update.propertyRoomId),
           availabilityDate,
-          availableUnits,
-          stopSell,
-          dailyRateAmount,
+          availableUnits:
+            availableUnits ??
+            allotmentFallback.get(`${update.propertyRoomId}:${update.availabilityDate}`) ??
+            0,
+          stopSell: update.stopSell ?? false,
+          closedToArrival: update.closedToArrival ?? false,
+          closedToDeparture: update.closedToDeparture ?? false,
+          dailyRateAmount:
+            update.dailyRateAmount === undefined || update.dailyRateAmount === null
+              ? null
+              : update.dailyRateAmount,
           minLengthOfStay: update.minLengthOfStay ?? null,
           maxLengthOfStay: update.maxLengthOfStay ?? null,
           isActive: true,
           createdBy,
         },
         update: {
-          availableUnits,
-          stopSell,
-          dailyRateAmount,
-          dailyInventoryQty: null,
-          minLengthOfStay: update.minLengthOfStay ?? null,
-          maxLengthOfStay: update.maxLengthOfStay ?? null,
+          ...(availableUnits != null
+            ? { availableUnits, dailyInventoryQty: null }
+            : {}),
+          ...(update.stopSell !== undefined ? { stopSell: update.stopSell } : {}),
+          ...(update.closedToArrival !== undefined
+            ? { closedToArrival: update.closedToArrival }
+            : {}),
+          ...(update.closedToDeparture !== undefined
+            ? { closedToDeparture: update.closedToDeparture }
+            : {}),
+          ...(update.dailyRateAmount !== undefined
+            ? { dailyRateAmount: update.dailyRateAmount }
+            : {}),
+          ...(update.minLengthOfStay !== undefined
+            ? { minLengthOfStay: update.minLengthOfStay }
+            : {}),
+          ...(update.maxLengthOfStay !== undefined
+            ? { maxLengthOfStay: update.maxLengthOfStay }
+            : {}),
           modifiedBy: createdBy,
           modifiedDtTm: new Date(),
         },

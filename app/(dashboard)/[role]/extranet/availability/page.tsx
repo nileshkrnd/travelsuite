@@ -55,7 +55,7 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
       <PageHeader
         icon={CalendarCheck}
         title="Availability Calendar"
-        description="Channel-manager style ARI calendar: allotment, rate, min/max LOS, and stop-sell/blackout status by room and day."
+        description="Channel-manager style ARI calendar: allotment, rate, min/max LOS, stop sell, and no check-in / no check-out by room and day. Use Bulk change for a date or range."
       />
 
       <ExtranetPropertyScope
