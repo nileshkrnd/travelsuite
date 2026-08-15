@@ -78,6 +78,8 @@ export * from "./day-of-week";
 export * from "./occupancy-type";
 export * from "./property-room";
 export * from "./property-room-availability";
+export * from "./property-readiness";
+export * from "./property-setup-note";
 export * from "./amenity-facility-category";
 export * from "./amenity";
 export * from "./facility";

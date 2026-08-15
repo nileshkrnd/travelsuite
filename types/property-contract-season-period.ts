@@ -16,6 +16,10 @@ export interface PropertyContractSeasonPeriod {
   fromDate: string;
   /** YYYY-MM-DD */
   toDate: string;
+  /** Default minimum length of stay for this period; the calendar falls back to this unless a date is daily-overridden. */
+  minLengthOfStay: number | null;
+  /** Default maximum length of stay for this period; the calendar falls back to this unless a date is daily-overridden. */
+  maxLengthOfStay: number | null;
   isActive: boolean;
   createdBy: number;
   createdAt: string;

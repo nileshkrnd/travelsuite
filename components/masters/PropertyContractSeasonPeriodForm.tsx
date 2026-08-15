@@ -32,11 +32,20 @@ const schema = z
     propertySeasonId: z.number().int().positive("Season is required"),
     fromDate: z.string().trim().min(1, "From date is required"),
     toDate: z.string().trim().min(1, "To date is required"),
+    minLengthOfStay: z.number().int().positive().nullable(),
+    maxLengthOfStay: z.number().int().positive().nullable(),
     isActive: z.boolean(),
   })
   .superRefine((values, ctx) => {
     if (values.toDate && values.fromDate && values.toDate < values.fromDate) {
       ctx.addIssue({ code: "custom", path: ["toDate"], message: "To date must be on or after from date" });
+    }
+    if (
+      values.minLengthOfStay != null &&
+      values.maxLengthOfStay != null &&
+      values.maxLengthOfStay < values.minLengthOfStay
+    ) {
+      ctx.addIssue({ code: "custom", path: ["maxLengthOfStay"], message: "Max LOS must be at least Min LOS" });
     }
   });
 type FormValues = z.infer<typeof schema>;
@@ -47,6 +56,8 @@ function emptyValues(contractId = 0): FormValues {
     propertySeasonId: 0,
     fromDate: "",
     toDate: "",
+    minLengthOfStay: null,
+    maxLengthOfStay: null,
     isActive: true,
   };
 }
@@ -57,6 +68,8 @@ function valuesFromEntry(entry: PropertyContractSeasonPeriod): FormValues {
     propertySeasonId: entry.propertySeasonId,
     fromDate: entry.fromDate,
     toDate: entry.toDate,
+    minLengthOfStay: entry.minLengthOfStay,
+    maxLengthOfStay: entry.maxLengthOfStay,
     isActive: entry.isActive,
   };
 }
@@ -166,6 +179,8 @@ export function PropertyContractSeasonPeriodForm({
       propertySeasonId: values.propertySeasonId,
       fromDate: values.fromDate,
       toDate: values.toDate,
+      minLengthOfStay: values.minLengthOfStay,
+      maxLengthOfStay: values.maxLengthOfStay,
       isActive: values.isActive,
     };
     try {
@@ -291,6 +306,45 @@ export function PropertyContractSeasonPeriodForm({
             {errors.toDate && <p className="text-sm text-destructive">{errors.toDate.message}</p>}
           </div>
         </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="minLengthOfStay">Min length of stay</Label>
+            <Input
+              id="minLengthOfStay"
+              type="number"
+              min={1}
+              placeholder="No minimum"
+              aria-invalid={!!errors.minLengthOfStay}
+              {...register("minLengthOfStay", {
+                setValueAs: (v) => (v === "" || v == null ? null : Math.max(1, Number(v) || 1)),
+              })}
+            />
+            {errors.minLengthOfStay && (
+              <p className="text-sm text-destructive">{errors.minLengthOfStay.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maxLengthOfStay">Max length of stay</Label>
+            <Input
+              id="maxLengthOfStay"
+              type="number"
+              min={1}
+              placeholder="No maximum"
+              aria-invalid={!!errors.maxLengthOfStay}
+              {...register("maxLengthOfStay", {
+                setValueAs: (v) => (v === "" || v == null ? null : Math.max(1, Number(v) || 1)),
+              })}
+            />
+            {errors.maxLengthOfStay && (
+              <p className="text-sm text-destructive">{errors.maxLengthOfStay.message}</p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Becomes the calendar&apos;s default length-of-stay restriction for every date in this range, until
+          overridden for a specific day.
+        </p>
 
         <div className="space-y-2 sm:max-w-xs">
           <Label>Status</Label>

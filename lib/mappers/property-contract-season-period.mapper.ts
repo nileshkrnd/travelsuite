@@ -8,6 +8,8 @@ export interface PropertyContractSeasonPeriodRow {
   propertySeasonId: bigint | number;
   fromDate: Date | string;
   toDate: Date | string;
+  minLengthOfStay: number | null;
+  maxLengthOfStay: number | null;
   isActive: boolean;
   createdBy: number;
   createdDtTm: Date | string;
@@ -53,6 +55,8 @@ export function toAppPropertyContractSeasonPeriod(
     seasonName: row.propertySeason?.seasonName,
     fromDate: toDateOnly(row.fromDate) ?? "",
     toDate: toDateOnly(row.toDate) ?? "",
+    minLengthOfStay: row.minLengthOfStay,
+    maxLengthOfStay: row.maxLengthOfStay,
     isActive: row.isActive,
     createdBy: row.createdBy,
     createdAt: toIso(row.createdDtTm) ?? new Date().toISOString(),

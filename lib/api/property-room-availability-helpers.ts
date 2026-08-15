@@ -92,6 +92,8 @@ export async function loadAvailabilityCalendar(options: {
         closedToDeparture: saved?.closedToDeparture ?? false,
         minLengthOfStay: saved?.minLengthOfStay ?? null,
         maxLengthOfStay: saved?.maxLengthOfStay ?? null,
+        contractMinLengthOfStay: ari?.contractMinLengthOfStay ?? null,
+        contractMaxLengthOfStay: ari?.contractMaxLengthOfStay ?? null,
         contractRate: ari?.contractRate ?? null,
         occupancyRates: ari?.occupancyRates ?? [],
         inventoryAllotment: contractAllotment,

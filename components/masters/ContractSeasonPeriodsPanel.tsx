@@ -156,6 +156,7 @@ export function ContractSeasonPeriodsPanel({
                 <TableHead>Season</TableHead>
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
+                <TableHead>Min/Max LOS</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
@@ -172,6 +173,9 @@ export function ContractSeasonPeriodsPanel({
                   </TableCell>
                   <TableCell className="tabular-nums">{entry.fromDate}</TableCell>
                   <TableCell className="tabular-nums">{entry.toDate}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {entry.minLengthOfStay ?? "—"} / {entry.maxLengthOfStay ?? "—"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={entry.isActive ? "default" : "secondary"}>
                       {entry.isActive ? "active" : "inactive"}

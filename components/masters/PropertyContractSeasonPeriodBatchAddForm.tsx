@@ -31,10 +31,19 @@ interface SeasonPeriodRow {
   propertySeasonId: number;
   fromDate: string;
   toDate: string;
+  minLengthOfStay: number | null;
+  maxLengthOfStay: number | null;
 }
 
 function emptyRow(): SeasonPeriodRow {
-  return { tempId: nextTempId(), propertySeasonId: 0, fromDate: "", toDate: "" };
+  return {
+    tempId: nextTempId(),
+    propertySeasonId: 0,
+    fromDate: "",
+    toDate: "",
+    minLengthOfStay: null,
+    maxLengthOfStay: null,
+  };
 }
 
 function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string): boolean {
@@ -47,6 +56,9 @@ function fieldError(row: SeasonPeriodRow): string | null {
   if (!row.propertySeasonId) return "Season is required";
   if (!row.fromDate || !row.toDate) return "From and To dates are required";
   if (row.toDate < row.fromDate) return "To date must be on or after from date";
+  if (row.minLengthOfStay != null && row.maxLengthOfStay != null && row.maxLengthOfStay < row.minLengthOfStay) {
+    return "Max LOS must be at least Min LOS";
+  }
   return null;
 }
 
@@ -170,6 +182,8 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
           propertySeasonId: row.propertySeasonId,
           fromDate: row.fromDate,
           toDate: row.toDate,
+          minLengthOfStay: row.minLengthOfStay,
+          maxLengthOfStay: row.maxLengthOfStay,
           createdBy: actorKey,
         });
       } catch {
@@ -194,7 +208,7 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
       <Section
         icon={CalendarDays}
         title="Contract season periods"
-        description={`Add one or more season date ranges for ${contract.contractName} on ${contract.propertyName ?? "this property"}.`}
+        description={`Add one or more season date ranges for ${contract.contractName} on ${contract.propertyName ?? "this property"}. Min/Max length of stay set here becomes the calendar's default for every date in the range, until overridden for a specific day.`}
       >
         <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
           <p className="font-medium text-foreground">{contract.contractName}</p>
@@ -258,6 +272,38 @@ export function PropertyContractSeasonPeriodBatchAddForm({ contract }: { contrac
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[repeat(2,minmax(0,150px))]">
+                    <div className="space-y-2">
+                      <Label>Min length of stay</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="No minimum"
+                        value={row.minLengthOfStay ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          updateRow(row.tempId, {
+                            minLengthOfStay: raw === "" ? null : Math.max(1, Number(raw) || 1),
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max length of stay</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="No maximum"
+                        value={row.maxLengthOfStay ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          updateRow(row.tempId, {
+                            maxLengthOfStay: raw === "" ? null : Math.max(1, Number(raw) || 1),
+                          });
+                        }}
+                      />
+                    </div>
                   </div>
                   {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
                 </div>

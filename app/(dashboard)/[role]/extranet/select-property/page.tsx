@@ -2,16 +2,14 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Building2 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { PropertyReadinessDashboard } from "@/components/masters/PropertyReadinessDashboard";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useExtranetPropertyScopeStore } from "@/lib/store/extranet-property-scope.store";
+import { resolveSessionCompanyKey } from "@/lib/session-company";
 import type { Property, RoleDef } from "@/types";
 
 function SelectPropertyPage({ roleDef }: { roleDef: RoleDef }) {
@@ -19,6 +17,7 @@ function SelectPropertyPage({ roleDef }: { roleDef: RoleDef }) {
   const sessionUser = useSessionStore((s) => s.user);
   const activeTenant = useTenantStore((s) => s.tenant);
   const tenantKey = sessionUser?.tenantKey ?? activeTenant.tenantKey ?? 0;
+  const companyKey = resolveSessionCompanyKey(sessionUser) ?? 0;
   const role = roleDef.slug;
 
   const scope = useExtranetPropertyScopeStore();
@@ -47,20 +46,11 @@ function SelectPropertyPage({ roleDef }: { roleDef: RoleDef }) {
     });
   }
 
-  const shortcuts = [
-    { label: "Property Season", href: `/${role}/extranet/seasons` },
-    { label: "Property Room", href: `/${role}/extranet/rooms` },
-    { label: "Contracts", href: `/${role}/extranet/contracts` },
-    { label: "Rates", href: `/${role}/extranet/rates` },
-    { label: "Inventory", href: `/${role}/extranet/inventory` },
-  ];
-
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={Building2}
-        title="Select Property"
-        description="Choose the property you want to manage across Extranet — seasons, rooms, contracts, rates, and inventory."
+        title="Property Setup"
+        description="Select a property, then follow the checklist below to make it commercially live with contract pricing."
       />
 
       <ExtranetPropertyScope
@@ -71,35 +61,14 @@ function SelectPropertyPage({ roleDef }: { roleDef: RoleDef }) {
         emptyHeading="Select a property to continue"
         emptyDescription="Filter by location, then pick the hotel or property for your extranet session."
       >
-        {propertyId && propertyId > 0 ? (
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <p className="text-sm text-muted-foreground">
-                Property scope is saved for this session. Open any Extranet screen below — it will use{" "}
-                <span className="font-medium text-foreground">{propertyLabel ?? `Property #${propertyId}`}</span>.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {shortcuts.map((item) => (
-                  <Button
-                    key={item.href}
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={
-                          propertyId > 0 ? `${item.href}?propertyId=${propertyId}` : item.href
-                        }
-                      />
-                    }
-                  >
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
+        {propertyId && propertyId > 0 && (
+          <PropertyReadinessDashboard
+            propertyId={propertyId}
+            tenantId={tenantKey}
+            companyId={companyKey}
+            role={role}
+          />
+        )}
       </ExtranetPropertyScope>
     </div>
   );

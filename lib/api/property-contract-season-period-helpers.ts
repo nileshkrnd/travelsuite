@@ -11,11 +11,20 @@ export const propertyContractSeasonPeriodWriteSchema = z
     propertySeasonId: z.number().int().positive("Season is required"),
     fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "From date is required"),
     toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "To date is required"),
+    minLengthOfStay: z.number().int().positive().nullable().optional(),
+    maxLengthOfStay: z.number().int().positive().nullable().optional(),
     isActive: z.boolean().optional(),
   })
   .superRefine((values, ctx) => {
     if (values.toDate < values.fromDate) {
       ctx.addIssue({ code: "custom", path: ["toDate"], message: "To date must be on or after from date" });
+    }
+    if (values.minLengthOfStay != null && values.maxLengthOfStay != null && values.maxLengthOfStay < values.minLengthOfStay) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxLengthOfStay"],
+        message: "Max length of stay must be at least min length of stay",
+      });
     }
   });
 
@@ -88,6 +97,8 @@ function scalars(data: PropertyContractSeasonPeriodWriteData) {
     propertySeasonId: BigInt(data.propertySeasonId),
     fromDate: parseDateOnly(data.fromDate),
     toDate: parseDateOnly(data.toDate),
+    minLengthOfStay: data.minLengthOfStay ?? null,
+    maxLengthOfStay: data.maxLengthOfStay ?? null,
   };
 }
 

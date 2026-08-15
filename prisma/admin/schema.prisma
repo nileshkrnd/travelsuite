@@ -692,6 +692,10 @@ model PropertyContractSeasonPeriod {
   propertySeasonId               BigInt    @map("PropertySeasonID")
   fromDate                       DateTime  @map("FromDate") @db.Date
   toDate                         DateTime  @map("ToDate") @db.Date
+  /// Default minimum length of stay for this season period — calendar falls back to this per date unless daily-overridden.
+  minLengthOfStay                Int?      @map("MinLengthOfStay")
+  /// Default maximum length of stay for this season period — calendar falls back to this per date unless daily-overridden.
+  maxLengthOfStay                Int?      @map("MaxLengthOfStay")
   isActive                       Boolean   @default(true) @map("IsActive")
   createdBy                      Int       @map("CreatedBy")
   createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)

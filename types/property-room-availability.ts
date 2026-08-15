@@ -64,8 +64,14 @@ export interface AvailabilityCalendarCell {
   stopSell?: boolean;
   closedToArrival?: boolean;
   closedToDeparture?: boolean;
+  /** Daily override; falls back to contractMinLengthOfStay when null. */
   minLengthOfStay?: number | null;
+  /** Daily override; falls back to contractMaxLengthOfStay when null. */
   maxLengthOfStay?: number | null;
+  /** Default min LOS from the contract season period covering this date. */
+  contractMinLengthOfStay?: number | null;
+  /** Default max LOS from the contract season period covering this date. */
+  contractMaxLengthOfStay?: number | null;
   contractRate?: number | null;
   occupancyRates?: AvailabilityCalendarOccupancyRate[];
   inventoryAllotment?: number | null;

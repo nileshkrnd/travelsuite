@@ -30,6 +30,8 @@ export interface PropertyContractSeasonPeriodWriteInput {
   propertySeasonId: number;
   fromDate: string;
   toDate: string;
+  minLengthOfStay?: number | null;
+  maxLengthOfStay?: number | null;
   isActive?: boolean;
 }
 

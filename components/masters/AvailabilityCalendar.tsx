@@ -54,8 +54,14 @@ type CellState = {
   contractRate: number | null;
   dailyRateAmount: number | null;
   occupancyRates: AvailabilityCalendarOccupancyRate[];
+  /** Daily override; null means use the contract season period's default. */
   minLengthOfStay: number | null;
+  /** Daily override; null means use the contract season period's default. */
   maxLengthOfStay: number | null;
+  /** Default min LOS from the contract season period covering this date. */
+  contractMinLengthOfStay: number | null;
+  /** Default max LOS from the contract season period covering this date. */
+  contractMaxLengthOfStay: number | null;
   contractInventoryStopSell: boolean;
   contractInventoryClosed: boolean;
   contractStopSale: boolean;
@@ -208,6 +214,22 @@ function allotmentOverridden(state: CellState) {
   return state.dailyAllotment != null && state.dailyAllotment !== state.contractAllotment;
 }
 
+function effectiveMinLengthOfStay(state: CellState) {
+  return state.minLengthOfStay ?? state.contractMinLengthOfStay;
+}
+
+function effectiveMaxLengthOfStay(state: CellState) {
+  return state.maxLengthOfStay ?? state.contractMaxLengthOfStay;
+}
+
+function minLosOverridden(state: CellState) {
+  return state.minLengthOfStay != null && state.minLengthOfStay !== state.contractMinLengthOfStay;
+}
+
+function maxLosOverridden(state: CellState) {
+  return state.maxLengthOfStay != null && state.maxLengthOfStay !== state.contractMaxLengthOfStay;
+}
+
 function emptyCell(): CellState {
   return {
     contractAllotment: null,
@@ -222,6 +244,8 @@ function emptyCell(): CellState {
     occupancyRates: [],
     minLengthOfStay: null,
     maxLengthOfStay: null,
+    contractMinLengthOfStay: null,
+    contractMaxLengthOfStay: null,
     contractInventoryStopSell: false,
     contractInventoryClosed: false,
     contractStopSale: false,
@@ -251,6 +275,8 @@ function cellFromPayload(cell: AvailabilityCalendarCell): CellState {
     occupancyRates: cell.occupancyRates ?? [],
     minLengthOfStay: cell.minLengthOfStay ?? null,
     maxLengthOfStay: cell.maxLengthOfStay ?? null,
+    contractMinLengthOfStay: cell.contractMinLengthOfStay ?? null,
+    contractMaxLengthOfStay: cell.contractMaxLengthOfStay ?? null,
     contractInventoryStopSell: cell.contractInventoryStopSell ?? false,
     contractInventoryClosed: cell.contractInventoryClosed ?? false,
     contractStopSale: cell.contractStopSale ?? false,
@@ -907,6 +933,8 @@ function RoomAriBlock({
                 state={state}
                 canEdit={canEdit}
                 onChange={(patch) => onChange(date, patch)}
+                ratePlans={ratePlans}
+                occupancies={occupancies}
               />
             );
           })}
@@ -940,6 +968,8 @@ function RoomAriBlock({
                 state={state}
                 canEdit={canEdit}
                 onChange={(patch) => onChange(date, patch)}
+                ratePlans={ratePlans}
+                occupancies={occupancies}
               />
             );
           })}
@@ -957,6 +987,8 @@ function MetricCell({
   state,
   canEdit,
   onChange,
+  ratePlans,
+  occupancies,
 }: {
   date: string;
   today: string;
@@ -965,6 +997,8 @@ function MetricCell({
   state: CellState;
   canEdit: boolean;
   onChange: (patch: CellPatch) => void;
+  ratePlans: AvailabilityCalendarRatePlan[];
+  occupancies: AvailabilityCalendarOccupancy[];
 }) {
   const allotment = effectiveAllotment(state);
   const kind = restrictionKind(state);
@@ -983,11 +1017,19 @@ function MetricCell({
       allotmentOverridden(state) && "underline decoration-dotted decoration-emerald-500/70"
     );
   } else if (metric === "minLos") {
-    display = state.minLengthOfStay != null ? String(state.minLengthOfStay) : "·";
-    valueClass = state.minLengthOfStay != null ? "font-medium tabular-nums" : "text-muted-foreground";
+    const minLos = effectiveMinLengthOfStay(state);
+    display = minLos != null ? String(minLos) : "·";
+    valueClass = cn(
+      minLos == null ? "text-muted-foreground" : "font-medium tabular-nums",
+      minLosOverridden(state) && "underline decoration-dotted decoration-emerald-500/70"
+    );
   } else if (metric === "maxLos") {
-    display = state.maxLengthOfStay != null ? String(state.maxLengthOfStay) : "·";
-    valueClass = state.maxLengthOfStay != null ? "font-medium tabular-nums" : "text-muted-foreground";
+    const maxLos = effectiveMaxLengthOfStay(state);
+    display = maxLos != null ? String(maxLos) : "·";
+    valueClass = cn(
+      maxLos == null ? "text-muted-foreground" : "font-medium tabular-nums",
+      maxLosOverridden(state) && "underline decoration-dotted decoration-emerald-500/70"
+    );
   } else if (metric === "cta") {
     display = state.closedToArrival ? "CTA" : "·";
     valueClass = state.closedToArrival
@@ -1271,7 +1313,7 @@ function DayEditorPopover({
                 min={1}
                 className="h-8"
                 value={state.minLengthOfStay ?? ""}
-                placeholder="—"
+                placeholder={state.contractMinLengthOfStay != null ? `Contract: ${state.contractMinLengthOfStay}` : "—"}
                 onChange={(e) => {
                   const raw = e.target.value;
                   onChange({
@@ -1279,6 +1321,11 @@ function DayEditorPopover({
                   });
                 }}
               />
+              {state.contractMinLengthOfStay != null && (
+                <p className="text-[10px] text-muted-foreground">
+                  Contract default: {state.contractMinLengthOfStay}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`maxlos-${date}`} className="text-xs">
@@ -1290,7 +1337,7 @@ function DayEditorPopover({
                 min={1}
                 className="h-8"
                 value={state.maxLengthOfStay ?? ""}
-                placeholder="—"
+                placeholder={state.contractMaxLengthOfStay != null ? `Contract: ${state.contractMaxLengthOfStay}` : "—"}
                 onChange={(e) => {
                   const raw = e.target.value;
                   onChange({
@@ -1298,6 +1345,11 @@ function DayEditorPopover({
                   });
                 }}
               />
+              {state.contractMaxLengthOfStay != null && (
+                <p className="text-[10px] text-muted-foreground">
+                  Contract default: {state.contractMaxLengthOfStay}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1354,9 +1406,9 @@ function DayEditorPopover({
             {rate != null ? `${formatAmount(rate)}${currencyCode ? ` ${currencyCode}` : ""}` : "—"}
           </dd>
           <dt className="text-muted-foreground">Min LOS</dt>
-          <dd className="text-right font-mono tabular-nums">{state.minLengthOfStay ?? "—"}</dd>
+          <dd className="text-right font-mono tabular-nums">{effectiveMinLengthOfStay(state) ?? "—"}</dd>
           <dt className="text-muted-foreground">Max LOS</dt>
-          <dd className="text-right font-mono tabular-nums">{state.maxLengthOfStay ?? "—"}</dd>
+          <dd className="text-right font-mono tabular-nums">{effectiveMaxLengthOfStay(state) ?? "—"}</dd>
           {state.closedToArrival && (
             <>
               <dt className="text-orange-700 dark:text-orange-400">No check-in</dt>

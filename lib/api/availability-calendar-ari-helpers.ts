@@ -39,6 +39,8 @@ export type AriDayHint = {
   inventoryAllotment: number | null;
   contractInventoryStopSell: boolean;
   contractInventoryClosed: boolean;
+  contractMinLengthOfStay: number | null;
+  contractMaxLengthOfStay: number | null;
 };
 
 type PeriodRoomRate = {
@@ -131,6 +133,8 @@ export async function buildAvailabilityAriHints(options: {
       propertyContractId: true,
       fromDate: true,
       toDate: true,
+      minLengthOfStay: true,
+      maxLengthOfStay: true,
     },
   });
 
@@ -261,6 +265,8 @@ export async function buildAvailabilityAriHints(options: {
         inventoryAllotment: inv?.allotmentQty ?? null,
         contractInventoryStopSell: inv?.isStopSell ?? false,
         contractInventoryClosed: inv?.isClosed ?? false,
+        contractMinLengthOfStay: period.minLengthOfStay ?? null,
+        contractMaxLengthOfStay: period.maxLengthOfStay ?? null,
       });
     }
   }
