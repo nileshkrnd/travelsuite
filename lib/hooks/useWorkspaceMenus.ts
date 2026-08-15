@@ -10,7 +10,7 @@ import type { RoleDef, SubscriptionModuleMenu } from "@/types";
 
 /**
  * Sidebar / topbar / search menus for the current workspace.
- * Tenant workspace: Module Access menus filtered by Access Role CanView.
+ * Tenant workspace: Module Access menus (employees filtered by Access Role CanView).
  * Super Admin (platform): hardcoded platform MENU_ITEMS.
  */
 export function useWorkspaceMenus(roleDef: RoleDef | undefined): {
@@ -20,9 +20,18 @@ export function useWorkspaceMenus(roleDef: RoleDef | undefined): {
   hasModuleAccess: boolean;
 } {
   const tenantId = useTenantStore((s) => s.tenantId);
-  const tenantKey = useTenantStore((s) => s.tenant.tenantKey);
-  const userKey = useSessionStore((s) => s.user?.userKey ?? 0);
-  const platformMode = isPlatformMode(tenantId);
+  const storeTenantKey = useTenantStore((s) => s.tenant.tenantKey) ?? 0;
+  const user = useSessionStore((s) => s.user);
+  const userKey = user?.userKey ?? 0;
+  const userTenantKey = user?.tenantKey ?? 0;
+  const isSuperAdmin = user?.scope === "superAdmin";
+  const isTenantAdmin = user?.scope === "tenantAdmin";
+  // Tenant users must query their own tenant even if the persisted workspace
+  // still points at platform preview or another Super Admin selection.
+  const tenantKey = !isSuperAdmin && userTenantKey > 0 ? userTenantKey : storeTenantKey;
+  // Super Admin with no tenant selected uses platform menus. Tenant users never do,
+  // even if the persisted workspace is still the platform preview tenant.
+  const platformMode = isSuperAdmin && isPlatformMode(tenantId);
   const [dbMenus, setDbMenus] = useState<SubscriptionModuleMenu[]>([]);
   const [menusLoaded, setMenusLoaded] = useState(platformMode);
 
@@ -34,8 +43,9 @@ export function useWorkspaceMenus(roleDef: RoleDef | undefined): {
     }
     let cancelled = false;
     setMenusLoaded(false);
+    // Tenant Admin sees every granted module; employees are filtered by CanView.
     listTenantSubscriptionModuleMenus(tenantKey, {
-      userId: userKey > 0 ? userKey : undefined,
+      userId: !isTenantAdmin && userKey > 0 ? userKey : undefined,
     })
       .then((rows) => {
         if (!cancelled) {
@@ -52,7 +62,7 @@ export function useWorkspaceMenus(roleDef: RoleDef | undefined): {
     return () => {
       cancelled = true;
     };
-  }, [roleDef, platformMode, tenantKey, tenantId, userKey]);
+  }, [roleDef, platformMode, tenantKey, tenantId, userKey, isTenantAdmin]);
 
   const items = useMemo(() => {
     if (!roleDef) return [];

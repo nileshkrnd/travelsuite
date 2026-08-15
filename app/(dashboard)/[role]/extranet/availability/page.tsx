@@ -55,7 +55,7 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
       <PageHeader
         icon={CalendarCheck}
         title="Availability Calendar"
-        description="Allotment (supplier available units) and rates by room type and day — from contracts with daily overrides."
+        description="Channel-manager style ARI calendar: allotment, rate, min/max LOS, and stop-sell/blackout status by room and day."
       />
 
       <ExtranetPropertyScope

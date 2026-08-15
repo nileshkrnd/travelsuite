@@ -31,7 +31,8 @@ const menuInclude = {
  * Portal modules (showInMenu=false, e.g. B2B/CBT) are excluded from Admin sidebars.
  * Shared Administration menus are included when the tenant has any grant, then
  * filtered by menu→product links vs granted products.
- * When userId is provided, further filter by Access Role CanView permissions.
+ * When userId is provided, employees/supplier users are further filtered by
+ * Access Role CanView. Super Admin and Tenant Admin keep the full grant set.
  */
 export async function GET(request: Request) {
   try {
@@ -117,16 +118,17 @@ export async function GET(request: Request) {
       productLinksByMenuId,
     });
 
-    // Super Admin browsing a tenant: keep full Module Access menus.
-    // Everyone else: filter by Access Role menu permissions when configured.
+    // Super Admin / Tenant Admin: keep full Module Access menus.
+    // Employees and supplier users: filter by Access Role CanView when configured.
     if (Number.isFinite(userId) && userId > 0) {
       const user = await prisma.user.findUnique({
         where: { userId },
         select: { userTypeId: true },
       });
       const isSuperAdmin = user?.userTypeId === UserType.SuperAdmin;
+      const isTenantAdmin = user?.userTypeId === UserType.TenantAdmin;
 
-      if (!isSuperAdmin) {
+      if (!isSuperAdmin && !isTenantAdmin) {
         const scope = await resolveUserAccessRoleScope(prisma, userId, tenantId);
         if (scope) {
           const allowed = await allowedMenuIdsForAccessRole(
@@ -143,11 +145,10 @@ export async function GET(request: Request) {
           if (allowed) {
             filtered = filtered.filter((m) => allowed.has(m.subscriptionModuleMenuId));
           }
-        } else if (user?.userTypeId !== UserType.TenantAdmin) {
-          // Non–Tenant Admin with no Employee / SupplierUser Access Role → no menus.
+        } else {
+          // No Employee / SupplierUser Access Role → no menus.
           filtered = [];
         }
-        // Tenant Admin without a resolvable Access Role keeps Module Access menus.
       }
     }
 
