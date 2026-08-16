@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Baby } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
@@ -52,7 +51,6 @@ function PropertyChildPoliciesPage({ roleDef }: { roleDef: RoleDef }) {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={Baby}
         title="Child Policies"
         description="Maximum children, occupancy rules, and age-band pricing across supplier contracts for the selected property."
       />

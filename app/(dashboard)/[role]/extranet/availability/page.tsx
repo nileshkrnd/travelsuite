@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarCheck } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
@@ -53,7 +52,6 @@ function AvailabilityCalendarPage({ roleDef }: { roleDef: RoleDef }) {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={CalendarCheck}
         title="Availability Calendar"
         description="Channel-manager style ARI calendar: allotment, rate, min/max LOS, stop sell, and no check-in / no check-out by room and day. Use Bulk change for a date or range."
       />

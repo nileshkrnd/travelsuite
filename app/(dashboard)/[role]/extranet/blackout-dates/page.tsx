@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarOff } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
@@ -52,7 +51,6 @@ function PropertyBlackoutsPage({ roleDef }: { roleDef: RoleDef }) {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={CalendarOff}
         title="Blackout Dates"
         description="Closed booking dates for peak periods, events, and restrictions across supplier contracts."
       />

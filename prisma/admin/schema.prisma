@@ -741,6 +741,7 @@ model PropertyContractRatePlan {
   contractPromotions   PropertyContractPromotion[]
   contractStopSales    PropertyContractStopSale[]
   contractBlackouts    PropertyContractBlackout[]
+  availabilityRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, propertyContractId, ratePlanCode], map: "PropertyContractRatePlan_Tenant_Contract_Code_key")
   @@index([tenantId, companyId], map: "PropertyContractRatePlan_TenantID_CompanyID_idx")
@@ -802,6 +803,7 @@ model OccupancyType {
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   contractRates PropertyContractRate[]
+  availabilityRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, companyId, occupancyTypeCode], map: "OccupancyType_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "OccupancyType_TenantID_CompanyID_idx")
@@ -879,12 +881,38 @@ model PropertyRoomAvailability {
 
   property     Property     @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
   propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  occupancyRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, propertyRoomId, availabilityDate], map: "PropertyRoomAvailability_Room_Date_key")
   @@index([tenantId, companyId], map: "PropertyRoomAvailability_TenantID_CompanyID_idx")
   @@index([propertyId, availabilityDate], map: "PropertyRoomAvailability_Property_Date_idx")
   @@index([propertyRoomId], map: "PropertyRoomAvailability_PropertyRoomTypeID_idx")
   @@map("PropertyRoomAvailability")
+}
+
+/// Daily override of a contract rate for a specific rate plan + occupancy type (falls back to the contract rate when absent).
+model PropertyRoomAvailabilityRate {
+  propertyRoomAvailabilityRateId BigInt    @id @default(autoincrement()) @map("PropertyRoomAvailabilityRateID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  propertyRoomAvailabilityId     BigInt    @map("PropertyRoomAvailabilityID")
+  propertyContractRatePlanId     BigInt    @map("PropertyContractRatePlanID")
+  occupancyTypeId                BigInt    @map("OccupancyTypeID")
+  rateAmount                     Decimal   @map("RateAmount") @db.Decimal(18, 4)
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyRoomAvailability PropertyRoomAvailability @relation(fields: [propertyRoomAvailabilityId], references: [propertyRoomAvailabilityId], onDelete: Cascade)
+  ratePlan                PropertyContractRatePlan @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Cascade)
+  occupancyType            OccupancyType            @relation(fields: [occupancyTypeId], references: [occupancyTypeId], onDelete: Cascade)
+
+  @@unique([tenantId, propertyRoomAvailabilityId, propertyContractRatePlanId, occupancyTypeId], map: "PropertyRoomAvailabilityRate_Unique_key")
+  @@index([propertyRoomAvailabilityId], map: "PropertyRoomAvailabilityRate_AvailabilityID_idx")
+  @@index([propertyContractRatePlanId], map: "PropertyRoomAvailabilityRate_RatePlanID_idx")
+  @@index([occupancyTypeId], map: "PropertyRoomAvailabilityRate_OccupancyTypeID_idx")
+  @@map("PropertyRoomAvailabilityRate")
 }
 
 /// Inventory type lookup — Allotment / Free Sale / On Request. Global reference data.

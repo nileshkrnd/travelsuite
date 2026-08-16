@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { PlusCircle } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ExtranetPropertyScope } from "@/components/shared/ExtranetPropertyScope";
@@ -52,7 +51,6 @@ function PropertySupplementsPage({ roleDef }: { roleDef: RoleDef }) {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={PlusCircle}
         title="Contract Supplements"
         description="Extra bed, meals, gala dinner, and other add-ons across supplier contracts for the selected property."
       />

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { buildAvailabilityAriHints } from "@/lib/api/availability-calendar-ari-helpers";
+import { buildAvailabilityAriHints, type AriOccupancyRate } from "@/lib/api/availability-calendar-ari-helpers";
 import { buildAvailabilityClosureHints } from "@/lib/api/availability-calendar-closure-helpers";
 import {
   monthDateRange,
@@ -7,7 +7,45 @@ import {
   serializePropertyRoomAvailabilityRow,
   type PropertyRoomAvailabilityRow,
 } from "@/lib/mappers/property-room-availability.mapper";
-import type { AvailabilityCalendarPayload, AvailabilityCalendarUpdate } from "@/types/property-room-availability";
+import type {
+  AvailabilityCalendarOccupancyRate,
+  AvailabilityCalendarPayload,
+  AvailabilityCalendarUpdate,
+} from "@/types/property-room-availability";
+
+function occupancyRateKey(planId: number | bigint, occupancyTypeId: number | bigint): string {
+  return `${planId}:${occupancyTypeId}`;
+}
+
+/** Merge contract-level occupancy rates with any saved daily overrides for one room/date cell. */
+function mergeOccupancyRates(
+  contractRates: AriOccupancyRate[],
+  overrides: Map<string, number>
+): AvailabilityCalendarOccupancyRate[] {
+  const seen = new Set<string>();
+  const merged: AvailabilityCalendarOccupancyRate[] = [];
+  for (const rate of contractRates) {
+    const key = occupancyRateKey(rate.propertyContractRatePlanId, rate.occupancyTypeId);
+    seen.add(key);
+    merged.push({
+      propertyContractRatePlanId: rate.propertyContractRatePlanId,
+      occupancyTypeId: rate.occupancyTypeId,
+      contractRateAmount: rate.rateAmount,
+      dailyRateAmount: overrides.get(key) ?? null,
+    });
+  }
+  for (const [key, amount] of overrides) {
+    if (seen.has(key)) continue;
+    const [planId, occupancyTypeId] = key.split(":").map(Number);
+    merged.push({
+      propertyContractRatePlanId: planId!,
+      occupancyTypeId: occupancyTypeId!,
+      contractRateAmount: null,
+      dailyRateAmount: amount,
+    });
+  }
+  return merged;
+}
 
 export const propertyRoomAvailabilityInclude = {
   propertyRoom: { select: { roomCode: true, roomName: true } },
@@ -47,6 +85,25 @@ export async function loadAvailabilityCalendar(options: {
       return [`${s.propertyRoomId}:${s.availabilityDate}`, s] as const;
     })
   );
+
+  const savedIds = rows.map((row) => row.propertyRoomAvailabilityId);
+  const rateOverrideRows =
+    savedIds.length === 0
+      ? []
+      : await prisma.propertyRoomAvailabilityRate.findMany({
+          where: { propertyRoomAvailabilityId: { in: savedIds } },
+          select: { propertyRoomAvailabilityId: true, propertyContractRatePlanId: true, occupancyTypeId: true, rateAmount: true },
+        });
+  const overridesByAvailId = new Map<string, Map<string, number>>();
+  for (const row of rateOverrideRows) {
+    const availId = row.propertyRoomAvailabilityId.toString();
+    const forAvail = overridesByAvailId.get(availId) ?? new Map<string, number>();
+    forAvail.set(
+      occupancyRateKey(Number(row.propertyContractRatePlanId), Number(row.occupancyTypeId)),
+      Number(row.rateAmount.toString())
+    );
+    overridesByAvailId.set(availId, forAvail);
+  }
 
   const [{ hints, currencyCode, ratePlans, occupancies }, closureHints] = await Promise.all([
     buildAvailabilityAriHints({
@@ -95,7 +152,10 @@ export async function loadAvailabilityCalendar(options: {
         contractMinLengthOfStay: ari?.contractMinLengthOfStay ?? null,
         contractMaxLengthOfStay: ari?.contractMaxLengthOfStay ?? null,
         contractRate: ari?.contractRate ?? null,
-        occupancyRates: ari?.occupancyRates ?? [],
+        occupancyRates: mergeOccupancyRates(
+          ari?.occupancyRates ?? [],
+          overridesByAvailId.get(String(saved?.propertyRoomAvailabilityId ?? "")) ?? new Map()
+        ),
         inventoryAllotment: contractAllotment,
         dailyRateAmount: saved?.dailyRateAmount ?? null,
         dailyInventoryQty: saved?.dailyInventoryQty ?? null,
@@ -167,7 +227,7 @@ export async function saveAvailabilityCalendarUpdates(input: {
       const availableUnits =
         update.availableUnits != null ? Math.max(0, Math.floor(update.availableUnits)) : undefined;
 
-      await tx.propertyRoomAvailability.upsert({
+      const savedRow = await tx.propertyRoomAvailability.upsert({
         where: {
           tenantId_propertyRoomId_availabilityDate: {
             tenantId,
@@ -221,6 +281,46 @@ export async function saveAvailabilityCalendarUpdates(input: {
           modifiedDtTm: new Date(),
         },
       });
+
+      for (const override of update.occupancyRateOverrides ?? []) {
+        const ratePlanId = BigInt(override.propertyContractRatePlanId);
+        const occupancyTypeId = BigInt(override.occupancyTypeId);
+        if (override.rateAmount == null) {
+          await tx.propertyRoomAvailabilityRate.deleteMany({
+            where: {
+              propertyRoomAvailabilityId: savedRow.propertyRoomAvailabilityId,
+              propertyContractRatePlanId: ratePlanId,
+              occupancyTypeId,
+            },
+          });
+          continue;
+        }
+        await tx.propertyRoomAvailabilityRate.upsert({
+          where: {
+            tenantId_propertyRoomAvailabilityId_propertyContractRatePlanId_occupancyTypeId: {
+              tenantId,
+              propertyRoomAvailabilityId: savedRow.propertyRoomAvailabilityId,
+              propertyContractRatePlanId: ratePlanId,
+              occupancyTypeId,
+            },
+          },
+          create: {
+            tenantId,
+            companyId,
+            propertyRoomAvailabilityId: savedRow.propertyRoomAvailabilityId,
+            propertyContractRatePlanId: ratePlanId,
+            occupancyTypeId,
+            rateAmount: override.rateAmount,
+            createdBy,
+          },
+          update: {
+            rateAmount: override.rateAmount,
+            modifiedBy: createdBy,
+            modifiedDtTm: new Date(),
+          },
+        });
+      }
+
       saved += 1;
     }
   });

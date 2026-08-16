@@ -53,7 +53,10 @@ export interface AvailabilityCalendarOccupancy {
 export interface AvailabilityCalendarOccupancyRate {
   propertyContractRatePlanId: number;
   occupancyTypeId: number;
-  rateAmount: number;
+  /** Contract-level default rate for this plan + occupancy on this date; null if no contract rate applies. */
+  contractRateAmount: number | null;
+  /** Daily override; null means use the contract rate. */
+  dailyRateAmount: number | null;
 }
 
 export interface AvailabilityCalendarCell {
@@ -108,4 +111,10 @@ export interface AvailabilityCalendarUpdate {
   dailyInventoryQty?: number | null;
   minLengthOfStay?: number | null;
   maxLengthOfStay?: number | null;
+  /** Per rate-plan + occupancy daily rate overrides; a null rateAmount clears the override back to the contract rate. */
+  occupancyRateOverrides?: {
+    propertyContractRatePlanId: number;
+    occupancyTypeId: number;
+    rateAmount: number | null;
+  }[];
 }

@@ -185,16 +185,27 @@ function ratePlanShortLabel(plan: AvailabilityCalendarRatePlan) {
   return plan.mealPlanCode || plan.ratePlanCode;
 }
 
-function occupancyRateAmount(
+function findOccupancyRate(
   rates: AvailabilityCalendarOccupancyRate[],
   planId: number,
   occupancyTypeId: number
-): number | null {
+): AvailabilityCalendarOccupancyRate {
   return (
-    rates.find(
-      (r) => r.propertyContractRatePlanId === planId && r.occupancyTypeId === occupancyTypeId
-    )?.rateAmount ?? null
+    rates.find((r) => r.propertyContractRatePlanId === planId && r.occupancyTypeId === occupancyTypeId) ?? {
+      propertyContractRatePlanId: planId,
+      occupancyTypeId,
+      contractRateAmount: null,
+      dailyRateAmount: null,
+    }
   );
+}
+
+function effectiveOccupancyRate(rate: AvailabilityCalendarOccupancyRate): number | null {
+  return rate.dailyRateAmount ?? rate.contractRateAmount;
+}
+
+function occupancyRateOverridden(rate: AvailabilityCalendarOccupancyRate): boolean {
+  return rate.dailyRateAmount != null && rate.dailyRateAmount !== rate.contractRateAmount;
 }
 
 function formatAmount(value: number | null) {
@@ -505,6 +516,30 @@ export function AvailabilityCalendar({
     });
   }
 
+  function updateOccupancyRate(
+    roomId: number,
+    date: string,
+    ratePlanId: number,
+    occupancyTypeId: number,
+    dailyRateAmount: number | null
+  ) {
+    setCells((prev) => {
+      const key = cellKey(roomId, date);
+      const current = prev.get(key) ?? emptyCell();
+      const existing = findOccupancyRate(current.occupancyRates, ratePlanId, occupancyTypeId);
+      const otherRates = current.occupancyRates.filter(
+        (r) => !(r.propertyContractRatePlanId === ratePlanId && r.occupancyTypeId === occupancyTypeId)
+      );
+      const next = new Map(prev);
+      next.set(key, {
+        ...current,
+        occupancyRates: [...otherRates, { ...existing, dailyRateAmount }],
+        dirty: true,
+      });
+      return next;
+    });
+  }
+
   const dirtyCount = useMemo(() => {
     let n = 0;
     for (const v of cells.values()) if (v.dirty) n += 1;
@@ -563,6 +598,11 @@ export function AvailabilityCalendar({
         dailyRateAmount: state.dailyRateAmount,
         minLengthOfStay: state.minLengthOfStay,
         maxLengthOfStay: state.maxLengthOfStay,
+        occupancyRateOverrides: state.occupancyRates.map((r) => ({
+          propertyContractRatePlanId: r.propertyContractRatePlanId,
+          occupancyTypeId: r.occupancyTypeId,
+          rateAmount: r.dailyRateAmount,
+        })),
       });
     }
     if (updates.length === 0) return;
@@ -797,6 +837,9 @@ export function AvailabilityCalendar({
                       showContractOnRateRows={showContractOnRateRows}
                       getCell={getCell}
                       onChange={(date, patch) => updateCell(room.propertyRoomId, date, patch)}
+                      onOccupancyRateChange={(date, ratePlanId, occupancyTypeId, amount) =>
+                        updateOccupancyRate(room.propertyRoomId, date, ratePlanId, occupancyTypeId, amount)
+                      }
                     />
                   ))}
                 </tbody>
@@ -870,6 +913,7 @@ function RoomAriBlock({
   showContractOnRateRows,
   getCell,
   onChange,
+  onOccupancyRateChange,
 }: {
   room: { propertyRoomId: number; roomCode: string; roomName: string };
   days: string[];
@@ -881,6 +925,12 @@ function RoomAriBlock({
   showContractOnRateRows: boolean;
   getCell: (roomId: number, date: string) => CellState;
   onChange: (date: string, patch: CellPatch) => void;
+  onOccupancyRateChange: (
+    date: string,
+    ratePlanId: number,
+    occupancyTypeId: number,
+    amount: number | null
+  ) => void;
 }) {
   const occupancyRows = ratePlans.flatMap((plan) =>
     occupancies.map((occ) => ({
@@ -933,8 +983,6 @@ function RoomAriBlock({
                 state={state}
                 canEdit={canEdit}
                 onChange={(patch) => onChange(date, patch)}
-                ratePlans={ratePlans}
-                occupancies={occupancies}
               />
             );
           })}
@@ -953,7 +1001,7 @@ function RoomAriBlock({
           </td>
           {days.map((date) => {
             const state = getCell(room.propertyRoomId, date);
-            const amount = occupancyRateAmount(
+            const rate = findOccupancyRate(
               state.occupancyRates,
               row.plan.propertyContractRatePlanId,
               row.occ.occupancyTypeId
@@ -963,13 +1011,16 @@ function RoomAriBlock({
                 key={`${date}-${row.id}`}
                 date={date}
                 today={today}
-                amount={amount}
+                planLabel={row.label}
+                occupancyLabel={row.occ.occupancyTypeName}
+                rate={rate}
                 currencyCode={currencyCode}
-                state={state}
+                stopSellActive={isStopSell(state)}
+                blackoutActive={isBlackout(state)}
                 canEdit={canEdit}
-                onChange={(patch) => onChange(date, patch)}
-                ratePlans={ratePlans}
-                occupancies={occupancies}
+                onChange={(amount) =>
+                  onOccupancyRateChange(date, row.plan.propertyContractRatePlanId, row.occ.occupancyTypeId, amount)
+                }
               />
             );
           })}
@@ -987,8 +1038,6 @@ function MetricCell({
   state,
   canEdit,
   onChange,
-  ratePlans,
-  occupancies,
 }: {
   date: string;
   today: string;
@@ -997,8 +1046,6 @@ function MetricCell({
   state: CellState;
   canEdit: boolean;
   onChange: (patch: CellPatch) => void;
-  ratePlans: AvailabilityCalendarRatePlan[];
-  occupancies: AvailabilityCalendarOccupancy[];
 }) {
   const allotment = effectiveAllotment(state);
   const kind = restrictionKind(state);
@@ -1103,15 +1150,7 @@ function MetricCell({
         >
           {cellContent}
         </PopoverTrigger>
-        <DayEditorPopover
-          date={date}
-          currencyCode={currencyCode}
-          state={state}
-          canEdit={canEdit}
-          onChange={onChange}
-          ratePlans={ratePlans}
-          occupancies={occupancies}
-        />
+        <DayEditorPopover date={date} currencyCode={currencyCode} state={state} canEdit={canEdit} onChange={onChange} />
       </Popover>
     </td>
   );
@@ -1120,24 +1159,29 @@ function MetricCell({
 function OccupancyRateCell({
   date,
   today,
-  amount,
+  planLabel,
+  occupancyLabel,
+  rate,
   currencyCode,
-  state,
+  stopSellActive,
+  blackoutActive,
   canEdit,
   onChange,
-  ratePlans,
-  occupancies,
 }: {
   date: string;
   today: string;
-  amount: number | null;
+  planLabel: string;
+  occupancyLabel: string;
+  rate: AvailabilityCalendarOccupancyRate;
   currencyCode: string | null;
-  state: CellState;
+  stopSellActive: boolean;
+  blackoutActive: boolean;
   canEdit: boolean;
-  onChange: (patch: CellPatch) => void;
-  ratePlans: AvailabilityCalendarRatePlan[];
-  occupancies: AvailabilityCalendarOccupancy[];
+  onChange: (amount: number | null) => void;
 }) {
+  const amount = effectiveOccupancyRate(rate);
+  const overridden = occupancyRateOverridden(rate);
+
   return (
     <td
       className={cn(
@@ -1154,34 +1198,92 @@ function OccupancyRateCell({
               type="button"
               className={cn(
                 "relative flex h-8 w-full min-w-[3.75rem] items-center justify-center px-1 tabular-nums transition-colors hover:bg-muted/40",
-                isStopSell(state) && "bg-destructive/5",
-                isBlackout(state) && "bg-violet-500/5",
-                state.dirty && "ring-2 ring-inset ring-primary/35"
+                stopSellActive && "bg-destructive/5",
+                blackoutActive && "bg-violet-500/5"
               )}
             />
           }
         >
           <span
             className={cn(
-              amount == null
-                ? "text-muted-foreground"
-                : "font-medium text-blue-700 dark:text-blue-400"
+              amount == null ? "text-muted-foreground" : "font-medium text-blue-700 dark:text-blue-400",
+              overridden && "underline decoration-dotted decoration-emerald-500/70"
             )}
           >
             {formatAmount(amount)}
           </span>
         </PopoverTrigger>
-        <DayEditorPopover
-          date={date}
+        <OccupancyRateEditorPopover
+          planLabel={planLabel}
+          occupancyLabel={occupancyLabel}
           currencyCode={currencyCode}
-          state={state}
+          rate={rate}
           canEdit={canEdit}
           onChange={onChange}
-          ratePlans={ratePlans}
-          occupancies={occupancies}
         />
       </Popover>
     </td>
+  );
+}
+
+function OccupancyRateEditorPopover({
+  planLabel,
+  occupancyLabel,
+  currencyCode,
+  rate,
+  canEdit,
+  onChange,
+}: {
+  planLabel: string;
+  occupancyLabel: string;
+  currencyCode: string | null;
+  rate: AvailabilityCalendarOccupancyRate;
+  canEdit: boolean;
+  onChange: (amount: number | null) => void;
+}) {
+  return (
+    <PopoverContent className="w-64 space-y-3" align="start">
+      <div>
+        <p className="text-sm font-medium">
+          {planLabel} · {occupancyLabel}
+        </p>
+        <p className="text-xs text-muted-foreground">Rate override for this room and date.</p>
+      </div>
+
+      {canEdit ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="occupancy-rate-override" className="text-xs">
+            Rate
+          </Label>
+          <Input
+            id="occupancy-rate-override"
+            type="number"
+            min={0}
+            step="0.01"
+            className="h-8"
+            value={rate.dailyRateAmount ?? ""}
+            placeholder={
+              rate.contractRateAmount != null ? `Contract: ${formatAmount(rate.contractRateAmount)}` : "No contract rate"
+            }
+            onChange={(e) => {
+              const raw = e.target.value;
+              onChange(raw === "" ? null : Math.max(0, Number(raw) || 0));
+            }}
+          />
+          {rate.contractRateAmount != null && (
+            <p className="text-[10px] text-muted-foreground">
+              Contract rate: {formatAmount(rate.contractRateAmount)}
+              {currencyCode ? ` ${currencyCode}` : ""}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm font-medium tabular-nums">
+          {formatAmount(effectiveOccupancyRate(rate))}
+          {currencyCode ? ` ${currencyCode}` : ""}
+        </p>
+      )}
+    </PopoverContent>
   );
 }
 
@@ -1191,16 +1293,12 @@ function DayEditorPopover({
   state,
   canEdit,
   onChange,
-  ratePlans = [],
-  occupancies = [],
 }: {
   date: string;
   currencyCode: string | null;
   state: CellState;
   canEdit: boolean;
   onChange: (patch: CellPatch) => void;
-  ratePlans?: AvailabilityCalendarRatePlan[];
-  occupancies?: AvailabilityCalendarOccupancy[];
 }) {
   const allotment = effectiveAllotment(state);
   const rate = effectiveRate(state);
