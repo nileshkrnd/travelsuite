@@ -21,6 +21,7 @@ import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { cancellationPolicyTypeNeedsPenaltyValue } from "@/lib/constants/cancellation-policy-types";
 import { listPropertyRooms } from "@/lib/services/property-rooms.service";
 import { listPropertyContractRatePlans } from "@/lib/services/property-contract-rate-plans.service";
+import { listPropertySeasons } from "@/lib/services/property-seasons.service";
 import {
   createPropertyContractCancellationPolicy,
   updatePropertyContractCancellationPolicy,
@@ -34,6 +35,7 @@ import type {
   PropertyContractCancellationPolicy,
   PropertyContractRatePlan,
   PropertyRoom,
+  PropertySeason,
 } from "@/types";
 
 const ruleSchema = z.object({
@@ -50,6 +52,7 @@ const schema = z.object({
   policyName: z.string().trim().min(1).max(150),
   propertyRoomId: z.number().int().positive().nullable(),
   propertyContractRatePlanId: z.number().int().positive().nullable(),
+  propertySeasonId: z.number().int().positive().nullable(),
   isActive: z.boolean(),
   rules: z.array(ruleSchema),
 });
@@ -63,6 +66,7 @@ function defaultValues(contract: PropertyContract): FormValues {
     policyName: "Standard Cancellation",
     propertyRoomId: null,
     propertyContractRatePlanId: null,
+    propertySeasonId: null,
     isActive: true,
     rules: [],
   };
@@ -85,6 +89,7 @@ function valuesFromEntry(entry: PropertyContractCancellationPolicy): FormValues 
     policyName: entry.policyName,
     propertyRoomId: entry.propertyRoomId,
     propertyContractRatePlanId: entry.propertyContractRatePlanId,
+    propertySeasonId: entry.propertySeasonId,
     isActive: entry.isActive,
     rules: entry.rules.map((r) => ({
       fromDaysBefore: r.fromDaysBefore,
@@ -117,6 +122,7 @@ export function PropertyContractCancellationPolicyForm({
 
   const [rooms, setRooms] = useState<PropertyRoom[]>([]);
   const [ratePlans, setRatePlans] = useState<PropertyContractRatePlan[]>([]);
+  const [propertySeasons, setPropertySeasons] = useState<PropertySeason[]>([]);
   const [policyTypes, setPolicyTypes] = useState<CancellationPolicyType[]>([]);
   const [loadingRefs, setLoadingRefs] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -158,6 +164,17 @@ export function PropertyContractCancellationPolicyForm({
     [ratePlans]
   );
 
+  const seasonOptions = useMemo(
+    () => [
+      { value: 0, label: "All seasons" },
+      ...propertySeasons.map((s) => ({
+        value: s.propertySeasonKey,
+        label: `${s.seasonName} (${s.seasonCode})`,
+      })),
+    ],
+    [propertySeasons]
+  );
+
   useEffect(() => {
     if (tenantKey <= 0 || companyKey <= 0 || !actorKey) {
       setLoadingRefs(false);
@@ -175,6 +192,12 @@ export function PropertyContractCancellationPolicyForm({
         propertyContractId: lockedContract.propertyContractKey,
         activeOnly: true,
       }),
+      listPropertySeasons({
+        tenantId: tenantKey,
+        companyId: companyKey,
+        propertyId: lockedContract.propertyId,
+        activeOnly: true,
+      }),
       ensureDefaultCancellationPolicyTypes({
         tenantId: tenantKey,
         companyId: companyKey,
@@ -187,10 +210,11 @@ export function PropertyContractCancellationPolicyForm({
         })
       ),
     ])
-      .then(([roomRows, planRows, typeRows]) => {
+      .then(([roomRows, planRows, seasonRows, typeRows]) => {
         if (!cancelled) {
           setRooms(roomRows);
           setRatePlans(planRows);
+          setPropertySeasons(seasonRows);
           setPolicyTypes(typeRows);
         }
       })
@@ -247,6 +271,8 @@ export function PropertyContractCancellationPolicyForm({
         values.propertyContractRatePlanId && values.propertyContractRatePlanId > 0
           ? values.propertyContractRatePlanId
           : null,
+      propertySeasonId:
+        values.propertySeasonId && values.propertySeasonId > 0 ? values.propertySeasonId : null,
       isActive: values.isActive,
       rules: values.rules.map((r) => ({
         fromDaysBefore: r.fromDaysBefore,
@@ -318,7 +344,7 @@ export function PropertyContractCancellationPolicyForm({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Room type</Label>
               <Controller
@@ -345,6 +371,21 @@ export function PropertyContractCancellationPolicyForm({
                     onChange={(v) => field.onChange(v === 0 ? null : v)}
                     options={ratePlanOptions}
                     placeholder="All rate plans"
+                  />
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Season</Label>
+              <Controller
+                control={control}
+                name="propertySeasonId"
+                render={({ field }) => (
+                  <SearchableCombobox
+                    value={field.value ?? 0}
+                    onChange={(v) => field.onChange(v === 0 ? null : v)}
+                    options={seasonOptions}
+                    placeholder="All seasons"
                   />
                 )}
               />

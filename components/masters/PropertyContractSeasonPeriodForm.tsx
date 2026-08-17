@@ -22,6 +22,7 @@ import { listPropertySeasons } from "@/lib/services/property-seasons.service";
 import {
   createPropertyContractSeasonPeriod,
   updatePropertyContractSeasonPeriod,
+  listPropertyContractSeasonPeriods,
   PropertyContractSeasonPeriodsApiError,
 } from "@/lib/services/property-contract-season-periods.service";
 import type { PropertyContract, PropertyContractSeasonPeriod, PropertySeason } from "@/types";
@@ -49,6 +50,10 @@ const schema = z
     }
   });
 type FormValues = z.infer<typeof schema>;
+
+function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string): boolean {
+  return aFrom <= bTo && bFrom <= aTo;
+}
 
 function emptyValues(contractId = 0): FormValues {
   return {
@@ -100,6 +105,8 @@ export function PropertyContractSeasonPeriodForm({
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<PropertyContract[]>(lockedContract ? [lockedContract] : []);
   const [seasons, setSeasons] = useState<PropertySeason[]>([]);
+  const [existingPeriods, setExistingPeriods] = useState<PropertyContractSeasonPeriod[]>([]);
+  const [overlapError, setOverlapError] = useState<string | null>(null);
 
   const {
     register,
@@ -166,9 +173,38 @@ export function PropertyContractSeasonPeriodForm({
     setValue("propertySeasonId", 0, { shouldValidate: false });
   }, [eligibleSeasons, propertySeasonId, setValue]);
 
+  useEffect(() => {
+    if (!propertyContractId || propertyContractId <= 0) {
+      setExistingPeriods([]);
+      return;
+    }
+    let cancelled = false;
+    listPropertyContractSeasonPeriods({ propertyContractId, activeOnly: true })
+      .then((rows) => {
+        if (!cancelled) setExistingPeriods(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setExistingPeriods([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyContractId]);
+
   async function onSubmit(values: FormValues) {
+    setOverlapError(null);
     if (!actorKey || tenantKey <= 0 || companyKey <= 0) {
       toast.error("Missing session context — sign in again.");
+      return;
+    }
+    const conflict = existingPeriods.find(
+      (p) =>
+        p.propertySeasonId === values.propertySeasonId &&
+        (!entry || p.propertyContractSeasonPeriodKey !== entry.propertyContractSeasonPeriodKey) &&
+        rangesOverlap(values.fromDate, values.toDate, p.fromDate, p.toDate)
+    );
+    if (conflict) {
+      setOverlapError(`Overlaps an existing period for this season (${conflict.fromDate} to ${conflict.toDate})`);
       return;
     }
     const contractId = lockedContract?.propertyContractKey ?? values.propertyContractId;
@@ -306,6 +342,7 @@ export function PropertyContractSeasonPeriodForm({
             {errors.toDate && <p className="text-sm text-destructive">{errors.toDate.message}</p>}
           </div>
         </div>
+        {overlapError && <p className="text-sm text-destructive">{overlapError}</p>}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">

@@ -10,9 +10,7 @@ import Link from "next/link";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
 import { useSessionStore } from "@/lib/store/session.store";
@@ -262,11 +260,20 @@ export function PropertyContractChildPolicyForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-3xl space-y-6">
-      <Card>
-        <CardContent className="space-y-5 pt-6">
-          <div className="space-y-2">
-            <Label>Room type</Label>
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-full space-y-6">
+      <div className="space-y-1 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contract</p>
+        <p className="text-base font-semibold text-foreground">{lockedContract.contractName}</p>
+        <p className="text-muted-foreground">
+          {lockedContract.contractNumber}
+          {lockedContract.propertyName ? ` · ${lockedContract.propertyName}` : ""}
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/20 p-3">
+        <div className="flex flex-nowrap items-end gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">Room type</span>
             <Controller
               control={control}
               name="propertyRoomId"
@@ -279,173 +286,172 @@ export function PropertyContractChildPolicyForm({
                 />
               )}
             />
-            <p className="text-xs text-muted-foreground">
-              Leave as &quot;All room types&quot; to apply this policy to every room on the contract.
-            </p>
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="maxChild">Maximum children</Label>
-              <Input
-                id="maxChild"
-                type="number"
-                min={0}
-                {...register("maxChild", { valueAsNumber: true })}
-              />
-              {errors.maxChild && (
-                <p className="text-xs text-destructive">{errors.maxChild.message}</p>
-              )}
-            </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={watch("childCountsInOccupancy")}
-                  onCheckedChange={(c) => setValue("childCountsInOccupancy", c === true)}
-                />
-                Child counts in room occupancy
-              </label>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={watch("isActive")}
-              onCheckedChange={(c) => setValue("isActive", c === true)}
+          <div className="w-32 shrink-0 space-y-1">
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">Max children</span>
+            <Input
+              type="number"
+              min={0}
+              className="h-9 w-full min-w-0"
+              {...register("maxChild", { valueAsNumber: true })}
             />
-            Active
-          </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div>
-            <h3 className="text-sm font-medium">Age bands</h3>
-            <p className="text-xs text-muted-foreground">
-              Define how each age range is priced: free, supplement (fixed amount or percentage), adult rate, or not allowed.
-            </p>
+            {errors.maxChild && <p className="text-xs text-destructive">{errors.maxChild.message}</p>}
           </div>
+          <div className="shrink-0 space-y-1">
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">Counts in occ.</span>
+            <div className="flex h-9 items-center">
+              <Checkbox
+                checked={watch("childCountsInOccupancy")}
+                onCheckedChange={(c) => setValue("childCountsInOccupancy", c === true)}
+              />
+            </div>
+          </div>
+          <div className="shrink-0 space-y-1">
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">Active</span>
+            <div className="flex h-9 items-center">
+              <Checkbox
+                checked={watch("isActive")}
+                onCheckedChange={(c) => setValue("isActive", c === true)}
+              />
+            </div>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Leave room type as &quot;All room types&quot; to apply this policy to every room on the contract.
+        </p>
+      </div>
 
-          {ageArray.fields.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No age bands — add at least one rule below.</p>
-          ) : (
-            ageArray.fields.map((field, index) => {
+      <div className="space-y-2">
+        <div>
+          <h3 className="text-sm font-medium">Age bands</h3>
+          <p className="text-xs text-muted-foreground">
+            Define how each age range is priced: free, supplement (fixed amount or percentage), adult rate, or not
+            allowed.
+          </p>
+        </div>
+
+        {ageArray.fields.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No age bands — add at least one rule below.</p>
+        ) : (
+          <>
+            <div className="flex flex-nowrap items-center gap-2 px-1 text-[10px] font-medium uppercase text-muted-foreground">
+              <span className="w-20 shrink-0">From age</span>
+              <span className="w-20 shrink-0">To age</span>
+              <span className="min-w-0 flex-1">Policy type *</span>
+              <span className="w-28 shrink-0">Rate value</span>
+              <span className="w-8 shrink-0" />
+            </div>
+            {ageArray.fields.map((field, index) => {
               const typeId = watchedAgeBands[index]?.childPolicyTypeId ?? 0;
               const needsRate = childPolicyTypeNeedsRateValue(policyTypeCode(typeId));
 
               return (
-                <div
-                  key={field.id}
-                  className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-5"
-                >
-                  <div className="space-y-1">
-                    <Label className="text-xs">From age</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      {...register(`ageBands.${index}.fromAge`, { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">To age</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      {...register(`ageBands.${index}.toAge`, { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="space-y-1 lg:col-span-2">
-                    <Label className="text-xs">Policy type</Label>
-                    <Controller
-                      control={control}
-                      name={`ageBands.${index}.childPolicyTypeId`}
-                      render={({ field: f }) => (
-                        <Select
-                          value={f.value > 0 ? String(f.value) : ""}
-                          onValueChange={(v) => {
-                            const id = Number(v);
-                            f.onChange(id);
-                            if (!childPolicyTypeNeedsRateValue(policyTypeCode(id))) {
-                              setValue(`ageBands.${index}.rateValue`, null);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type">
-                              {(value: string | null) =>
-                                childPolicyTypeDisplayLabel(policyTypes, value, "Select type")
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {policyTypes.map((t) => (
-                              <SelectItem key={t.childPolicyTypeKey} value={String(t.childPolicyTypeKey)}>
-                                {t.childPolicyTypeName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-                  {needsRate ? (
-                    <div className="space-y-1">
-                      <Label className="text-xs">Rate value</Label>
+                <div key={field.id} className="rounded-lg border border-border bg-muted/20 p-2">
+                  <div className="flex flex-nowrap items-center gap-2">
+                    <div className="w-20 shrink-0">
                       <Input
                         type="number"
                         min={0}
-                        step="0.01"
-                        placeholder="Amount or %"
-                        {...register(`ageBands.${index}.rateValue`, {
-                          valueAsNumber: true,
-                          setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : Number(v)),
-                        })}
+                        step="0.5"
+                        className="h-9 w-full min-w-0 px-2"
+                        {...register(`ageBands.${index}.fromAge`, { valueAsNumber: true })}
                       />
                     </div>
-                  ) : (
-                    <div className="hidden lg:block" />
-                  )}
-                  <div className="flex items-end sm:col-span-2 lg:col-span-5">
+                    <div className="w-20 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        className="h-9 w-full min-w-0 px-2"
+                        {...register(`ageBands.${index}.toAge`, { valueAsNumber: true })}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <Controller
+                        control={control}
+                        name={`ageBands.${index}.childPolicyTypeId`}
+                        render={({ field: f }) => (
+                          <Select
+                            value={f.value > 0 ? String(f.value) : ""}
+                            onValueChange={(v) => {
+                              const id = Number(v);
+                              f.onChange(id);
+                              if (!childPolicyTypeNeedsRateValue(policyTypeCode(id))) {
+                                setValue(`ageBands.${index}.rateValue`, null);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden">
+                              <SelectValue placeholder="Select type" className="truncate">
+                                {(value: string | null) =>
+                                  childPolicyTypeDisplayLabel(policyTypes, value, "Select type")
+                                }
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {policyTypes.map((t) => (
+                                <SelectItem key={t.childPolicyTypeKey} value={String(t.childPolicyTypeKey)}>
+                                  {t.childPolicyTypeName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div className="w-28 shrink-0">
+                      {needsRate ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="h-9 w-full min-w-0 px-2"
+                          placeholder="Amount or %"
+                          {...register(`ageBands.${index}.rateValue`, {
+                            valueAsNumber: true,
+                            setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : Number(v)),
+                          })}
+                        />
+                      ) : null}
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="icon-sm"
+                      className="w-8 shrink-0"
                       onClick={() => ageArray.remove(index)}
+                      aria-label="Remove age band"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Remove band
                     </Button>
                   </div>
                 </div>
               );
+            })}
+          </>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            ageArray.append({
+              fromAge: 0,
+              toAge: 12,
+              childPolicyTypeId: policyTypes[0]?.childPolicyTypeKey ?? 0,
+              rateValue: null,
+              isActive: true,
             })
-          )}
+          }
+          disabled={policyTypes.length === 0}
+        >
+          <Plus className="h-4 w-4" />
+          Add age band
+        </Button>
+      </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              ageArray.append({
-                fromAge: 0,
-                toAge: 12,
-                childPolicyTypeId: policyTypes[0]?.childPolicyTypeKey ?? 0,
-                rateValue: null,
-                isActive: true,
-              })
-            }
-            disabled={policyTypes.length === 0}
-          >
-            <Plus className="h-4 w-4" />
-            Add age band
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-t pt-4">
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {entry ? "Save changes" : "Create child policy"}

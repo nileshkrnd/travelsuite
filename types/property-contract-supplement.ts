@@ -15,7 +15,9 @@ export interface PropertyContractSupplementAge {
   rateBasisId: number;
   rateBasisCode?: string;
   rateBasisName?: string;
+  /** Currency amount, or a 0-100 percentage of the adult rate when isPercentOfAdultRate is true. */
   amount: number;
+  isPercentOfAdultRate: boolean;
   isFree: boolean;
   isActive: boolean;
 }
@@ -88,6 +90,7 @@ export interface PropertyContractSupplementWrite {
     toAge: number;
     rateBasisId: number;
     amount: number;
+    isPercentOfAdultRate?: boolean;
     isFree?: boolean;
     isActive?: boolean;
   }[];

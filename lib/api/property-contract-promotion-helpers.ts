@@ -84,7 +84,7 @@ export const propertyContractPromotionInclude = {
     },
   },
   promotionDays: { select: { dayOfWeekId: true, isActive: true } },
-} as const;
+};
 
 type PromotionRow = {
   propertyContractPromotionId: bigint;

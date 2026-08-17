@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
+import { DayOfWeekCompactSelect } from "@/components/masters/DayOfWeekCompactSelect";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { resolveSessionCompanyKey } from "@/lib/session-company";
@@ -40,36 +38,24 @@ import type { DayOfWeek } from "@/types/day-of-week";
 import type { BlackoutReason } from "@/types/blackout-reason";
 import type { BlackoutType } from "@/types/blackout-type";
 import type { PropertyContractBlackout } from "@/types/property-contract-blackout";
-import { cn } from "@/lib/utils";
 
-const schema = z
-  .object({
-    propertyContractId: z.number().int().positive(),
-    blackoutTypeId: z.number().int().positive("Choose a blackout type"),
-    propertyRoomId: z.number().int().positive().nullable(),
-    propertyContractRatePlanId: z.number().int().positive().nullable(),
-    fromDate: z.string().min(1, "From date is required"),
-    toDate: z.string().min(1, "To date is required"),
-    blackoutReasonId: z.number().int().positive().nullable(),
-    remarks: z.string().trim().max(500),
-    isActive: z.boolean(),
-    dayOfWeekIds: z.array(z.number().int().positive()),
-  })
-  .superRefine((values, ctx) => {
-    if (values.fromDate && values.toDate && values.fromDate > values.toDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "From date must be on or before to date",
-        path: ["toDate"],
-      });
-    }
-  });
+const baseRowSchema = z.object({
+  blackoutTypeId: z.number().int().positive("Choose a type"),
+  propertyRoomId: z.number().int().positive().nullable(),
+  propertyContractRatePlanId: z.number().int().positive().nullable(),
+  fromDate: z.string().min(1, "Required"),
+  toDate: z.string().min(1, "Required"),
+  blackoutReasonId: z.number().int().positive().nullable(),
+  remarks: z.string().trim().max(500),
+  isActive: z.boolean(),
+  dayOfWeekIds: z.array(z.number().int().positive()),
+});
 
-type FormValues = z.infer<typeof schema>;
+type RowValues = z.infer<typeof baseRowSchema>;
+type FormValues = { rows: RowValues[] };
 
-function defaultValues(contract: PropertyContract): FormValues {
+function blankRow(contract: PropertyContract): RowValues {
   return {
-    propertyContractId: contract.propertyContractKey,
     blackoutTypeId: 0,
     propertyRoomId: null,
     propertyContractRatePlanId: null,
@@ -82,9 +68,8 @@ function defaultValues(contract: PropertyContract): FormValues {
   };
 }
 
-function valuesFromEntry(entry: PropertyContractBlackout): FormValues {
+function rowFromEntry(entry: PropertyContractBlackout): RowValues {
   return {
-    propertyContractId: entry.propertyContractId,
     blackoutTypeId: entry.blackoutTypeId,
     propertyRoomId: entry.propertyRoomId,
     propertyContractRatePlanId: entry.propertyContractRatePlanId,
@@ -97,26 +82,11 @@ function valuesFromEntry(entry: PropertyContractBlackout): FormValues {
   };
 }
 
-function blackoutTypeDisplayLabel(
-  types: BlackoutType[],
-  value: string | null,
-  placeholder: string
-): string {
-  if (!value) return placeholder;
-  const match = types.find((t) => String(t.blackoutTypeKey) === value);
-  return match?.blackoutTypeName ?? placeholder;
+function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string): boolean {
+  return aFrom <= bTo && bFrom <= aTo;
 }
 
-function blackoutReasonDisplayLabel(
-  reasons: BlackoutReason[],
-  value: string | null,
-  placeholder: string
-): string {
-  if (!value || value === "0") return placeholder;
-  const match = reasons.find((r) => String(r.blackoutReasonKey) === value);
-  return match?.blackoutReasonName ?? placeholder;
-}
-
+/** Create or edit contract blackouts — spreadsheet-style multi-row entry when adding, single row when editing. */
 export function PropertyContractBlackoutForm({
   lockedContract,
   entry,
@@ -135,66 +105,80 @@ export function PropertyContractBlackoutForm({
   const actorKey = sessionUser?.userKey ?? 0;
 
   const returnHref = `/${role}/extranet/contracts/${lockedContract.propertyContractKey}?tab=blackouts`;
+  const isEdit = !!entry;
 
   const [rooms, setRooms] = useState<PropertyRoom[]>([]);
   const [ratePlans, setRatePlans] = useState<PropertyContractRatePlan[]>([]);
   const [blackoutTypes, setBlackoutTypes] = useState<BlackoutType[]>([]);
   const [blackoutReasons, setBlackoutReasons] = useState<BlackoutReason[]>([]);
   const [daysOfWeek, setDaysOfWeek] = useState<DayOfWeek[]>([]);
-  const [loadingRefs, setLoadingRefs] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const blackoutTypesRef = useRef<BlackoutType[]>([]);
+  useEffect(() => {
+    blackoutTypesRef.current = blackoutTypes;
+  }, [blackoutTypes]);
+
+  const rowSchema = useMemo(
+    () =>
+      baseRowSchema.superRefine((values, ctx) => {
+        if (values.fromDate && values.toDate && values.fromDate > values.toDate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "From date must be on or before to date",
+            path: ["toDate"],
+          });
+        }
+        const typeCode =
+          blackoutTypesRef.current
+            .find((t) => t.blackoutTypeKey === values.blackoutTypeId)
+            ?.blackoutTypeCode.toUpperCase() ?? "";
+        if (blackoutTypeNeedsRoom(typeCode) && !values.propertyRoomId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Room is required for this type",
+            path: ["propertyRoomId"],
+          });
+        }
+        if (blackoutTypeNeedsRatePlan(typeCode) && !values.propertyContractRatePlanId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Rate plan is required for this type",
+            path: ["propertyContractRatePlanId"],
+          });
+        }
+      }),
+    []
+  );
+
+  const schema = useMemo(
+    () => z.object({ rows: z.array(rowSchema).min(1, "Add at least one row") }),
+    [rowSchema]
+  );
+
   const {
-    register,
     control,
+    register,
     handleSubmit,
     watch,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: entry ? valuesFromEntry(entry) : defaultValues(lockedContract),
+    defaultValues: { rows: [entry ? rowFromEntry(entry) : blankRow(lockedContract)] },
   });
 
-  const selectedTypeId = watch("blackoutTypeId");
-  const selectedDayIds = watch("dayOfWeekIds");
-
-  const selectedTypeCode = useMemo(() => {
-    return (
-      blackoutTypes
-        .find((t) => t.blackoutTypeKey === selectedTypeId)
-        ?.blackoutTypeCode.toUpperCase() ?? ""
-    );
-  }, [blackoutTypes, selectedTypeId]);
-
-  const showRoom = blackoutTypeNeedsRoom(selectedTypeCode);
-  const showRatePlan = blackoutTypeNeedsRatePlan(selectedTypeCode);
-
-  const roomOptions = useMemo(
-    () =>
-      rooms.map((r) => ({
-        value: r.propertyRoomKey,
-        label: `${r.roomName} (${r.roomCode})`,
-      })),
-    [rooms]
-  );
-
-  const ratePlanOptions = useMemo(
-    () =>
-      ratePlans.map((rp) => ({
-        value: rp.propertyContractRatePlanKey,
-        label: `${rp.ratePlanName} (${rp.ratePlanCode})`,
-      })),
-    [ratePlans]
-  );
+  const rowArray = useFieldArray({ control, name: "rows" });
+  const rows = watch("rows");
 
   useEffect(() => {
     if (tenantKey <= 0 || companyKey <= 0 || !actorKey) {
-      setLoadingRefs(false);
+      setLoading(false);
       return;
     }
     let cancelled = false;
-    setLoadingRefs(true);
+    setLoading(true);
     Promise.all([
       listPropertyRooms({
         tenantId: tenantKey,
@@ -230,22 +214,21 @@ export function PropertyContractBlackoutForm({
       ),
     ])
       .then(([roomRows, planRows, dayRows, typeRows, reasonRows]) => {
-        if (!cancelled) {
-          setRooms(roomRows);
-          setRatePlans(planRows);
-          setDaysOfWeek(dayRows);
-          setBlackoutTypes(typeRows);
-          setBlackoutReasons(reasonRows);
-          if (!entry && typeRows.length > 0) {
-            setValue("blackoutTypeId", typeRows[0].blackoutTypeKey, { shouldValidate: true });
-          }
+        if (cancelled) return;
+        setRooms(roomRows);
+        setRatePlans(planRows);
+        setDaysOfWeek(dayRows);
+        setBlackoutTypes(typeRows);
+        setBlackoutReasons(reasonRows);
+        if (!isEdit && typeRows.length > 0) {
+          setValue("rows.0.blackoutTypeId", typeRows[0].blackoutTypeKey, { shouldValidate: true });
         }
       })
       .catch(() => {
         if (!cancelled) toast.error("Could not load reference data");
       })
       .finally(() => {
-        if (!cancelled) setLoadingRefs(false);
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -256,20 +239,59 @@ export function PropertyContractBlackoutForm({
     actorKey,
     lockedContract.propertyId,
     lockedContract.propertyContractKey,
-    entry,
+    isEdit,
     setValue,
   ]);
 
-  useEffect(() => {
-    if (!showRoom) setValue("propertyRoomId", null, { shouldDirty: true });
-    if (!showRatePlan) setValue("propertyContractRatePlanId", null, { shouldDirty: true });
-  }, [showRoom, showRatePlan, setValue]);
+  const roomOptions = useMemo(
+    () =>
+      rooms.map((r) => ({
+        value: r.propertyRoomKey,
+        label: `${r.roomName} (${r.roomCode})`,
+      })),
+    [rooms]
+  );
 
-  function toggleDay(dayId: number, checked: boolean) {
-    const current = new Set(selectedDayIds);
-    if (checked) current.add(dayId);
-    else current.delete(dayId);
-    setValue("dayOfWeekIds", [...current], { shouldDirty: true });
+  const ratePlanOptions = useMemo(
+    () =>
+      ratePlans.map((rp) => ({
+        value: rp.propertyContractRatePlanKey,
+        label: `${rp.ratePlanName} (${rp.ratePlanCode})`,
+      })),
+    [ratePlans]
+  );
+
+  function typeCodeFor(typeId: number): string {
+    return blackoutTypes.find((t) => t.blackoutTypeKey === typeId)?.blackoutTypeCode.toUpperCase() ?? "";
+  }
+
+  function selectType(index: number, id: number) {
+    setValue(`rows.${index}.blackoutTypeId`, id, { shouldValidate: true });
+    const code = typeCodeFor(id);
+    if (!blackoutTypeNeedsRoom(code)) setValue(`rows.${index}.propertyRoomId`, null);
+    if (!blackoutTypeNeedsRatePlan(code)) setValue(`rows.${index}.propertyContractRatePlanId`, null);
+  }
+
+  function addRow() {
+    rowArray.append(blankRow(lockedContract));
+  }
+
+  function toPayload(row: RowValues) {
+    const code = typeCodeFor(row.blackoutTypeId);
+    return {
+      tenantId: tenantKey,
+      companyId: companyKey,
+      propertyContractId: lockedContract.propertyContractKey,
+      blackoutTypeId: row.blackoutTypeId,
+      propertyRoomId: blackoutTypeNeedsRoom(code) ? row.propertyRoomId : null,
+      propertyContractRatePlanId: blackoutTypeNeedsRatePlan(code) ? row.propertyContractRatePlanId : null,
+      fromDate: row.fromDate,
+      toDate: row.toDate,
+      blackoutReasonId: row.blackoutReasonId,
+      remarks: row.remarks.trim() || null,
+      isActive: row.isActive,
+      dayOfWeekIds: row.dayOfWeekIds,
+    };
   }
 
   async function onSubmit(values: FormValues) {
@@ -278,61 +300,75 @@ export function PropertyContractBlackoutForm({
       return;
     }
 
-    const typeCode =
-      blackoutTypes
-        .find((t) => t.blackoutTypeKey === values.blackoutTypeId)
-        ?.blackoutTypeCode.toUpperCase() ?? "";
-
-    if (blackoutTypeNeedsRoom(typeCode) && !values.propertyRoomId) {
-      toast.error("Room type is required for this blackout type.");
-      return;
-    }
-    if (blackoutTypeNeedsRatePlan(typeCode) && !values.propertyContractRatePlanId) {
-      toast.error("Rate plan is required for this blackout type.");
-      return;
-    }
-
-    const payload = {
-      tenantId: tenantKey,
-      companyId: companyKey,
-      propertyContractId: values.propertyContractId,
-      blackoutTypeId: values.blackoutTypeId,
-      propertyRoomId: showRoom ? values.propertyRoomId : null,
-      propertyContractRatePlanId: showRatePlan ? values.propertyContractRatePlanId : null,
-      fromDate: values.fromDate,
-      toDate: values.toDate,
-      blackoutReasonId: values.blackoutReasonId,
-      remarks: values.remarks.trim() || null,
-      isActive: values.isActive,
-      dayOfWeekIds: values.dayOfWeekIds,
-    };
-
-    setSaving(true);
-    try {
-      if (entry) {
+    if (entry) {
+      const row = values.rows[0]!;
+      setSaving(true);
+      try {
         await updatePropertyContractBlackout(entry.propertyContractBlackoutKey, {
-          ...payload,
+          ...toPayload(row),
           modifiedBy: actorKey,
         });
         toast.success("Blackout updated");
-      } else {
-        await createPropertyContractBlackout({ ...payload, createdBy: actorKey });
-        toast.success("Blackout created");
+        router.push(returnHref);
+      } catch (error) {
+        toast.error(
+          error instanceof PropertyContractBlackoutApiError ? error.message : "Could not save blackout"
+        );
+      } finally {
+        setSaving(false);
       }
+      return;
+    }
+
+    // Lightweight in-batch guard: same type+room+rate plan combination shouldn't overlap in dates.
+    for (let i = 0; i < values.rows.length; i++) {
+      for (let j = i + 1; j < values.rows.length; j++) {
+        const a = values.rows[i]!;
+        const b = values.rows[j]!;
+        if (
+          a.blackoutTypeId === b.blackoutTypeId &&
+          (a.propertyRoomId ?? null) === (b.propertyRoomId ?? null) &&
+          (a.propertyContractRatePlanId ?? null) === (b.propertyContractRatePlanId ?? null) &&
+          rangesOverlap(a.fromDate, a.toDate, b.fromDate, b.toDate)
+        ) {
+          toast.error(`Rows ${i + 1} and ${j + 1} overlap for the same type/room/rate plan — adjust the dates.`);
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    let saved = 0;
+    const failed: string[] = [];
+    for (const [idx, row] of values.rows.entries()) {
+      const label = `Row ${idx + 1} (${blackoutTypes.find((t) => t.blackoutTypeKey === row.blackoutTypeId)?.blackoutTypeName ?? "type"})`;
+      try {
+        await createPropertyContractBlackout({ ...toPayload(row), createdBy: actorKey });
+        saved += 1;
+      } catch (err) {
+        const message = err instanceof PropertyContractBlackoutApiError ? err.message : "save failed";
+        failed.push(`${label} (${message})`);
+      }
+    }
+    setSaving(false);
+
+    if (saved > 0) {
+      toast.success(`${saved} blackout${saved === 1 ? "" : "s"} added`);
+    }
+    if (failed.length > 0) {
+      toast.error(`Could not add: ${failed.join(", ")}`);
+    } else {
       router.push(returnHref);
-    } catch (error) {
-      toast.error(
-        error instanceof PropertyContractBlackoutApiError
-          ? error.message
-          : "Could not save blackout"
-      );
-    } finally {
-      setSaving(false);
     }
   }
 
-  if (loadingRefs) {
-    return <p className="text-sm text-muted-foreground">Loading form…</p>;
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading…
+      </div>
+    );
   }
 
   if (tenantKey <= 0 || companyKey <= 0) {
@@ -344,189 +380,226 @@ export function PropertyContractBlackoutForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-3xl space-y-6">
-      <Card>
-        <CardContent className="space-y-5 pt-6">
-          <div className="space-y-2">
-            <Label>Blackout type</Label>
-            <Controller
-              control={control}
-              name="blackoutTypeId"
-              render={({ field }) => (
-                <Select
-                  value={field.value > 0 ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type">
-                      {(value: string | null) =>
-                        blackoutTypeDisplayLabel(blackoutTypes, value, "Select type")
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {blackoutTypes.map((t) => (
-                      <SelectItem key={t.blackoutTypeKey} value={String(t.blackoutTypeKey)}>
-                        {t.blackoutTypeName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.blackoutTypeId && (
-              <p className="text-xs text-destructive">{errors.blackoutTypeId.message}</p>
-            )}
-          </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-full space-y-6">
+      <div className="space-y-1 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contract</p>
+        <p className="text-base font-semibold text-foreground">{lockedContract.contractName}</p>
+        <p className="text-muted-foreground">{lockedContract.contractNumber}</p>
+      </div>
 
-          {showRoom && (
-            <div className="space-y-2">
-              <Label>Room type</Label>
-              <Controller
-                control={control}
-                name="propertyRoomId"
-                render={({ field }) => (
-                  <SearchableCombobox
-                    value={field.value ?? 0}
-                    onChange={(v) => field.onChange(v === 0 ? null : v)}
-                    options={roomOptions}
-                    placeholder="Select room type"
+      <div className="space-y-2">
+        <div className="flex flex-nowrap items-center gap-2 px-1 text-[10px] font-medium uppercase text-muted-foreground">
+          <span className="w-6 shrink-0" />
+          <span className="w-36 shrink-0">
+            Type<span className="text-destructive"> *</span>
+          </span>
+          <span className="w-40 shrink-0">Room</span>
+          <span className="w-40 shrink-0">Rate plan</span>
+          <span className="w-36 shrink-0">From *</span>
+          <span className="w-36 shrink-0">To *</span>
+          <span className="w-32 shrink-0">Reason</span>
+          <span className="shrink-0">Days</span>
+          <span className="min-w-0 flex-1">Remarks</span>
+          <span className="w-10 shrink-0 text-center">Active</span>
+          {!isEdit && <span className="w-8 shrink-0" />}
+        </div>
+
+        {rowArray.fields.map((field, index) => {
+          const rowErrors = errors.rows?.[index];
+          const row = rows[index];
+          const typeId = row?.blackoutTypeId ?? 0;
+          const code = typeCodeFor(typeId);
+          const needsRoom = blackoutTypeNeedsRoom(code);
+          const needsRatePlan = blackoutTypeNeedsRatePlan(code);
+          return (
+            <div key={field.id} className="rounded-lg border border-border bg-muted/20 p-2">
+              <div className="flex flex-nowrap items-center gap-2">
+                <span className="w-6 shrink-0 text-xs text-muted-foreground">{index + 1}</span>
+
+                <div className="w-36 min-w-0 shrink-0 space-y-1 overflow-hidden">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.blackoutTypeId`}
+                    render={({ field: f }) => (
+                      <Select
+                        value={f.value > 0 ? String(f.value) : ""}
+                        onValueChange={(v) => selectType(index, Number(v))}
+                      >
+                        <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden">
+                          <SelectValue placeholder="Select" className="truncate">
+                            {() => blackoutTypes.find((t) => t.blackoutTypeKey === f.value)?.blackoutTypeName ?? "Select"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {blackoutTypes.map((t) => (
+                            <SelectItem key={t.blackoutTypeKey} value={String(t.blackoutTypeKey)}>
+                              {t.blackoutTypeName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   />
-                )}
-              />
-            </div>
-          )}
-
-          {showRatePlan && (
-            <div className="space-y-2">
-              <Label>Rate plan</Label>
-              <Controller
-                control={control}
-                name="propertyContractRatePlanId"
-                render={({ field }) => (
-                  <SearchableCombobox
-                    value={field.value ?? 0}
-                    onChange={(v) => field.onChange(v === 0 ? null : v)}
-                    options={ratePlanOptions}
-                    placeholder="Select rate plan"
-                  />
-                )}
-              />
-            </div>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="fromDate">From date</Label>
-              <Input id="fromDate" type="date" {...register("fromDate")} />
-              {errors.fromDate && (
-                <p className="text-xs text-destructive">{errors.fromDate.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="toDate">To date</Label>
-              <Input id="toDate" type="date" {...register("toDate")} />
-              {errors.toDate && (
-                <p className="text-xs text-destructive">{errors.toDate.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Reason</Label>
-            <Controller
-              control={control}
-              name="blackoutReasonId"
-              render={({ field }) => (
-                <Select
-                  value={field.value != null && field.value > 0 ? String(field.value) : "0"}
-                  onValueChange={(v) => field.onChange(v === "0" ? null : Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Optional">
-                      {(value: string | null) =>
-                        blackoutReasonDisplayLabel(blackoutReasons, value, "Optional")
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">No reason</SelectItem>
-                    {blackoutReasons.map((r) => (
-                      <SelectItem key={r.blackoutReasonKey} value={String(r.blackoutReasonKey)}>
-                        {r.blackoutReasonName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="remarks">Remarks</Label>
-            <Textarea id="remarks" rows={3} {...register("remarks")} placeholder="Optional notes" />
-            {errors.remarks && (
-              <p className="text-xs text-destructive">{errors.remarks.message}</p>
-            )}
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={watch("isActive")}
-              onCheckedChange={(c) => setValue("isActive", c === true)}
-            />
-            Active
-          </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div>
-            <h3 className="text-sm font-medium">Applicable days</h3>
-            <p className="text-xs text-muted-foreground">
-              Leave empty to apply every day of the week within the date range.
-            </p>
-            {selectedDayIds.length > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Selected:{" "}
-                {daysOfWeek
-                  .filter((d) => selectedDayIds.includes(d.dayOfWeekId))
-                  .map((d) => d.shortName ?? d.dayOfWeekCode)
-                  .join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {daysOfWeek.map((day) => {
-              const checked = selectedDayIds.includes(day.dayOfWeekId);
-              return (
-                <button
-                  key={day.dayOfWeekId}
-                  type="button"
-                  aria-pressed={checked}
-                  onClick={() => toggleDay(day.dayOfWeekId, !checked)}
-                  className={cn(
-                    "min-w-[3rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                    checked
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background hover:bg-muted"
+                  {rowErrors?.blackoutTypeId && (
+                    <p className="text-xs text-destructive">{rowErrors.blackoutTypeId.message}</p>
                   )}
-                >
-                  {day.shortName ?? day.dayOfWeekCode}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+                <div className="w-40 shrink-0 space-y-1">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.propertyRoomId`}
+                    render={({ field: f }) => (
+                      <SearchableCombobox
+                        value={f.value ?? null}
+                        onChange={(v) => f.onChange(v === 0 ? null : v)}
+                        options={roomOptions}
+                        placeholder={needsRoom ? "Room…" : "N/A"}
+                        disabled={!needsRoom}
+                        ariaInvalid={!!rowErrors?.propertyRoomId}
+                      />
+                    )}
+                  />
+                  {rowErrors?.propertyRoomId && (
+                    <p className="text-xs text-destructive">{rowErrors.propertyRoomId.message}</p>
+                  )}
+                </div>
+
+                <div className="w-40 shrink-0 space-y-1">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.propertyContractRatePlanId`}
+                    render={({ field: f }) => (
+                      <SearchableCombobox
+                        value={f.value ?? null}
+                        onChange={(v) => f.onChange(v === 0 ? null : v)}
+                        options={ratePlanOptions}
+                        placeholder={needsRatePlan ? "Rate plan…" : "N/A"}
+                        disabled={!needsRatePlan}
+                        ariaInvalid={!!rowErrors?.propertyContractRatePlanId}
+                      />
+                    )}
+                  />
+                  {rowErrors?.propertyContractRatePlanId && (
+                    <p className="text-xs text-destructive">{rowErrors.propertyContractRatePlanId.message}</p>
+                  )}
+                </div>
+
+                <div className="w-36 shrink-0 space-y-1">
+                  <Input
+                    type="date"
+                    className="h-9 w-full min-w-0"
+                    {...register(`rows.${index}.fromDate`)}
+                    aria-invalid={!!rowErrors?.fromDate}
+                  />
+                  {rowErrors?.fromDate && (
+                    <p className="text-xs text-destructive">{rowErrors.fromDate.message}</p>
+                  )}
+                </div>
+                <div className="w-36 shrink-0 space-y-1">
+                  <Input
+                    type="date"
+                    className="h-9 w-full min-w-0"
+                    min={row?.fromDate || undefined}
+                    {...register(`rows.${index}.toDate`)}
+                    aria-invalid={!!rowErrors?.toDate}
+                  />
+                  {rowErrors?.toDate && (
+                    <p className="text-xs text-destructive">{rowErrors.toDate.message}</p>
+                  )}
+                </div>
+
+                <div className="w-32 min-w-0 shrink-0 overflow-hidden">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.blackoutReasonId`}
+                    render={({ field: f }) => (
+                      <Select
+                        value={f.value != null && f.value > 0 ? String(f.value) : "0"}
+                        onValueChange={(v) => f.onChange(v === "0" ? null : Number(v))}
+                      >
+                        <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden">
+                          <SelectValue placeholder="Reason" className="truncate">
+                            {() =>
+                              blackoutReasons.find((r) => r.blackoutReasonKey === f.value)?.blackoutReasonName ??
+                              "No reason"
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">No reason</SelectItem>
+                          {blackoutReasons.map((r) => (
+                            <SelectItem key={r.blackoutReasonKey} value={String(r.blackoutReasonKey)}>
+                              {r.blackoutReasonName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="shrink-0">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.dayOfWeekIds`}
+                    render={({ field: f }) => (
+                      <DayOfWeekCompactSelect days={daysOfWeek} value={f.value} onChange={f.onChange} />
+                    )}
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <Input
+                    className="h-9 w-full min-w-0"
+                    {...register(`rows.${index}.remarks`)}
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div className="flex w-10 shrink-0 items-center justify-center">
+                  <Controller
+                    control={control}
+                    name={`rows.${index}.isActive`}
+                    render={({ field: f }) => (
+                      <Checkbox checked={f.value} onCheckedChange={(c) => f.onChange(c === true)} />
+                    )}
+                  />
+                </div>
+
+                {!isEdit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="w-8 shrink-0"
+                    disabled={rowArray.fields.length <= 1}
+                    onClick={() => rowArray.remove(index)}
+                    aria-label="Remove row"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {!isEdit && (
+        <Button type="button" variant="outline" size="sm" onClick={addRow}>
+          <Plus className="h-4 w-4" />
+          Add row
+        </Button>
+      )}
+
+      <div className="flex flex-wrap gap-2 border-t pt-4">
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {entry ? "Save changes" : "Create blackout"}
+          {isEdit ? "Save changes" : rows.length > 1 ? `Create ${rows.length} blackouts` : "Create blackout"}
         </Button>
-        <Button variant="outline" nativeButton={false} render={<Link href={returnHref} />}>
+        <Button type="button" variant="outline" nativeButton={false} render={<Link href={returnHref} />}>
+          <X className="h-4 w-4" />
           Cancel
         </Button>
       </div>

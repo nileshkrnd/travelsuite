@@ -26,6 +26,9 @@ export interface PropertyContractCancellationPolicy {
   propertyContractRatePlanId: number | null;
   ratePlanCode?: string;
   ratePlanName?: string;
+  propertySeasonId: number | null;
+  seasonCode?: string;
+  seasonName?: string;
   isActive: boolean;
   rules: PropertyContractCancellationPolicyRule[];
   createdBy: number;
@@ -42,6 +45,7 @@ export interface PropertyContractCancellationPolicyWrite {
   policyName: string;
   propertyRoomId?: number | null;
   propertyContractRatePlanId?: number | null;
+  propertySeasonId?: number | null;
   isActive?: boolean;
   rules?: {
     fromDaysBefore: number;

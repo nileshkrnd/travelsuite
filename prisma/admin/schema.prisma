@@ -93,16 +93,18 @@ model Country {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  cities     City[]
-  states     State[]
-  areas      Area[]
-  locations  Location[]
-  airports   Airport[]
-  companies  Company[]
-  branches   Branch[]
-  employees  Employee[]
-  properties Property[]
-  suppliers  Supplier[]
+  cities      City[]
+  states      State[]
+  areas       Area[]
+  locations   Location[]
+  airports    Airport[]
+  companies   Company[]
+  branches    Branch[]
+  employees   Employee[]
+  properties  Property[]
+  suppliers   Supplier[]
+  marketRules PropertyContractMarketRule[]
+  taxes       Tax[]
 
   @@map("Country")
 }
@@ -129,6 +131,7 @@ model City {
   areas           Area[]
   locations       Location[]
   suppliers       Supplier[]
+  marketRules     PropertyContractMarketRule[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -303,6 +306,8 @@ model Currency {
   companies         Company[]
   suppliers         Supplier[]
   propertyContracts PropertyContract[]
+  taxes             Tax[]                 @relation("TaxCurrency")
+  contractTaxes     PropertyContractTax[] @relation("PropertyContractTaxCurrency")
 
   @@map("Currency")
 }
@@ -317,6 +322,9 @@ model Region {
   createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  marketRules PropertyContractMarketRule[]
+  taxes       Tax[]
 
   @@map("Region")
 }
@@ -649,6 +657,8 @@ model PropertyContract {
   promotions           PropertyContractPromotion[]
   stopSales            PropertyContractStopSale[]
   blackouts            PropertyContractBlackout[]
+  marketRules          PropertyContractMarketRule[]
+  contractTaxes        PropertyContractTax[]
 
   @@unique([tenantId, propertyId, contractNumber], map: "PropertyContract_Tenant_Property_Number_key")
   @@index([tenantId, companyId], map: "PropertyContract_TenantID_CompanyID_idx")
@@ -674,8 +684,9 @@ model PropertySeason {
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  property      Property                        @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
-  seasonPeriods PropertyContractSeasonPeriod[]
+  property             Property                                 @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  seasonPeriods        PropertyContractSeasonPeriod[]
+  cancellationPolicies PropertyContractCancellationPolicy[]
 
   @@unique([tenantId, propertyId, seasonCode], map: "PropertySeason_Tenant_Property_Code_key")
   @@index([tenantId, companyId], map: "PropertySeason_TenantID_CompanyID_idx")
@@ -1058,7 +1069,9 @@ model PropertyContractSupplementAge {
   fromAge                         Decimal   @map("FromAge") @db.Decimal(5, 2)
   toAge                           Decimal   @map("ToAge") @db.Decimal(5, 2)
   rateBasisId                     BigInt    @map("RateBasisID")
+  /// Currency amount, or a 0-100 percentage of the adult rate when isPercentOfAdultRate is true.
   amount                          Decimal   @map("Amount") @db.Decimal(18, 4)
+  isPercentOfAdultRate            Boolean   @default(false) @map("IsPercentOfAdultRate")
   isFree                          Boolean   @default(false) @map("IsFree")
   isActive                        Boolean   @default(true) @map("IsActive")
   createdBy                       Int       @map("CreatedBy")
@@ -1226,6 +1239,8 @@ model PropertyContractCancellationPolicy {
   propertyRoomId                       BigInt?   @map("PropertyRoomTypeID")
   /// Rate plan; NULL = all rate plans on this contract.
   propertyContractRatePlanId           BigInt?   @map("PropertyContractRatePlanID")
+  /// Property season; NULL = all seasons.
+  propertySeasonId                     BigInt?   @map("PropertySeasonID")
   isActive                             Boolean   @default(true) @map("IsActive")
   createdBy                            Int       @map("CreatedBy")
   createdDtTm                          DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
@@ -1235,6 +1250,7 @@ model PropertyContractCancellationPolicy {
   propertyContract PropertyContract                         @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
   propertyRoom     PropertyRoom?                            @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
   ratePlan         PropertyContractRatePlan?                @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
+  propertySeason   PropertySeason?                          @relation(fields: [propertySeasonId], references: [propertySeasonId], onDelete: Restrict)
   rules            PropertyContractCancellationPolicyRule[]
 
   @@unique([tenantId, propertyContractId, policyCode], map: "PropertyContractCancellationPolicy_Contract_Code_key")
@@ -1242,6 +1258,7 @@ model PropertyContractCancellationPolicy {
   @@index([propertyContractId], map: "PropertyContractCancellationPolicy_PropertyContractID_idx")
   @@index([propertyRoomId], map: "PropertyContractCancellationPolicy_PropertyRoomTypeID_idx")
   @@index([propertyContractRatePlanId], map: "PropertyContractCancellationPolicy_RatePlanID_idx")
+  @@index([propertySeasonId], map: "PropertyContractCancellationPolicy_PropertySeasonID_idx")
   @@map("PropertyContractCancellationPolicy")
 }
 
@@ -1268,6 +1285,196 @@ model PropertyContractCancellationPolicyRule {
   @@index([propertyContractCancellationPolicyId], map: "PropertyContractCancellationPolicyRule_PolicyID_idx")
   @@index([cancellationPolicyTypeId], map: "PropertyContractCancellationPolicyRule_TypeID_idx")
   @@map("PropertyContractCancellationPolicyRule")
+}
+
+/// Market type catalog — Country | Region | City | Market Group. Tenant + Company scoped.
+model MarketType {
+  marketTypeId   BigInt    @id @default(autoincrement()) @map("MarketTypeID")
+  tenantId       Int       @map("TenantID")
+  companyId      Int       @map("CompanyID")
+  marketTypeCode String    @map("MarketTypeCode") @db.VarChar(50)
+  marketTypeName String    @map("MarketTypeName") @db.VarChar(100)
+  displayOrder   Int       @default(0) @map("DisplayOrder")
+  isActive       Boolean   @default(true) @map("IsActive")
+  createdBy      Int       @map("CreatedBy")
+  createdDtTm    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy     Int?      @map("ModifiedBy")
+  modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  marketRules PropertyContractMarketRule[]
+
+  @@unique([tenantId, companyId, marketTypeCode], map: "MarketType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "MarketType_TenantID_CompanyID_idx")
+  @@map("MarketType")
+}
+
+/// Optional commercial market group — a tenant-defined grouping (e.g. "GCC Wholesale"). Tenant + Company scoped.
+model MarketGroup {
+  marketGroupId   BigInt    @id @default(autoincrement()) @map("MarketGroupID")
+  tenantId        Int       @map("TenantID")
+  companyId       Int       @map("CompanyID")
+  marketGroupCode String    @map("MarketGroupCode") @db.VarChar(50)
+  marketGroupName String    @map("MarketGroupName") @db.VarChar(150)
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  marketRules PropertyContractMarketRule[]
+
+  @@unique([tenantId, companyId, marketGroupCode], map: "MarketGroup_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "MarketGroup_TenantID_CompanyID_idx")
+  @@map("MarketGroup")
+}
+
+/// Market-based include/exclude rule for a contract — restricts or opens a contract to a Country, Region, City, or Market Group.
+model PropertyContractMarketRule {
+  propertyContractMarketRuleId BigInt    @id @default(autoincrement()) @map("PropertyContractMarketRuleID")
+  tenantId                     Int       @map("TenantID")
+  companyId                    Int       @map("CompanyID")
+  propertyContractId           BigInt    @map("PropertyContractID")
+  marketTypeId                 BigInt    @map("MarketTypeID")
+  /// Existing Region master; set when MarketType = REGION.
+  regionId                     Int?      @map("RegionID")
+  /// Existing Country master; set when MarketType = COUNTRY.
+  countryId                    Int?      @map("CountryID")
+  /// Existing City master; set when MarketType = CITY.
+  cityId                       Int?      @map("CityID")
+  /// Optional commercial market group; set when MarketType = MARKET_GROUP.
+  marketGroupId                BigInt?   @map("MarketGroupID")
+  /// INCLUDE | EXCLUDE
+  ruleType                     String    @map("RuleType") @db.VarChar(20)
+  fromDate                     DateTime? @map("FromDate") @db.Date
+  toDate                       DateTime? @map("ToDate") @db.Date
+  isActive                     Boolean   @default(true) @map("IsActive")
+  createdBy                    Int       @map("CreatedBy")
+  createdDtTm                  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  marketType       MarketType       @relation(fields: [marketTypeId], references: [marketTypeId], onDelete: Restrict)
+  region           Region?          @relation(fields: [regionId], references: [regionId], onDelete: Restrict)
+  country          Country?         @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city             City?            @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  marketGroup      MarketGroup?     @relation(fields: [marketGroupId], references: [marketGroupId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyContractMarketRule_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractMarketRule_PropertyContractID_idx")
+  @@index([marketTypeId], map: "PropertyContractMarketRule_MarketTypeID_idx")
+  @@index([regionId], map: "PropertyContractMarketRule_RegionID_idx")
+  @@index([countryId], map: "PropertyContractMarketRule_CountryID_idx")
+  @@index([cityId], map: "PropertyContractMarketRule_CityID_idx")
+  @@index([marketGroupId], map: "PropertyContractMarketRule_MarketGroupID_idx")
+  @@map("PropertyContractMarketRule")
+}
+
+/// Tax type catalog — VAT, GST, Tourism Tax, City Tax, … Tenant + Company scoped.
+model TaxType {
+  taxTypeId    BigInt    @id @default(autoincrement()) @map("TaxTypeID")
+  tenantId     Int       @map("TenantID")
+  companyId    Int       @map("CompanyID")
+  taxTypeCode  String    @map("TaxTypeCode") @db.VarChar(50)
+  taxTypeName  String    @map("TaxTypeName") @db.VarChar(150)
+  description  String?   @map("Description") @db.VarChar(500)
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  taxes Tax[]
+
+  @@unique([tenantId, companyId, taxTypeCode], map: "TaxType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "TaxType_TenantID_CompanyID_idx")
+  @@map("TaxType")
+}
+
+/// Tax master — a specific tax definition (e.g. Qatar VAT 5%), optionally scoped to a country/region and tenant.
+model Tax {
+  taxId    BigInt    @id @default(autoincrement()) @map("TaxID")
+  /// NULL = platform-wide default tax, usable by any tenant.
+  tenantId  Int?      @map("TenantID")
+  /// NULL = tenant-wide, not restricted to one company.
+  companyId Int?      @map("CompanyID")
+  taxTypeId BigInt    @map("TaxTypeID")
+  taxCode   String    @unique @map("TaxCode") @db.VarChar(50)
+  taxName   String    @map("TaxName") @db.VarChar(200)
+  /// Applicable country; NULL = not country-restricted.
+  countryId Int?      @map("CountryID")
+  /// Applicable region; NULL = not region-restricted.
+  regionId  Int?      @map("RegionID")
+  /// PERCENTAGE | FIXED
+  calculationType    String    @map("CalculationType") @db.VarChar(30)
+  defaultRate        Decimal?  @map("DefaultRate") @db.Decimal(18, 4)
+  defaultAmount      Decimal?  @map("DefaultAmount") @db.Decimal(18, 4)
+  /// Currency for a fixed-amount tax.
+  currencyId         Int?      @map("CurrencyID")
+  /// ROOM_RATE | ROOM_NIGHT | PERSON | PERSON_NIGHT | MEAL | SUPPLEMENT | TOTAL
+  applicationBasis   String    @map("ApplicationBasis") @db.VarChar(50)
+  isInclusiveDefault Boolean   @default(false) @map("IsInclusiveDefault")
+  isCompound         Boolean   @default(false) @map("IsCompound")
+  effectiveFrom      DateTime? @map("EffectiveFrom") @db.Date
+  effectiveTo        DateTime? @map("EffectiveTo") @db.Date
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  taxType       TaxType               @relation(fields: [taxTypeId], references: [taxTypeId], onDelete: Restrict)
+  country       Country?              @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  region        Region?               @relation(fields: [regionId], references: [regionId], onDelete: Restrict)
+  currency      Currency?             @relation("TaxCurrency", fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  contractTaxes PropertyContractTax[]
+
+  @@index([tenantId, companyId], map: "Tax_TenantID_CompanyID_idx")
+  @@index([taxTypeId], map: "Tax_TaxTypeID_idx")
+  @@index([countryId], map: "Tax_CountryID_idx")
+  @@index([regionId], map: "Tax_RegionID_idx")
+  @@index([currencyId], map: "Tax_CurrencyID_idx")
+  @@map("Tax")
+}
+
+/// Contract-level assignment of a Tax — the actual rate/amount and behavior applied on this contract.
+model PropertyContractTax {
+  propertyContractTaxId BigInt    @id @default(autoincrement()) @map("PropertyContractTaxID")
+  tenantId               Int       @map("TenantID")
+  companyId              Int       @map("CompanyID")
+  propertyContractId     BigInt    @map("PropertyContractID")
+  taxId                  BigInt    @map("TaxID")
+  /// Contract-facing display name; defaults to the Tax master's name but can be overridden.
+  taxName                String    @map("TaxName") @db.VarChar(200)
+  /// PERCENTAGE | FIXED
+  calculationType        String    @map("CalculationType") @db.VarChar(30)
+  taxRate                Decimal?  @map("TaxRate") @db.Decimal(18, 4)
+  taxAmount              Decimal?  @map("TaxAmount") @db.Decimal(18, 4)
+  currencyId             Int?      @map("CurrencyID")
+  /// ROOM_RATE | ROOM_NIGHT | PERSON | PERSON_NIGHT | MEAL | SUPPLEMENT | TOTAL
+  applicationBasis       String    @map("ApplicationBasis") @db.VarChar(50)
+  isInclusive            Boolean   @default(false) @map("IsInclusive")
+  isCompound             Boolean   @default(false) @map("IsCompound")
+  sequenceNo             Int       @default(0) @map("SequenceNo")
+  fromDate               DateTime  @map("FromDate") @db.Date
+  toDate                 DateTime? @map("ToDate") @db.Date
+  isActive               Boolean   @default(true) @map("IsActive")
+  remarks                String?   @map("Remarks") @db.VarChar(500)
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("ModifiedBy")
+  modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  tax              Tax              @relation(fields: [taxId], references: [taxId], onDelete: Restrict)
+  currency         Currency?        @relation("PropertyContractTaxCurrency", fields: [currencyId], references: [currencyId], onDelete: Restrict)
+
+  @@index([tenantId, companyId], map: "PropertyContractTax_TenantID_CompanyID_idx")
+  @@index([propertyContractId], map: "PropertyContractTax_PropertyContractID_idx")
+  @@index([taxId], map: "PropertyContractTax_TaxID_idx")
+  @@index([currencyId], map: "PropertyContractTax_CurrencyID_idx")
+  @@map("PropertyContractTax")
 }
 
 /// Promotion type master — Early Bird, Last Minute, Long Stay, … Tenant + Company scoped.

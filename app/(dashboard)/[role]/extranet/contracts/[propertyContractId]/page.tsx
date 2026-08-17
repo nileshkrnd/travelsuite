@@ -16,6 +16,8 @@ import {
   Ban,
   CalendarOff,
   CircleOff,
+  Globe,
+  Landmark,
   Megaphone,
   Pencil,
   Power,
@@ -32,6 +34,8 @@ import { ContractInventoryPanel } from "@/components/masters/ContractInventoryPa
 import { ContractSupplementsPanel } from "@/components/masters/ContractSupplementsPanel";
 import { ContractChildPoliciesPanel } from "@/components/masters/ContractChildPoliciesPanel";
 import { ContractCancellationPoliciesPanel } from "@/components/masters/ContractCancellationPoliciesPanel";
+import { ContractMarketRulesPanel } from "@/components/masters/ContractMarketRulesPanel";
+import { ContractTaxesPanel } from "@/components/masters/ContractTaxesPanel";
 import { ContractPromotionsPanel } from "@/components/masters/ContractPromotionsPanel";
 import { ContractStopSalesPanel } from "@/components/masters/ContractStopSalesPanel";
 import { ContractBlackoutsPanel } from "@/components/masters/ContractBlackoutsPanel";
@@ -88,7 +92,11 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
                 ? "child-policies"
                 : tabParam === "cancellation-policies"
                   ? "cancellation-policies"
-                  : tabParam === "promotions"
+                  : tabParam === "market-rules"
+                    ? "market-rules"
+                    : tabParam === "taxes"
+                      ? "taxes"
+                      : tabParam === "promotions"
                     ? "promotions"
                     : tabParam === "stop-sales"
                       ? "stop-sales"
@@ -172,7 +180,7 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
     <div className="space-y-6 p-6">
       <PageHeader
         title={entry.contractName}
-        description="Property contract details, season periods, rate plans, rates, inventory, supplements, child policies, cancellation policies, promotions, stop sales, and blackouts."
+        description="Property contract details, season periods, rate plans, rates, inventory, supplements, child policies, cancellation policies, market rules, taxes, promotions, stop sales, and blackouts."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" nativeButton={false} render={<Link href={`/${role}/extranet/contracts`} />}>
@@ -245,6 +253,14 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
             <TabsTrigger value="cancellation-policies" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
               <Ban className="h-4 w-4" />
               Cancellation
+            </TabsTrigger>
+            <TabsTrigger value="market-rules" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Globe className="h-4 w-4" />
+              Market Rules
+            </TabsTrigger>
+            <TabsTrigger value="taxes" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Landmark className="h-4 w-4" />
+              Taxes
             </TabsTrigger>
             <TabsTrigger value="promotions" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
               <Megaphone className="h-4 w-4" />
@@ -372,6 +388,24 @@ function PropertyContractView({ roleDef }: { roleDef: RoleDef }) {
         <TabsContent value="cancellation-policies" className="mt-4">
           <ContractCancellationPoliciesPanel
             key={`cancel-${excelEpoch}`}
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="market-rules" className="mt-4">
+          <ContractMarketRulesPanel
+            key={`market-${excelEpoch}`}
+            contract={entry}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canDelete={canDelete}
+          />
+        </TabsContent>
+        <TabsContent value="taxes" className="mt-4">
+          <ContractTaxesPanel
+            key={`tax-${excelEpoch}`}
             contract={entry}
             canEdit={canEdit}
             canCreate={canCreate}

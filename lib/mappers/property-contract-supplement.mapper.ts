@@ -62,6 +62,7 @@ export type PropertyContractSupplementRow = {
     rateBasisCode?: string;
     rateBasisName?: string;
     amount: number;
+    isPercentOfAdultRate: boolean;
     isFree: boolean;
     isActive: boolean;
   }[];
@@ -137,6 +138,7 @@ export function toAppPropertyContractSupplement(row: PropertyContractSupplementR
         rateBasisCode: a.rateBasisCode,
         rateBasisName: a.rateBasisName,
         amount: a.amount,
+        isPercentOfAdultRate: a.isPercentOfAdultRate,
         isFree: a.isFree,
         isActive: a.isActive,
       })

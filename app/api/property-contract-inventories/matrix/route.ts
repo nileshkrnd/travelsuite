@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { dbUnavailable } from "@/lib/api/db-error";
 import {
@@ -74,6 +75,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("BAD_REQUEST:")) {
       return NextResponse.json({ error: error.message.replace("BAD_REQUEST:", "") }, { status: 400 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Inventory already exists for this room type in this season period" },
+        { status: 409 }
+      );
     }
     return dbUnavailable(error);
   }

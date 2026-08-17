@@ -25,6 +25,15 @@ const saveSchema = z.object({
         dailyInventoryQty: z.number().int().min(0).nullable().optional(),
         minLengthOfStay: z.number().int().positive().nullable().optional(),
         maxLengthOfStay: z.number().int().positive().nullable().optional(),
+        occupancyRateOverrides: z
+          .array(
+            z.object({
+              propertyContractRatePlanId: z.number().int().positive(),
+              occupancyTypeId: z.number().int().positive(),
+              rateAmount: z.number().min(0).nullable(),
+            })
+          )
+          .optional(),
       })
     )
     .min(1, "No updates provided"),

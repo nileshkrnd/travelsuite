@@ -20,6 +20,7 @@ export const propertyContractCancellationPolicyWriteSchema = z.object({
   policyName: z.string().trim().min(1).max(150),
   propertyRoomId: z.number().int().positive().nullable().optional(),
   propertyContractRatePlanId: z.number().int().positive().nullable().optional(),
+  propertySeasonId: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
   rules: z.array(ruleSchema).optional(),
 });
@@ -32,6 +33,7 @@ export const propertyContractCancellationPolicyInclude = {
   propertyContract: { select: { contractNumber: true, contractName: true, propertyId: true } },
   propertyRoom: { select: { roomCode: true, roomName: true, propertyId: true } },
   ratePlan: { select: { ratePlanCode: true, ratePlanName: true } },
+  propertySeason: { select: { seasonCode: true, seasonName: true, propertyId: true } },
   rules: {
     orderBy: [{ fromDaysBefore: "desc" as const }],
     include: {
@@ -40,13 +42,14 @@ export const propertyContractCancellationPolicyInclude = {
       },
     },
   },
-} as const;
+};
 
 type CancellationPolicyRow = {
   propertyContractCancellationPolicyId: bigint;
   propertyContractId: bigint;
   propertyRoomId: bigint | null;
   propertyContractRatePlanId: bigint | null;
+  propertySeasonId: bigint | null;
   rules?: {
     propertyContractCancellationPolicyRuleId: bigint;
     fromDaysBefore: number;
@@ -58,6 +61,7 @@ type CancellationPolicyRow = {
   }[];
   propertyRoom?: { roomCode: string; roomName: string } | null;
   ratePlan?: { ratePlanCode: string; ratePlanName: string } | null;
+  propertySeason?: { seasonCode: string; seasonName: string } | null;
   propertyContract?: { contractNumber: string; contractName: string } | null;
   [key: string]: unknown;
 };
@@ -72,6 +76,7 @@ export function serializePropertyContractCancellationPolicyRow(row: Cancellation
     propertyContractId,
     propertyRoomId,
     propertyContractRatePlanId,
+    propertySeasonId,
     rules,
     ...rest
   } = row;
@@ -83,12 +88,15 @@ export function serializePropertyContractCancellationPolicyRow(row: Cancellation
     propertyRoomId: propertyRoomId != null ? Number(propertyRoomId) : null,
     propertyContractRatePlanId:
       propertyContractRatePlanId != null ? Number(propertyContractRatePlanId) : null,
+    propertySeasonId: propertySeasonId != null ? Number(propertySeasonId) : null,
     contractNumber: row.propertyContract?.contractNumber,
     contractName: row.propertyContract?.contractName,
     roomCode: row.propertyRoom?.roomCode,
     roomName: row.propertyRoom?.roomName,
     ratePlanCode: row.ratePlan?.ratePlanCode,
     ratePlanName: row.ratePlan?.ratePlanName,
+    seasonCode: row.propertySeason?.seasonCode,
+    seasonName: row.propertySeason?.seasonName,
     rules: (rules ?? []).map((r) => ({
       propertyContractCancellationPolicyRuleId: Number(r.propertyContractCancellationPolicyRuleId),
       fromDaysBefore: r.fromDaysBefore,
@@ -141,6 +149,19 @@ export async function validatePropertyContractCancellationPolicyLookups(
     }
   }
 
+  if (data.propertySeasonId != null && data.propertySeasonId > 0) {
+    const propertySeason = await prisma.propertySeason.findUnique({
+      where: { propertySeasonId: BigInt(data.propertySeasonId) },
+    });
+    if (
+      !propertySeason ||
+      propertySeason.tenantId !== data.tenantId ||
+      propertySeason.propertyId !== contract.propertyId
+    ) {
+      return NextResponse.json({ error: "Season not found for this property" }, { status: 400 });
+    }
+  }
+
   for (const rule of data.rules ?? []) {
     const policyType = await prisma.cancellationPolicyType.findUnique({
       where: { cancellationPolicyTypeId: BigInt(rule.cancellationPolicyTypeId) },
@@ -190,6 +211,8 @@ function policyScalars(data: PropertyContractCancellationPolicyWriteData) {
       data.propertyContractRatePlanId != null && data.propertyContractRatePlanId > 0
         ? BigInt(data.propertyContractRatePlanId)
         : null,
+    propertySeasonId:
+      data.propertySeasonId != null && data.propertySeasonId > 0 ? BigInt(data.propertySeasonId) : null,
   };
 }
 

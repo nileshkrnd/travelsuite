@@ -11,14 +11,20 @@ const periodSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const ageSchema = z.object({
-  fromAge: z.number().min(0),
-  toAge: z.number().min(0),
-  rateBasisId: z.number().int().positive(),
-  amount: z.number().min(0),
-  isFree: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-});
+const ageSchema = z
+  .object({
+    fromAge: z.number().min(0),
+    toAge: z.number().min(0),
+    rateBasisId: z.number().int().positive(),
+    amount: z.number().min(0),
+    isPercentOfAdultRate: z.boolean().optional(),
+    isFree: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => !v.isPercentOfAdultRate || v.amount <= 100, {
+    message: "Percentage of adult rate cannot exceed 100",
+    path: ["amount"],
+  });
 
 const ratePlanSchema = z.object({
   propertyContractRatePlanId: z.number().int().positive(),
@@ -64,7 +70,7 @@ export const propertyContractSupplementInclude = {
     },
   },
   supplementDays: { select: { dayOfWeekId: true, isActive: true } },
-} as const;
+};
 
 type SupplementRow = {
   propertyContractSupplementId: bigint;
@@ -86,6 +92,7 @@ type SupplementRow = {
     toAge: Prisma.Decimal;
     rateBasisId: bigint;
     amount: Prisma.Decimal;
+    isPercentOfAdultRate: boolean;
     isFree: boolean;
     isActive: boolean;
     rateBasis?: { rateBasisCode: string; rateBasisName: string } | null;
@@ -158,6 +165,7 @@ export function serializePropertyContractSupplementRow(row: SupplementRow) {
       rateBasisCode: a.rateBasis?.rateBasisCode,
       rateBasisName: a.rateBasis?.rateBasisName,
       amount: decimalNumber(a.amount),
+      isPercentOfAdultRate: a.isPercentOfAdultRate,
       isFree: a.isFree,
       isActive: a.isActive,
     })),
@@ -313,6 +321,7 @@ async function replaceSupplementChildren(
         toAge: a.toAge,
         rateBasisId: BigInt(a.rateBasisId),
         amount: a.amount,
+        isPercentOfAdultRate: a.isPercentOfAdultRate ?? false,
         isFree: a.isFree ?? false,
         isActive: a.isActive ?? true,
         createdBy: actorKey,

@@ -17,6 +17,7 @@ export type ModuleKey =
   | "ratePlanType"
   | "mealPlan"
   | "rateBasis"
+  | "tax"
   | "adminMasters"
   | "department"
   | "designation"
@@ -193,6 +194,8 @@ export type ModuleKey =
   | "supplement"
   | "childPolicies"
   | "cancellationPolicies"
+  | "marketRules"
+  | "contractTaxes"
   | "extranetAvailability"
   | "promotions"
   | "stopSales"
@@ -801,6 +804,12 @@ export const MENU_ITEMS: MenuItem[] = [
             icon: "Scale",
             path: "masters/rate-basis",
           },
+          {
+            key: "tax",
+            labelKey: "sidebar.tax",
+            icon: "Landmark",
+            path: "masters/tax",
+          },
         ],
       },
     ],
@@ -1060,6 +1069,8 @@ export const MENU_ITEMS: MenuItem[] = [
       { key: "supplement", labelKey: "sidebar.supplement", icon: "PlusCircle", path: "extranet/supplement" },
       { key: "childPolicies", labelKey: "sidebar.childPolicies", icon: "Baby", path: "extranet/child-policies" },
       { key: "cancellationPolicies", labelKey: "sidebar.cancellationPolicies", icon: "Undo2", path: "extranet/cancellation-policies" },
+      { key: "marketRules", labelKey: "sidebar.marketRules", icon: "Globe", path: "extranet/market-rules" },
+      { key: "contractTaxes", labelKey: "sidebar.contractTaxes", icon: "Landmark", path: "extranet/taxes" },
       { key: "promotions", labelKey: "sidebar.promotions", icon: "Megaphone", path: "extranet/promotions" },
       { key: "stopSales", labelKey: "sidebar.stopSales", icon: "Ban", path: "extranet/stop-sales" },
       { key: "blackoutDates", labelKey: "sidebar.blackoutDates", icon: "CalendarOff", path: "extranet/blackout-dates" },

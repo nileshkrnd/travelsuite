@@ -27,6 +27,7 @@ export type PropertyContractCancellationPolicyRow = {
   policyName: string;
   propertyRoomId: number | null;
   propertyContractRatePlanId: number | null;
+  propertySeasonId: number | null;
   isActive: boolean;
   createdBy: number;
   createdDtTm: string;
@@ -38,6 +39,8 @@ export type PropertyContractCancellationPolicyRow = {
   roomName?: string;
   ratePlanCode?: string;
   ratePlanName?: string;
+  seasonCode?: string;
+  seasonName?: string;
   rules?: {
     propertyContractCancellationPolicyRuleId: number;
     fromDaysBefore: number;
@@ -86,6 +89,9 @@ export function toAppPropertyContractCancellationPolicy(
     propertyContractRatePlanId: row.propertyContractRatePlanId,
     ratePlanCode: row.ratePlanCode,
     ratePlanName: row.ratePlanName,
+    propertySeasonId: row.propertySeasonId,
+    seasonCode: row.seasonCode,
+    seasonName: row.seasonName,
     isActive: row.isActive,
     rules: (row.rules ?? []).map(
       (r): PropertyContractCancellationPolicyRule => ({

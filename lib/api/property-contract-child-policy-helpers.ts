@@ -35,7 +35,7 @@ export const propertyContractChildPolicyInclude = {
       policyType: { select: { childPolicyTypeCode: true, childPolicyTypeName: true } },
     },
   },
-} as const;
+};
 
 type ChildPolicyRow = {
   propertyContractChildPolicyId: bigint;

@@ -4,11 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Tags, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Section } from "@/components/masters/PropertyFormSection";
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
@@ -63,7 +61,7 @@ function rowError(row: RatePlanRow): string | null {
   return null;
 }
 
-/** Add multiple contract rate plans in one go — a row per plan, saved together. */
+/** Add multiple contract rate plans in one go — spreadsheet-style rows, saved together. */
 export function PropertyContractRatePlanBatchAddForm({ contract }: { contract: PropertyContract }) {
   const { role } = useParams<{ role: string }>();
   const router = useRouter();
@@ -174,154 +172,146 @@ export function PropertyContractRatePlanBatchAddForm({ contract }: { contract: P
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading form…</p>;
+    return (
+      <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading…
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <Section
-        icon={Tags}
-        title="Contract rate plans"
-        description={`Add one or more rate plans for ${contract.contractName} on ${contract.propertyName ?? "this property"}.`}
-      >
-        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-          <p className="font-medium text-foreground">{contract.contractName}</p>
-          <p className="text-muted-foreground">
-            {contract.contractNumber}
-            {contract.propertyName ? ` · ${contract.propertyName}` : ""}
-          </p>
-        </div>
+    <div className="max-w-full space-y-6">
+      <div className="space-y-1 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contract</p>
+        <p className="text-base font-semibold text-foreground">{contract.contractName}</p>
+        <p className="text-muted-foreground">
+          {contract.contractNumber}
+          {contract.propertyName ? ` · ${contract.propertyName}` : ""}
+        </p>
+      </div>
 
-        {!lookupsReady ? (
-          <p className="text-sm text-muted-foreground">
-            Rate plan type, meal plan, and rate basis masters are required — configure them under Masters first.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {rows.map((row, index) => {
-              const error = rowError(row);
-              return (
-                <div key={row.tempId} className="rounded-lg border border-border p-4">
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground">Rate plan {index + 1}</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => removeRow(row.tempId)}
-                      disabled={rows.length === 1}
-                      aria-label="Remove row"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label required>Rate plan code</Label>
-                        <Input
-                          placeholder="FIT-BB"
-                          value={row.ratePlanCode}
-                          onChange={(e) => updateRow(row.tempId, { ratePlanCode: e.target.value })}
-                          aria-invalid={!!error}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label required>Rate plan name</Label>
-                        <Input
-                          placeholder="FIT Bed & Breakfast"
-                          value={row.ratePlanName}
-                          onChange={(e) => updateRow(row.tempId, { ratePlanName: e.target.value })}
-                          aria-invalid={!!error}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label required>Rate plan type</Label>
-                        <SearchableCombobox
-                          value={row.ratePlanTypeId > 0 ? row.ratePlanTypeId : null}
-                          onChange={(v) => updateRow(row.tempId, { ratePlanTypeId: v ?? 0 })}
-                          options={ratePlanTypes.map((t) => ({
-                            value: t.ratePlanTypeId,
-                            label: t.ratePlanTypeName,
-                            sublabel: t.ratePlanTypeCode,
-                          }))}
-                          placeholder="Search rate plan type…"
-                          emptyLabel="No types found."
-                          ariaInvalid={!!error}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label required>Meal plan</Label>
-                        <SearchableCombobox
-                          value={row.mealPlanId > 0 ? row.mealPlanId : null}
-                          onChange={(v) => updateRow(row.tempId, { mealPlanId: v ?? 0 })}
-                          options={mealPlans.map((m) => ({
-                            value: m.mealPlanId,
-                            label: m.mealPlanName,
-                            sublabel: m.mealPlanCode,
-                          }))}
-                          placeholder="Search meal plan…"
-                          emptyLabel="No meal plans found."
-                          ariaInvalid={!!error}
-                        />
-                      </div>
-                      <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                        <Label required>Rate basis</Label>
-                        <SearchableCombobox
-                          value={row.rateBasisId > 0 ? row.rateBasisId : null}
-                          onChange={(v) => updateRow(row.tempId, { rateBasisId: v ?? 0 })}
-                          options={rateBasisList.map((b) => ({
-                            value: b.rateBasisId,
-                            label: b.rateBasisName,
-                            sublabel: b.rateBasisCode,
-                          }))}
-                          placeholder="Search rate basis…"
-                          emptyLabel="No rate basis found."
-                          ariaInvalid={!!error}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:max-w-[180px]">
-                      <div className="space-y-2">
-                        <Label>Display order</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={row.displayOrder}
-                          onChange={(e) =>
-                            updateRow(row.tempId, { displayOrder: Number(e.target.value) || 0 })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-                </div>
-              );
-            })}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRows((prev) => [...prev, emptyRow()])}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add another row
-            </Button>
+      {!lookupsReady ? (
+        <p className="text-sm text-muted-foreground">
+          Rate plan type, meal plan, and rate basis masters are required — configure them under Masters first.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-nowrap items-center gap-2 px-1 text-[10px] font-medium uppercase text-muted-foreground">
+            <span className="w-28 shrink-0">Code *</span>
+            <span className="min-w-0 flex-1">Name *</span>
+            <span className="w-40 shrink-0">Type *</span>
+            <span className="w-40 shrink-0">Meal plan *</span>
+            <span className="w-40 shrink-0">Rate basis *</span>
+            <span className="w-16 shrink-0">Order</span>
+            <span className="w-8 shrink-0" />
           </div>
-        )}
+          {rows.map((row) => {
+            const error = rowError(row);
+            return (
+              <div key={row.tempId} className="rounded-lg border border-border bg-muted/20 p-2">
+                <div className="flex flex-nowrap items-center gap-2">
+                  <div className="w-28 shrink-0">
+                    <Input
+                      className="h-9 w-full min-w-0"
+                      placeholder="FIT-BB"
+                      value={row.ratePlanCode}
+                      onChange={(e) => updateRow(row.tempId, { ratePlanCode: e.target.value })}
+                      aria-invalid={!!error}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      className="h-9 w-full min-w-0"
+                      placeholder="FIT Bed & Breakfast"
+                      value={row.ratePlanName}
+                      onChange={(e) => updateRow(row.tempId, { ratePlanName: e.target.value })}
+                      aria-invalid={!!error}
+                    />
+                  </div>
+                  <div className="w-40 shrink-0">
+                    <SearchableCombobox
+                      value={row.ratePlanTypeId > 0 ? row.ratePlanTypeId : null}
+                      onChange={(v) => updateRow(row.tempId, { ratePlanTypeId: v ?? 0 })}
+                      options={ratePlanTypes.map((t) => ({
+                        value: t.ratePlanTypeId,
+                        label: t.ratePlanTypeName,
+                        sublabel: t.ratePlanTypeCode,
+                      }))}
+                      placeholder="Type…"
+                      emptyLabel="No types found."
+                      ariaInvalid={!!error}
+                    />
+                  </div>
+                  <div className="w-40 shrink-0">
+                    <SearchableCombobox
+                      value={row.mealPlanId > 0 ? row.mealPlanId : null}
+                      onChange={(v) => updateRow(row.tempId, { mealPlanId: v ?? 0 })}
+                      options={mealPlans.map((m) => ({
+                        value: m.mealPlanId,
+                        label: m.mealPlanName,
+                        sublabel: m.mealPlanCode,
+                      }))}
+                      placeholder="Meal plan…"
+                      emptyLabel="No meal plans found."
+                      ariaInvalid={!!error}
+                    />
+                  </div>
+                  <div className="w-40 shrink-0">
+                    <SearchableCombobox
+                      value={row.rateBasisId > 0 ? row.rateBasisId : null}
+                      onChange={(v) => updateRow(row.tempId, { rateBasisId: v ?? 0 })}
+                      options={rateBasisList.map((b) => ({
+                        value: b.rateBasisId,
+                        label: b.rateBasisName,
+                        sublabel: b.rateBasisCode,
+                      }))}
+                      placeholder="Rate basis…"
+                      emptyLabel="No rate basis found."
+                      ariaInvalid={!!error}
+                    />
+                  </div>
+                  <div className="w-16 shrink-0">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-9 w-full min-w-0 px-2"
+                      value={row.displayOrder}
+                      onChange={(e) => updateRow(row.tempId, { displayOrder: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="w-8 shrink-0"
+                    onClick={() => removeRow(row.tempId)}
+                    disabled={rows.length === 1}
+                    aria-label="Remove row"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+              </div>
+            );
+          })}
 
-        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-      </Section>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setRows((prev) => [...prev, emptyRow()])}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add another row
+          </Button>
+        </div>
+      )}
 
-      <div className="flex items-center gap-2">
+      {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+
+      <div className="flex flex-wrap items-center gap-2 border-t pt-4">
         <Button type="button" disabled={submitting || !lookupsReady} onClick={() => void handleSubmit()}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save {rows.length > 1 ? `${rows.length} rate plans` : "rate plan"}

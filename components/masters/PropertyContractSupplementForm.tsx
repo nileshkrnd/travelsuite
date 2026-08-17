@@ -39,7 +39,6 @@ import { listPropertyRooms } from "@/lib/services/property-rooms.service";
 import { listRateBasis } from "@/lib/services/rate-basis.service";
 import { listDayOfWeeks } from "@/lib/services/day-of-weeks.service";
 import { listPropertyContractRatePlans } from "@/lib/services/property-contract-rate-plans.service";
-import { listPropertyContractRates } from "@/lib/services/property-contract-rates.service";
 import {
   createPropertyContractSupplement,
   updatePropertyContractSupplement,
@@ -50,7 +49,6 @@ import {
 import type {
   DayOfWeek,
   PropertyContract,
-  PropertyContractRate,
   PropertyContractRatePlan,
   PropertyContractSupplement,
   PropertyRoom,
@@ -66,14 +64,20 @@ const periodSchema = z.object({
   isActive: z.boolean(),
 });
 
-const ageSchema = z.object({
-  fromAge: z.number().min(0),
-  toAge: z.number().min(0),
-  rateBasisId: z.number().int().positive(),
-  amount: z.number().min(0),
-  isFree: z.boolean(),
-  isActive: z.boolean(),
-});
+const ageSchema = z
+  .object({
+    fromAge: z.number().min(0),
+    toAge: z.number().min(0),
+    rateBasisId: z.number().int().positive(),
+    amount: z.number().min(0),
+    isPercentOfAdultRate: z.boolean(),
+    isFree: z.boolean(),
+    isActive: z.boolean(),
+  })
+  .refine((v) => !v.isPercentOfAdultRate || v.amount <= 100, {
+    message: "Percentage of adult rate cannot exceed 100",
+    path: ["amount"],
+  });
 
 const ratePlanSchema = z.object({
   propertyContractRatePlanId: z.number().int().positive(),
@@ -165,6 +169,7 @@ function valuesFromEntry(entry: PropertyContractSupplement): FormValues {
       toAge: a.toAge,
       rateBasisId: a.rateBasisId,
       amount: a.amount,
+      isPercentOfAdultRate: a.isPercentOfAdultRate,
       isFree: a.isFree,
       isActive: a.isActive,
     })),
@@ -304,7 +309,6 @@ export function PropertyContractSupplementForm({
   const [rateBasisRows, setRateBasisRows] = useState<RateBasis[]>([]);
   const [daysOfWeek, setDaysOfWeek] = useState<DayOfWeek[]>([]);
   const [contractRatePlans, setContractRatePlans] = useState<PropertyContractRatePlan[]>([]);
-  const [contractRates, setContractRates] = useState<PropertyContractRate[]>([]);
   const [savingAndAddingAnother, setSavingAndAddingAnother] = useState(false);
   const [savedInSession, setSavedInSession] = useState<{ name: string; code: string }[]>([]);
 
@@ -357,19 +361,8 @@ export function PropertyContractSupplementForm({
     [contractRatePlans]
   );
 
-  const ratePlanIdsWithContractRate = useMemo(
-    () => new Set(contractRates.map((rate) => rate.propertyContractRatePlanId)),
-    [contractRates]
-  );
-
-  /** Meal extras apply only to rate plans that do not already have contracted room rates. */
-  const mealEligibleRatePlans = useMemo(
-    () =>
-      contractRatePlans.filter(
-        (plan) => !ratePlanIdsWithContractRate.has(plan.propertyContractRatePlanKey)
-      ),
-    [contractRatePlans, ratePlanIdsWithContractRate]
-  );
+  /** Meal extras apply to every rate plan on the contract. */
+  const mealEligibleRatePlans = contractRatePlans;
 
   const mealGroups = useMemo(() => {
     const map = new Map<
@@ -419,12 +412,11 @@ export function PropertyContractSupplementForm({
       }
     }
 
-    const [roomRows, basis, days, plans, rates] = await Promise.all([
+    const [roomRows, basis, days, plans] = await Promise.all([
       listPropertyRooms({ tenantId: tenantKey, propertyId: lockedContract.propertyId, activeOnly: true }),
       listRateBasis({ tenantId: tenantKey, companyId: companyKey, activeOnly: true }),
       listDayOfWeeks({ activeOnly: true }),
       listPropertyContractRatePlans({ propertyContractId: lockedContract.propertyContractKey, activeOnly: true }),
-      listPropertyContractRates({ propertyContractId: lockedContract.propertyContractKey, activeOnly: true }),
     ]);
 
     setRooms(roomRows);
@@ -432,7 +424,6 @@ export function PropertyContractSupplementForm({
     setRateBasisRows(basis);
     setDaysOfWeek(days);
     setContractRatePlans(plans);
-    setContractRates(rates);
   }
 
   useEffect(() => {
@@ -485,6 +476,7 @@ export function PropertyContractSupplementForm({
         toAge: 11,
         rateBasisId: rateBasisRows[0]?.rateBasisId ?? 0,
         amount: 0,
+        isPercentOfAdultRate: false,
         isFree: false,
         isActive: true,
       });
@@ -780,17 +772,12 @@ export function PropertyContractSupplementForm({
         <Section
           icon={Utensils}
           title="3. Extra per meal / rate plan"
-          description="Only rate plans without a contracted room rate are listed. Enter the extra added on top of the room-only rate."
+          description="Every rate plan on this contract is listed. Enter the extra added on top of the room-only rate."
         >
           {contractRatePlans.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Add rate plans on this contract first (Room Only, Breakfast, HB). Meal extras are linked to those
               rate plans.
-            </p>
-          ) : mealEligibleRatePlans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Every rate plan on this contract already has contracted room rates. Meal extras are not needed — use
-              contract rates for Breakfast, HB, etc.
             </p>
           ) : (
             <div className="space-y-5">
@@ -850,8 +837,8 @@ export function PropertyContractSupplementForm({
                 );
               })}
               <p className="text-xs text-muted-foreground">
-                Example: room-only contracted at 100. Breakfast extra 50 → guest pays 150. Plans that already have
-                full contract rates (e.g. HB at 200) are hidden here.
+                Example: room-only contracted at 100. Breakfast extra 50 → guest pays 150. Leave a plan at 0 if it
+                already has its own full contracted rate (e.g. HB).
               </p>
             </div>
           )}
@@ -948,10 +935,12 @@ export function PropertyContractSupplementForm({
                 {ageArray.fields.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Same price for all ages (uses amount above).</p>
                 ) : (
-                  ageArray.fields.map((field, index) => (
+                  ageArray.fields.map((field, index) => {
+                    const isPercent = watch(`ageBands.${index}.isPercentOfAdultRate`);
+                    return (
                     <div
                       key={field.id}
-                      className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-6"
+                      className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-7"
                     >
                       <div className="space-y-1">
                         <Label className="text-xs">From age</Label>
@@ -1000,13 +989,40 @@ export function PropertyContractSupplementForm({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Amount</Label>
+                        <Label className="text-xs">Pricing</Label>
+                        <Controller
+                          control={control}
+                          name={`ageBands.${index}.isPercentOfAdultRate`}
+                          render={({ field: f }) => (
+                            <Select
+                              value={f.value ? "percent" : "amount"}
+                              onValueChange={(v) => f.onChange(v === "percent")}
+                            >
+                              <SelectTrigger className="h-9 w-full">
+                                <SelectValue>
+                                  {(value: string | null) => (value === "percent" ? "% of Adult" : "Fixed amount")}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="amount">Fixed amount</SelectItem>
+                                <SelectItem value="percent">% of Adult Rate</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">{isPercent ? "% of Adult Rate" : "Amount"}</Label>
                         <Input
                           type="number"
                           min={0}
-                          step="0.01"
+                          max={isPercent ? 100 : undefined}
+                          step={isPercent ? "1" : "0.01"}
                           {...register(`ageBands.${index}.amount`, { valueAsNumber: true })}
                         />
+                        {errors.ageBands?.[index]?.amount && (
+                          <p className="text-xs text-destructive">{errors.ageBands[index]?.amount?.message}</p>
+                        )}
                       </div>
                       <div className="flex items-end gap-2 pb-2">
                         <label className="flex items-center gap-2 text-xs">
@@ -1021,7 +1037,8 @@ export function PropertyContractSupplementForm({
                         </Button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
                 <Button
                   type="button"
@@ -1033,6 +1050,7 @@ export function PropertyContractSupplementForm({
                       toAge: 12,
                       rateBasisId: rateBasisRows[0]?.rateBasisId ?? 0,
                       amount: 0,
+                      isPercentOfAdultRate: false,
                       isFree: false,
                       isActive: true,
                     })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -24,13 +24,14 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { listPropertyContractSeasonPeriods } from "@/lib/services/property-contract-season-periods.service";
+import { listPropertySeasons } from "@/lib/services/property-seasons.service";
 import {
   getPropertyContractInventoryMatrix,
   listInventoryTypes,
   savePropertyContractInventoryMatrix,
   PropertyContractInventoryApiError,
 } from "@/lib/services/property-contract-inventories.service";
-import type { PropertyContract, PropertyContractSeasonPeriod } from "@/types";
+import type { PropertyContract, PropertyContractSeasonPeriod, PropertySeason } from "@/types";
 
 type CellState = {
   allotment: string;
@@ -52,8 +53,8 @@ function formatPeriodDate(iso: string) {
   return `${day}-${month}-${year}`;
 }
 
-function seasonPeriodLabel(p: PropertyContractSeasonPeriod) {
-  return p.seasonName ?? p.seasonCode ?? "Season";
+function sanitizeIntegerInput(raw: string): string {
+  return raw.replace(/[^0-9]/g, "");
 }
 
 /** Matrix inventory entry — season, inventory type, room grid (allotment / release / flags). */
@@ -71,6 +72,7 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
 
   const returnHref = `/${role}/extranet/contracts/${contract.propertyContractKey}?tab=inventory`;
 
+  const [propertySeasons, setPropertySeasons] = useState<PropertySeason[]>([]);
   const [seasonPeriods, setSeasonPeriods] = useState<PropertyContractSeasonPeriod[]>([]);
   const [inventoryTypes, setInventoryTypes] = useState<
     { inventoryTypeId: number; inventoryTypeCode: string; inventoryTypeName: string }[]
@@ -79,7 +81,8 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
   const [loadingMatrix, setLoadingMatrix] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [seasonPeriodId, setSeasonPeriodId] = useState<number | null>(null);
+  const [seasonMasterId, setSeasonMasterId] = useState<number | null>(null);
+  const [selectedPeriodIds, setSelectedPeriodIds] = useState<number[]>([]);
   const [inventoryTypeId, setInventoryTypeId] = useState<number | null>(null);
   const [cells, setCells] = useState<Record<string, CellState>>({});
   const [rooms, setRooms] = useState<
@@ -91,7 +94,38 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     seasonName?: string;
   } | null>(null);
 
-  const selectedSeason = seasonPeriods.find((p) => p.propertyContractSeasonPeriodKey === seasonPeriodId);
+  const periodsForSeason = useMemo(
+    () => seasonPeriods.filter((p) => p.propertySeasonId === seasonMasterId),
+    [seasonPeriods, seasonMasterId]
+  );
+  const selectedPeriods = useMemo(
+    () => periodsForSeason.filter((p) => selectedPeriodIds.includes(p.propertyContractSeasonPeriodKey)),
+    [periodsForSeason, selectedPeriodIds]
+  );
+  const structuralPeriodId = selectedPeriodIds[0] ?? null;
+  const isSinglePeriod = selectedPeriodIds.length === 1;
+  const allPeriodsSelected =
+    periodsForSeason.length > 0 && selectedPeriodIds.length === periodsForSeason.length;
+
+  function selectSeasonMaster(id: number | null) {
+    setSeasonMasterId(id);
+    const periods = seasonPeriods.filter((p) => p.propertySeasonId === id);
+    setSelectedPeriodIds(periods.map((p) => p.propertyContractSeasonPeriodKey));
+  }
+
+  function togglePeriod(periodId: number, checked: boolean) {
+    setSelectedPeriodIds((prev) => {
+      const set = new Set(prev);
+      if (checked) set.add(periodId);
+      else set.delete(periodId);
+      return [...set];
+    });
+  }
+
+  function toggleAllPeriods(checked: boolean) {
+    setSelectedPeriodIds(checked ? periodsForSeason.map((p) => p.propertyContractSeasonPeriodKey) : []);
+  }
+
   const selectedInventoryType = inventoryTypes.find((t) => t.inventoryTypeId === inventoryTypeId);
   const isAllotment = selectedInventoryType?.inventoryTypeCode === "ALLOTMENT";
 
@@ -100,11 +134,15 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     setLoadingLookups(true);
 
     Promise.all([
+      tenantKey > 0 && companyKey > 0
+        ? listPropertySeasons({ tenantId: tenantKey, companyId: companyKey, propertyId: contract.propertyId, activeOnly: true })
+        : Promise.resolve([] as PropertySeason[]),
       listPropertyContractSeasonPeriods({ propertyContractId: contract.propertyContractKey }),
       listInventoryTypes({ activeOnly: true }),
     ])
-      .then(([periods, types]) => {
+      .then(([seasons, periods, types]) => {
         if (cancelled) return;
+        setPropertySeasons(seasons);
         setSeasonPeriods(periods);
         setInventoryTypes(
           types.map((t) => ({
@@ -114,13 +152,22 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
           }))
         );
 
-        const nextSeasonId =
+        const deepLinkedPeriod =
           Number.isFinite(initialSeasonPeriodId) && initialSeasonPeriodId > 0
-            ? initialSeasonPeriodId
-            : periods.length === 1
-              ? periods[0]!.propertyContractSeasonPeriodKey
-              : null;
-        if (nextSeasonId) setSeasonPeriodId(nextSeasonId);
+            ? periods.find((p) => p.propertyContractSeasonPeriodKey === initialSeasonPeriodId)
+            : undefined;
+
+        if (deepLinkedPeriod) {
+          setSeasonMasterId(deepLinkedPeriod.propertySeasonId);
+          setSelectedPeriodIds([deepLinkedPeriod.propertyContractSeasonPeriodKey]);
+        } else if (seasons.length === 1) {
+          setSeasonMasterId(seasons[0]!.propertySeasonKey);
+          setSelectedPeriodIds(
+            periods
+              .filter((p) => p.propertySeasonId === seasons[0]!.propertySeasonKey)
+              .map((p) => p.propertyContractSeasonPeriodKey)
+          );
+        }
 
         const allotment = types.find((t) => t.inventoryTypeCode === "ALLOTMENT");
         const nextTypeId =
@@ -130,7 +177,7 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
         if (nextTypeId) setInventoryTypeId(nextTypeId);
       })
       .catch(() => {
-        if (!cancelled) toast.error("Could not load season periods or inventory types");
+        if (!cancelled) toast.error("Could not load seasons, season periods, or inventory types");
       })
       .finally(() => {
         if (!cancelled) setLoadingLookups(false);
@@ -139,10 +186,10 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     return () => {
       cancelled = true;
     };
-  }, [contract.propertyContractKey, initialSeasonPeriodId, initialInventoryTypeId]);
+  }, [tenantKey, companyKey, contract.propertyContractKey, contract.propertyId, initialSeasonPeriodId, initialInventoryTypeId]);
 
   const loadMatrix = useCallback(async () => {
-    if (!seasonPeriodId || !inventoryTypeId) {
+    if (!structuralPeriodId || !inventoryTypeId) {
       setMatrixMeta(null);
       setCells({});
       setRooms([]);
@@ -152,7 +199,7 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     try {
       const data = await getPropertyContractInventoryMatrix({
         propertyContractId: contract.propertyContractKey,
-        propertyContractSeasonPeriodId: seasonPeriodId,
+        propertyContractSeasonPeriodId: structuralPeriodId,
         inventoryTypeId,
       });
       setRooms(data.rooms);
@@ -162,17 +209,24 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
         seasonName: data.seasonName,
       });
 
-      const nextCells: Record<string, CellState> = {};
-      for (const cell of data.cells) {
-        nextCells[cellKey(cell.propertyRoomId)] = {
-          allotment: cell.allotmentQty != null ? String(cell.allotmentQty) : "",
-          release: cell.releaseDays != null ? String(cell.releaseDays) : "",
-          stopSell: cell.isStopSell,
-          closed: cell.isClosed,
-          inventoryId: cell.propertyContractInventoryId,
-        };
+      if (!isSinglePeriod) {
+        // Only prefill from existing data when exactly one period is targeted — its
+        // propertyContractInventoryId values belong to that period and must not be
+        // reused when saving multiple periods (would relocate this period's rows).
+        setCells({});
+      } else {
+        const nextCells: Record<string, CellState> = {};
+        for (const cell of data.cells) {
+          nextCells[cellKey(cell.propertyRoomId)] = {
+            allotment: cell.allotmentQty != null ? String(cell.allotmentQty) : "",
+            release: cell.releaseDays != null ? String(cell.releaseDays) : "",
+            stopSell: cell.isStopSell,
+            closed: cell.isClosed,
+            inventoryId: cell.propertyContractInventoryId,
+          };
+        }
+        setCells(nextCells);
       }
-      setCells(nextCells);
     } catch (err) {
       toast.error(
         err instanceof PropertyContractInventoryApiError ? err.message : "Failed to load inventory matrix"
@@ -181,7 +235,7 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     } finally {
       setLoadingMatrix(false);
     }
-  }, [seasonPeriodId, inventoryTypeId, contract.propertyContractKey]);
+  }, [structuralPeriodId, isSinglePeriod, inventoryTypeId, contract.propertyContractKey]);
 
   useEffect(() => {
     void loadMatrix();
@@ -189,22 +243,22 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
 
   function updateCell(roomId: number, patch: Partial<CellState>) {
     const key = cellKey(roomId);
-    setCells((prev) => ({
-      ...prev,
-      [key]: {
-        allotment: "",
-        release: "",
-        stopSell: false,
-        closed: false,
-        ...prev[key],
-        ...patch,
-      },
-    }));
+    const sanitizedPatch: Partial<CellState> = { ...patch };
+    if (sanitizedPatch.allotment !== undefined) {
+      sanitizedPatch.allotment = sanitizeIntegerInput(sanitizedPatch.allotment);
+    }
+    if (sanitizedPatch.release !== undefined) {
+      sanitizedPatch.release = sanitizeIntegerInput(sanitizedPatch.release);
+    }
+    setCells((prev) => {
+      const base: CellState = prev[key] ?? { allotment: "", release: "", stopSell: false, closed: false };
+      return { ...prev, [key]: { ...base, ...sanitizedPatch } };
+    });
   }
 
   async function handleSubmit() {
-    if (!seasonPeriodId || !inventoryTypeId) {
-      toast.error("Select season period and inventory type.");
+    if (selectedPeriodIds.length === 0 || !inventoryTypeId) {
+      toast.error("Select a season, at least one period, and inventory type.");
       return;
     }
     if (rooms.length === 0) {
@@ -247,6 +301,14 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
       return;
     }
 
+    const hasNegative = payloadCells.some(
+      (c) => (c.allotmentQty != null && c.allotmentQty < 0) || (c.releaseDays != null && c.releaseDays < 0)
+    );
+    if (hasNegative) {
+      toast.error("Allotment and release days cannot be negative.");
+      return;
+    }
+
     if (isAllotment) {
       const rowsWithData = payloadCells.filter(
         (c) =>
@@ -262,24 +324,103 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     }
 
     setSubmitting(true);
-    try {
-      const result = await savePropertyContractInventoryMatrix({
-        tenantId: tenantKey,
-        companyId: companyKey,
-        propertyContractId: contract.propertyContractKey,
-        propertyContractSeasonPeriodId: seasonPeriodId,
-        inventoryTypeId,
-        createdBy: actorKey,
-        cells: payloadCells,
-      });
-      toast.success(`${result.saved} inventory row${result.saved === 1 ? "" : "s"} saved`);
-      router.push(returnHref);
-    } catch (err) {
-      toast.error(
-        err instanceof PropertyContractInventoryApiError ? err.message : "Could not save inventory"
+
+    // Strong duplicate guard: a room can only have one inventory row per season
+    // period (the DB's unique key doesn't even scope by inventory type). When
+    // multiple periods are targeted, none of them were prefilled from existing
+    // data (to avoid the propertyContractInventoryId cross-period reuse bug), so
+    // a room the user is entering here could silently collide with a row that
+    // already exists for that room on one of the other selected periods. Check
+    // every selected period's live data before attempting any save, and block
+    // the whole submission if a collision is found.
+    if (selectedPeriodIds.length > 1) {
+      const enteredRoomIds = new Set(
+        payloadCells
+          .filter(
+            (c) =>
+              (c.allotmentQty != null && c.allotmentQty > 0) ||
+              (c.releaseDays != null && c.releaseDays > 0) ||
+              c.isStopSell ||
+              c.isClosed
+          )
+          .map((c) => c.propertyRoomId)
       );
-    } finally {
-      setSubmitting(false);
+      const conflicts: string[] = [];
+      for (const periodId of selectedPeriodIds) {
+        try {
+          const data = await getPropertyContractInventoryMatrix({
+            propertyContractId: contract.propertyContractKey,
+            propertyContractSeasonPeriodId: periodId,
+            inventoryTypeId,
+          });
+          const existingRoomIds = new Set(
+            data.cells
+              .filter(
+                (c) =>
+                  (c.allotmentQty != null && c.allotmentQty > 0) ||
+                  (c.releaseDays != null && c.releaseDays > 0) ||
+                  c.isStopSell ||
+                  c.isClosed
+              )
+              .map((c) => c.propertyRoomId)
+          );
+          const dupCount = [...enteredRoomIds].filter((id) => existingRoomIds.has(id)).length;
+          if (dupCount > 0) {
+            const period = seasonPeriods.find((p) => p.propertyContractSeasonPeriodKey === periodId);
+            const label = period
+              ? `${formatPeriodDate(period.fromDate)} – ${formatPeriodDate(period.toDate)}`
+              : `#${periodId}`;
+            conflicts.push(`${label} (${dupCount} room${dupCount === 1 ? "" : "s"} already set)`);
+          }
+        } catch {
+          // If the check itself fails, fall through — the save attempt below will
+          // still fail safely per period rather than silently double-writing.
+        }
+      }
+      if (conflicts.length > 0) {
+        setSubmitting(false);
+        toast.error(
+          `Duplicate inventory already exists for this season — edit these periods individually instead: ${conflicts.join(", ")}`
+        );
+        return;
+      }
+    }
+
+    let totalSaved = 0;
+    let totalRemoved = 0;
+    const failedPeriods: string[] = [];
+    for (const periodId of selectedPeriodIds) {
+      try {
+        const result = await savePropertyContractInventoryMatrix({
+          tenantId: tenantKey,
+          companyId: companyKey,
+          propertyContractId: contract.propertyContractKey,
+          propertyContractSeasonPeriodId: periodId,
+          inventoryTypeId,
+          createdBy: actorKey,
+          cells: payloadCells,
+        });
+        totalSaved += result.saved;
+        totalRemoved += result.removed;
+      } catch (err) {
+        const period = seasonPeriods.find((p) => p.propertyContractSeasonPeriodKey === periodId);
+        const label = period ? `${formatPeriodDate(period.fromDate)} – ${formatPeriodDate(period.toDate)}` : `#${periodId}`;
+        const message = err instanceof PropertyContractInventoryApiError ? err.message : "save failed";
+        failedPeriods.push(`${label} (${message})`);
+      }
+    }
+    setSubmitting(false);
+
+    const savedPeriodCount = selectedPeriodIds.length - failedPeriods.length;
+    if (savedPeriodCount > 0) {
+      const parts = [`${totalSaved} inventory row${totalSaved === 1 ? "" : "s"} saved`];
+      if (totalRemoved > 0) parts.push(`${totalRemoved} cleared`);
+      toast.success(`${parts.join(", ")} across ${savedPeriodCount} period${savedPeriodCount === 1 ? "" : "s"}`);
+    }
+    if (failedPeriods.length > 0) {
+      toast.error(`Could not save: ${failedPeriods.join(", ")}`);
+    } else {
+      router.push(returnHref);
     }
   }
 
@@ -287,7 +428,7 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
     return <p className="text-sm text-muted-foreground">Loading form…</p>;
   }
 
-  const showMatrix = seasonPeriodId && inventoryTypeId && matrixMeta && !loadingMatrix && rooms.length > 0;
+  const showMatrix = selectedPeriodIds.length > 0 && inventoryTypeId && matrixMeta && !loadingMatrix && rooms.length > 0;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -306,15 +447,15 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
           <div className="space-y-2">
             <Label required>Season</Label>
             <SearchableCombobox
-              value={seasonPeriodId}
-              onChange={(v) => setSeasonPeriodId(v)}
-              options={seasonPeriods.map((p) => ({
-                value: p.propertyContractSeasonPeriodKey,
-                label: seasonPeriodLabel(p),
-                sublabel: p.seasonCode,
+              value={seasonMasterId}
+              onChange={(v) => selectSeasonMaster(v)}
+              options={propertySeasons.map((s) => ({
+                value: s.propertySeasonKey,
+                label: s.seasonName,
+                sublabel: s.seasonCode,
               }))}
-              placeholder="Select season period…"
-              emptyLabel="No season periods — add them on the contract first."
+              placeholder="Select season…"
+              emptyLabel="No seasons configured for this property yet."
             />
           </div>
           <div className="space-y-2">
@@ -333,15 +474,51 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
           </div>
         </div>
 
-        {selectedSeason && (
-          <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm">
-            <p className="font-medium text-foreground">{seasonPeriodLabel(selectedSeason)}</p>
-            <p className="text-muted-foreground">
-              Period{" "}
-              {selectedSeason.fromDate && selectedSeason.toDate
-                ? `${formatPeriodDate(selectedSeason.fromDate)} → ${formatPeriodDate(selectedSeason.toDate)}`
-                : "—"}
-            </p>
+        {seasonMasterId && (
+          <div className="space-y-2 rounded-lg border border-border px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Label>Season periods</Label>
+              {periodsForSeason.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <Checkbox
+                    checked={allPeriodsSelected}
+                    onCheckedChange={(checked) => toggleAllPeriods(checked === true)}
+                  />
+                  Select all periods for this season
+                </label>
+              )}
+            </div>
+            {periodsForSeason.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No date periods for this season yet — add them on the contract first.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {periodsForSeason.map((p) => (
+                  <label
+                    key={p.propertyContractSeasonPeriodKey}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={selectedPeriodIds.includes(p.propertyContractSeasonPeriodKey)}
+                      onCheckedChange={(checked) =>
+                        togglePeriod(p.propertyContractSeasonPeriodKey, checked === true)
+                      }
+                    />
+                    <span>
+                      {p.fromDate && p.toDate
+                        ? `${formatPeriodDate(p.fromDate)} → ${formatPeriodDate(p.toDate)}`
+                        : "—"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {selectedPeriods.length > 1 && (
+              <p className="text-xs text-muted-foreground">
+                The inventory below will be saved identically to all {selectedPeriods.length} selected periods.
+              </p>
+            )}
           </div>
         )}
 
@@ -354,15 +531,16 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
 
       {loadingMatrix && <p className="text-sm text-muted-foreground">Loading inventory matrix…</p>}
 
-      {!loadingMatrix && seasonPeriodId && inventoryTypeId && rooms.length === 0 && (
+      {!loadingMatrix && selectedPeriodIds.length > 0 && inventoryTypeId && rooms.length === 0 && (
         <Card className="p-6 text-sm text-muted-foreground">
           No active room types for this property. Add rooms under Extranet → Rooms first.
         </Card>
       )}
 
-      {!loadingMatrix && (!seasonPeriodId || !inventoryTypeId) && (
+      {!loadingMatrix && (selectedPeriodIds.length === 0 || !inventoryTypeId) && (
         <Card className="border-dashed p-6 text-sm text-muted-foreground">
-          Select a <strong className="text-foreground">season period</strong> and{" "}
+          Select a <strong className="text-foreground">season</strong>, at least one{" "}
+          <strong className="text-foreground">period</strong>, and{" "}
           <strong className="text-foreground">inventory type</strong> above to open the inventory grid.
         </Card>
       )}
@@ -401,8 +579,8 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
                       </TableCell>
                       <TableCell className="p-1">
                         <Input
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
                           className="h-8 min-w-[5rem] px-2 text-right font-mono text-sm tabular-nums"
                           placeholder="—"
                           value={cell.allotment}
@@ -411,8 +589,8 @@ export function PropertyContractInventoryMatrixForm({ contract }: { contract: Pr
                       </TableCell>
                       <TableCell className="p-1">
                         <Input
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
                           className="h-8 min-w-[5rem] px-2 text-right font-mono text-sm tabular-nums"
                           placeholder="—"
                           value={cell.release}
