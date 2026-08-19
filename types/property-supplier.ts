@@ -5,6 +5,15 @@ export interface PropertySupplier {
   propertyId: number;
   propertyCode?: string;
   propertyName?: string;
+  propertyDisplayName?: string;
+  countryId?: number;
+  countryName?: string;
+  countryCode?: string;
+  cityId?: number;
+  cityName?: string;
+  starRating?: number | null;
+  rating?: number | null;
+  coverImageUrl?: string | null;
   supplierId: number;
   supplierCode?: string;
   supplierName?: string;

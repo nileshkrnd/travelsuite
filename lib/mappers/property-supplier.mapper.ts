@@ -10,7 +10,19 @@ export interface PropertySupplierRow {
   validTo: Date | string | null;
   createdBy: number;
   createdDtTm: Date | string;
-  property?: { propertyCode: string; propertyName: string | null } | null;
+  property?: {
+    propertyCode: string;
+    propertyName: string | null;
+    propertyDisplayName?: string | null;
+    countryId?: number | null;
+    cityId?: number | null;
+    country?: { countryName: string; countryCode?: string | null } | null;
+    city?: { cityName: string } | null;
+    starRating?: number | null;
+    /** Prisma Decimal | string | number — accepted loosely since callers pass either a raw Prisma row or JSON-parsed API response. */
+    rating?: { toString(): string } | string | number | null;
+    media?: { mediaUrl: string }[];
+  } | null;
   supplier?: { supplierCode: string; supplierName: string } | null;
 }
 
@@ -31,6 +43,15 @@ export function toAppPropertySupplier(row: PropertySupplierRow): PropertySupplie
     propertyId: row.propertyId,
     propertyCode: row.property?.propertyCode,
     propertyName: row.property?.propertyName ?? undefined,
+    propertyDisplayName: row.property?.propertyDisplayName ?? undefined,
+    countryId: row.property?.countryId ?? undefined,
+    countryName: row.property?.country?.countryName,
+    countryCode: row.property?.country?.countryCode ?? undefined,
+    cityId: row.property?.cityId ?? undefined,
+    cityName: row.property?.city?.cityName,
+    starRating: row.property?.starRating ?? null,
+    rating: row.property?.rating != null ? Number(row.property.rating.toString()) : null,
+    coverImageUrl: row.property?.media?.[0]?.mediaUrl ?? null,
     supplierId: Number(row.supplierId),
     supplierCode: row.supplier?.supplierCode,
     supplierName: row.supplier?.supplierName,

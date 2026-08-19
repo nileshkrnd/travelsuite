@@ -9,7 +9,24 @@ const optionalDate = z
   .transform((v) => (v === undefined ? undefined : v));
 
 export const propertySupplierInclude = {
-  property: { select: { propertyCode: true, propertyName: true } },
+  property: {
+    select: {
+      propertyCode: true,
+      propertyName: true,
+      propertyDisplayName: true,
+      countryId: true,
+      cityId: true,
+      country: { select: { countryName: true, countryCode: true } },
+      city: { select: { cityName: true } },
+      starRating: true,
+      rating: true,
+      media: {
+        where: { isActive: true, isDeleted: false, isCover: true },
+        select: { mediaUrl: true },
+        take: 1,
+      },
+    },
+  },
   supplier: { select: { supplierCode: true, supplierName: true } },
 } as const;
 

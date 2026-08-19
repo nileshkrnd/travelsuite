@@ -2949,3 +2949,259 @@ model SubscriptionModuleMenuProduct {
   @@index([subscriptionProductId], map: "SubscriptionModuleMenuProduct_ProductID_idx")
   @@map("SubscriptionModuleMenuProduct")
 }
+
+/// Product service type catalog — Flight, Hotel, Transfer, … Tenant + Company scoped.
+model ServiceTypeMaster {
+  serviceTypeId   BigInt    @id @default(autoincrement()) @map("ServiceTypeID")
+  tenantId        Int       @map("TenantID")
+  companyId       Int       @map("CompanyID")
+  serviceTypeCode String    @map("ServiceTypeCode") @db.VarChar(50)
+  serviceTypeName String    @map("ServiceTypeName") @db.VarChar(100)
+  description     String?   @map("Description") @db.VarChar(500)
+  icon            String?   @map("Icon") @db.VarChar(200)
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  classifications ServiceProductClassificationMaster[]
+  categories      ServiceProductCategory[]
+  configurations  ServiceTypeConfiguration[]
+
+  @@unique([tenantId, companyId, serviceTypeCode], map: "ServiceTypeMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "ServiceTypeMaster_TenantID_CompanyID_idx")
+  @@map("ServiceTypeMaster")
+}
+
+/// Classification/sub-category under a Service Type — self-referencing for a hierarchy (e.g. Hotel > Resort > Beach Resort).
+model ServiceProductClassificationMaster {
+  serviceProductClassificationId BigInt    @id @default(autoincrement()) @map("ServiceProductClassificationID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  serviceTypeId                  BigInt    @map("ServiceTypeID")
+  classificationCode             String    @map("ClassificationCode") @db.VarChar(50)
+  classificationName             String    @map("ClassificationName") @db.VarChar(150)
+  parentClassificationId         BigInt?   @map("ParentClassificationID")
+  description                    String?   @map("Description") @db.VarChar(500)
+  icon                           String?   @map("Icon") @db.VarChar(200)
+  displayOrder                   Int       @default(0) @map("DisplayOrder")
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceType ServiceTypeMaster                    @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
+  parent      ServiceProductClassificationMaster?  @relation("ServiceProductClassificationHierarchy", fields: [parentClassificationId], references: [serviceProductClassificationId], onDelete: Restrict, onUpdate: Restrict)
+  children    ServiceProductClassificationMaster[] @relation("ServiceProductClassificationHierarchy")
+  categories  ServiceProductCategory[]
+  configurations ServiceProductClassificationConfiguration[]
+
+  @@unique([tenantId, companyId, serviceTypeId, classificationCode], map: "SvcProductClassification_Tenant_Company_Type_Code_key")
+  @@index([tenantId, companyId], map: "ServiceProductClassificationMaster_TenantID_CompanyID_idx")
+  @@index([serviceTypeId], map: "ServiceProductClassificationMaster_ServiceTypeID_idx")
+  @@index([parentClassificationId], map: "ServiceProductClassificationMaster_ParentClassificationID_idx")
+  @@map("ServiceProductClassificationMaster")
+}
+
+/// Category/sub-category under a Service Type (optionally within a Classification) — self-referencing for a hierarchy (e.g. Hotel > Beach Resort > Overwater Villas).
+model ServiceProductCategory {
+  serviceProductCategoryId       BigInt    @id @default(autoincrement()) @map("ServiceProductCategoryID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  serviceTypeId                  BigInt    @map("ServiceTypeID")
+  serviceProductClassificationId BigInt?   @map("ServiceProductClassificationID")
+  parentServiceProductCategoryId BigInt?   @map("ParentServiceProductCategoryID")
+  categoryCode                   String    @map("CategoryCode") @db.VarChar(50)
+  categoryName                   String    @map("CategoryName") @db.VarChar(150)
+  description                    String?   @map("Description") @db.VarChar(500)
+  icon                           String?   @map("Icon") @db.VarChar(200)
+  imageUrl                       String?   @map("ImageURL") @db.VarChar(500)
+  displayOrder                   Int       @default(0) @map("DisplayOrder")
+  isFeatured                     Boolean   @default(false) @map("IsFeatured")
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceType    ServiceTypeMaster                   @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
+  classification ServiceProductClassificationMaster? @relation(fields: [serviceProductClassificationId], references: [serviceProductClassificationId], onDelete: Restrict)
+  parent         ServiceProductCategory?              @relation("ServiceProductCategoryHierarchy", fields: [parentServiceProductCategoryId], references: [serviceProductCategoryId], onDelete: Restrict, onUpdate: Restrict)
+  children       ServiceProductCategory[]             @relation("ServiceProductCategoryHierarchy")
+
+  @@unique([tenantId, companyId, serviceTypeId, categoryCode], map: "SvcProductCategory_Tenant_Company_Type_Code_key")
+  @@index([tenantId, companyId], map: "ServiceProductCategory_TenantID_CompanyID_idx")
+  @@index([serviceTypeId], map: "ServiceProductCategory_ServiceTypeID_idx")
+  @@index([serviceProductClassificationId], map: "ServiceProductCategory_ClassificationID_idx")
+  @@index([parentServiceProductCategoryId], map: "ServiceProductCategory_ParentCategoryID_idx")
+  @@map("ServiceProductCategory")
+}
+
+/// Duration unit catalog — Minute, Hour, Day, Night, Week, Month.
+model DurationUnit {
+  durationUnitId   BigInt    @id @default(autoincrement()) @map("DurationUnitID")
+  tenantId         Int?      @map("TenantID")
+  companyId        Int?      @map("CompanyID")
+  durationUnitCode String    @map("DurationUnitCode") @db.VarChar(50)
+  durationUnitName String    @map("DurationUnitName") @db.VarChar(100)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@unique([tenantId, companyId, durationUnitCode], map: "DurationUnit_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "DurationUnit_TenantID_CompanyID_idx")
+  @@map("DurationUnit")
+}
+
+/// Booking model catalog — Date, Date+Time, Time Slot, Request, Open Date, Multi Day.
+model BookingModel {
+  bookingModelId   BigInt    @id @default(autoincrement()) @map("BookingModelID")
+  tenantId         Int?      @map("TenantID")
+  companyId        Int?      @map("CompanyID")
+  bookingModelCode String    @map("BookingModelCode") @db.VarChar(50)
+  bookingModelName String    @map("BookingModelName") @db.VarChar(100)
+  description      String?   @map("Description") @db.VarChar(500)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@unique([tenantId, companyId, bookingModelCode], map: "BookingModel_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "BookingModel_TenantID_CompanyID_idx")
+  @@map("BookingModel")
+}
+
+/// Pricing model catalog — Per Person, Per Adult, Per Vehicle, Flat, …
+model PricingModel {
+  pricingModelId   BigInt    @id @default(autoincrement()) @map("PricingModelID")
+  tenantId         Int?      @map("TenantID")
+  companyId        Int?      @map("CompanyID")
+  pricingModelCode String    @map("PricingModelCode") @db.VarChar(50)
+  pricingModelName String    @map("PricingModelName") @db.VarChar(100)
+  description      String?   @map("Description") @db.VarChar(500)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("ModifiedBy")
+  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  @@unique([tenantId, companyId, pricingModelCode], map: "PricingModel_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "PricingModel_TenantID_CompanyID_idx")
+  @@map("PricingModel")
+}
+
+/// Status-type catalog — the entity a status lifecycle applies to (Tenant Registration, Property, Service Product, …).
+model CommonStatusType {
+  commonStatusTypeId BigInt    @id @default(autoincrement()) @map("CommonStatusTypeID")
+  tenantId           Int?      @map("TenantID")
+  companyId          Int?      @map("CompanyID")
+  statusTypeCode     String    @map("StatusTypeCode") @db.VarChar(50)
+  statusTypeName     String    @map("StatusTypeName") @db.VarChar(100)
+  description        String?   @map("Description") @db.VarChar(500)
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  statuses CommonStatus[]
+
+  @@unique([tenantId, companyId, statusTypeCode], map: "CommonStatusType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "CommonStatusType_TenantID_CompanyID_idx")
+  @@map("CommonStatusType")
+}
+
+/// A status value within a status-type lifecycle (Draft, Under Review, Approved, Published, …).
+model CommonStatus {
+  commonStatusId     BigInt    @id @default(autoincrement()) @map("CommonStatusID")
+  commonStatusTypeId BigInt    @map("CommonStatusTypeID")
+  tenantId           Int?      @map("TenantID")
+  companyId          Int?      @map("CompanyID")
+  statusCode         String    @map("StatusCode") @db.VarChar(50)
+  statusName         String    @map("StatusName") @db.VarChar(100)
+  description        String?   @map("Description") @db.VarChar(500)
+  displayOrder       Int       @default(0) @map("DisplayOrder")
+  isInitial          Boolean   @default(false) @map("IsInitial")
+  isFinal             Boolean  @default(false) @map("IsFinal")
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("ModifiedBy")
+  modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  statusType CommonStatusType @relation(fields: [commonStatusTypeId], references: [commonStatusTypeId], onDelete: Restrict)
+
+  @@unique([tenantId, companyId, commonStatusTypeId, statusCode], map: "CommonStatus_Tenant_Company_Type_Code_key")
+  @@index([tenantId, companyId], map: "CommonStatus_TenantID_CompanyID_idx")
+  @@index([commonStatusTypeId], map: "CommonStatus_StatusTypeID_idx")
+  @@map("CommonStatus")
+}
+
+/// One configuration row per Service Type — which optional product attributes apply (duration, pricing model, pax, pickup/dropoff, …).
+model ServiceTypeConfiguration {
+  serviceTypeConfigurationId BigInt    @id @default(autoincrement()) @map("ServiceTypeConfigurationID")
+  tenantId                   Int?      @map("TenantID")
+  companyId                  Int?      @map("CompanyID")
+  serviceTypeId               BigInt   @map("ServiceTypeID")
+  isDurationApplicable        Boolean  @default(false) @map("IsDurationApplicable")
+  isBookingModelApplicable    Boolean  @default(false) @map("IsBookingModelApplicable")
+  isPricingModelApplicable    Boolean  @default(false) @map("IsPricingModelApplicable")
+  isPaxApplicable              Boolean @default(false) @map("IsPaxApplicable")
+  isAgeApplicable              Boolean @default(false) @map("IsAgeApplicable")
+  isPickupApplicable           Boolean @default(false) @map("IsPickupApplicable")
+  isDropoffApplicable          Boolean @default(false) @map("IsDropoffApplicable")
+  isScheduleApplicable         Boolean @default(false) @map("IsScheduleApplicable")
+  isAvailabilityApplicable     Boolean @default(false) @map("IsAvailabilityApplicable")
+  isItineraryApplicable        Boolean @default(false) @map("IsItineraryApplicable")
+  isCancellationApplicable     Boolean @default(false) @map("IsCancellationApplicable")
+  isOnlineSellable             Boolean @default(false) @map("IsOnlineSellable")
+  createdBy                    Int      @map("CreatedBy")
+  createdDtTm                  DateTime @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceType ServiceTypeMaster @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Cascade)
+
+  @@unique([tenantId, companyId, serviceTypeId], map: "ServiceTypeConfiguration_Tenant_Company_Type_key")
+  @@index([serviceTypeId], map: "ServiceTypeConfiguration_ServiceTypeID_idx")
+  @@map("ServiceTypeConfiguration")
+}
+
+/// One configuration row per Service Product Classification — overrides the parent Service Type's configuration. NULL on a flag means "inherit the Service Type's setting".
+model ServiceProductClassificationConfiguration {
+  serviceProductClassificationConfigurationId BigInt    @id @default(autoincrement()) @map("ServiceProductClassificationConfigurationID")
+  tenantId                                    Int?      @map("TenantID")
+  companyId                                   Int?      @map("CompanyID")
+  serviceProductClassificationId              BigInt    @map("ServiceProductClassificationID")
+  isDurationApplicable                        Boolean?  @map("IsDurationApplicable")
+  isBookingModelApplicable                    Boolean?  @map("IsBookingModelApplicable")
+  isPricingModelApplicable                    Boolean?  @map("IsPricingModelApplicable")
+  isPaxApplicable                             Boolean?  @map("IsPaxApplicable")
+  isAgeApplicable                             Boolean?  @map("IsAgeApplicable")
+  isPickupApplicable                          Boolean?  @map("IsPickupApplicable")
+  isDropoffApplicable                         Boolean?  @map("IsDropoffApplicable")
+  isScheduleApplicable                        Boolean?  @map("IsScheduleApplicable")
+  isAvailabilityApplicable                    Boolean?  @map("IsAvailabilityApplicable")
+  isItineraryApplicable                       Boolean?  @map("IsItineraryApplicable")
+  isCancellationApplicable                    Boolean?  @map("IsCancellationApplicable")
+  isOnlineSellable                            Boolean?  @map("IsOnlineSellable")
+  createdBy                                   Int       @map("CreatedBy")
+  createdDtTm                                 DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                                  Int?      @map("ModifiedBy")
+  modifiedDtTm                                DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  classification ServiceProductClassificationMaster @relation(fields: [serviceProductClassificationId], references: [serviceProductClassificationId], onDelete: Cascade)
+
+  @@unique([tenantId, companyId, serviceProductClassificationId], map: "SvcProdClsConfig_Tenant_Company_Classification_key")
+  @@index([serviceProductClassificationId], map: "SvcProdClsConfig_ClassificationID_idx")
+  @@map("ServiceProductClassificationConfiguration")
+}

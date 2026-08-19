@@ -387,23 +387,7 @@ export function PropertyContractBlackoutForm({
         <p className="text-muted-foreground">{lockedContract.contractNumber}</p>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-nowrap items-center gap-2 px-1 text-[10px] font-medium uppercase text-muted-foreground">
-          <span className="w-6 shrink-0" />
-          <span className="w-36 shrink-0">
-            Type<span className="text-destructive"> *</span>
-          </span>
-          <span className="w-40 shrink-0">Room</span>
-          <span className="w-40 shrink-0">Rate plan</span>
-          <span className="w-36 shrink-0">From *</span>
-          <span className="w-36 shrink-0">To *</span>
-          <span className="w-32 shrink-0">Reason</span>
-          <span className="shrink-0">Days</span>
-          <span className="min-w-0 flex-1">Remarks</span>
-          <span className="w-10 shrink-0 text-center">Active</span>
-          {!isEdit && <span className="w-8 shrink-0" />}
-        </div>
-
+      <div className="space-y-3">
         {rowArray.fields.map((field, index) => {
           const rowErrors = errors.rows?.[index];
           const row = rows[index];
@@ -412,11 +396,15 @@ export function PropertyContractBlackoutForm({
           const needsRoom = blackoutTypeNeedsRoom(code);
           const needsRatePlan = blackoutTypeNeedsRatePlan(code);
           return (
-            <div key={field.id} className="rounded-lg border border-border bg-muted/20 p-2">
-              <div className="flex flex-nowrap items-center gap-2">
-                <span className="w-6 shrink-0 text-xs text-muted-foreground">{index + 1}</span>
+            <div key={field.id} className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+              {/* Line 1: identity — type, room, rate plan */}
+              <div className="flex flex-nowrap items-end gap-2">
+                <span className="shrink-0 pb-2 text-xs text-muted-foreground">#{index + 1}</span>
 
-                <div className="w-36 min-w-0 shrink-0 space-y-1 overflow-hidden">
+                <div className="w-44 min-w-0 shrink-0 space-y-1 overflow-hidden">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                    Type<span className="text-destructive"> *</span>
+                  </span>
                   <Controller
                     control={control}
                     name={`rows.${index}.blackoutTypeId`}
@@ -445,7 +433,8 @@ export function PropertyContractBlackoutForm({
                   )}
                 </div>
 
-                <div className="w-40 shrink-0 space-y-1">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Room</span>
                   <Controller
                     control={control}
                     name={`rows.${index}.propertyRoomId`}
@@ -465,7 +454,8 @@ export function PropertyContractBlackoutForm({
                   )}
                 </div>
 
-                <div className="w-40 shrink-0 space-y-1">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Rate plan</span>
                   <Controller
                     control={control}
                     name={`rows.${index}.propertyContractRatePlanId`}
@@ -485,7 +475,25 @@ export function PropertyContractBlackoutForm({
                   )}
                 </div>
 
+                {!isEdit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="mb-0.5 shrink-0"
+                    disabled={rowArray.fields.length <= 1}
+                    onClick={() => rowArray.remove(index)}
+                    aria-label="Remove row"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Line 2: dates, reason, days, remarks, status */}
+              <div className="flex flex-nowrap items-end gap-2">
                 <div className="w-36 shrink-0 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">From *</span>
                   <Input
                     type="date"
                     className="h-9 w-full min-w-0"
@@ -497,6 +505,7 @@ export function PropertyContractBlackoutForm({
                   )}
                 </div>
                 <div className="w-36 shrink-0 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">To *</span>
                   <Input
                     type="date"
                     className="h-9 w-full min-w-0"
@@ -509,7 +518,8 @@ export function PropertyContractBlackoutForm({
                   )}
                 </div>
 
-                <div className="w-32 min-w-0 shrink-0 overflow-hidden">
+                <div className="w-36 min-w-0 shrink-0 space-y-1 overflow-hidden">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Reason</span>
                   <Controller
                     control={control}
                     name={`rows.${index}.blackoutReasonId`}
@@ -539,17 +549,21 @@ export function PropertyContractBlackoutForm({
                   />
                 </div>
 
-                <div className="shrink-0">
-                  <Controller
-                    control={control}
-                    name={`rows.${index}.dayOfWeekIds`}
-                    render={({ field: f }) => (
-                      <DayOfWeekCompactSelect days={daysOfWeek} value={f.value} onChange={f.onChange} />
-                    )}
-                  />
+                <div className="shrink-0 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Days</span>
+                  <div className="flex h-9 items-center">
+                    <Controller
+                      control={control}
+                      name={`rows.${index}.dayOfWeekIds`}
+                      render={({ field: f }) => (
+                        <DayOfWeekCompactSelect days={daysOfWeek} value={f.value} onChange={f.onChange} />
+                      )}
+                    />
+                  </div>
                 </div>
 
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Remarks</span>
                   <Input
                     className="h-9 w-full min-w-0"
                     {...register(`rows.${index}.remarks`)}
@@ -557,29 +571,18 @@ export function PropertyContractBlackoutForm({
                   />
                 </div>
 
-                <div className="flex w-10 shrink-0 items-center justify-center">
-                  <Controller
-                    control={control}
-                    name={`rows.${index}.isActive`}
-                    render={({ field: f }) => (
-                      <Checkbox checked={f.value} onCheckedChange={(c) => f.onChange(c === true)} />
-                    )}
-                  />
+                <div className="shrink-0 space-y-1">
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Active</span>
+                  <div className="flex h-9 items-center">
+                    <Controller
+                      control={control}
+                      name={`rows.${index}.isActive`}
+                      render={({ field: f }) => (
+                        <Checkbox checked={f.value} onCheckedChange={(c) => f.onChange(c === true)} />
+                      )}
+                    />
+                  </div>
                 </div>
-
-                {!isEdit && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="w-8 shrink-0"
-                    disabled={rowArray.fields.length <= 1}
-                    onClick={() => rowArray.remove(index)}
-                    aria-label="Remove row"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
             </div>
           );

@@ -61,6 +61,8 @@ export function toAppUser(
     avatarUrl?: string | null;
     /** CompanyID from linked Employee when User.companyId is 0. */
     employeeCompanyKey?: number | null;
+    /** Numeric SupplierID when the user has a linked, active SupplierUser record. */
+    supplierKey?: number | null;
   }
 ): User {
   const userTypeId = resolveUserTypeId(row);
@@ -76,6 +78,8 @@ export function toAppUser(
     opts?.employeeCompanyKey != null && opts.employeeCompanyKey > 0
       ? opts.employeeCompanyKey
       : undefined;
+  const supplierId =
+    opts?.supplierKey != null && opts.supplierKey > 0 ? String(opts.supplierKey) : undefined;
 
   return {
     id: `user_${row.userId}`,
@@ -91,6 +95,7 @@ export function toAppUser(
     companyId: companyUid,
     roleId: roleIdForScope(scope),
     scope,
+    supplierId,
     avatarUrl,
     status: row.isActive ? "active" : "deactivated",
     isActive: row.isActive,

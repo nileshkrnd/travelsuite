@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ExtranetPropertyPicker } from "@/components/shared/ExtranetPropertyPicker";
+import { useSessionStore } from "@/lib/store/session.store";
+import { UserType } from "@/types/user-type";
 import type { Property } from "@/types";
 
 /**
@@ -43,6 +45,8 @@ export function ExtranetPropertyScope({
   emptyDescription?: string;
 }) {
   const [editing, setEditing] = useState(!propertyId || propertyId <= 0);
+  const sessionUser = useSessionStore((s) => s.user);
+  const isSupplier = sessionUser?.userTypeId === UserType.SupplierUser;
 
   useEffect(() => {
     if (!propertyId || propertyId <= 0) setEditing(true);
@@ -93,8 +97,9 @@ export function ExtranetPropertyScope({
                 <div>
                   <h2 className="text-base font-semibold">Property</h2>
                   <p className="text-sm text-muted-foreground">
-                    Select the property once — it stays applied across Contracts, Rooms and Seasons until you
-                    change or clear it.
+                    {isSupplier
+                      ? "Choose one of your assigned properties — it stays applied across Contracts, Rooms and Seasons until you change or clear it."
+                      : "Select the property once — it stays applied across Contracts, Rooms and Seasons until you change or clear it."}
                   </p>
                 </div>
                 {propertyId && propertyId > 0 && (
@@ -126,7 +131,9 @@ export function ExtranetPropertyScope({
           icon={Building2}
           tone="muted"
           heading={emptyHeading}
-          description={emptyDescription}
+          description={
+            isSupplier ? "Choose one of the properties assigned to your supplier account above." : emptyDescription
+          }
           size="compact"
         />
       )}

@@ -11,9 +11,70 @@ import { listCities } from "@/lib/services/cities.service";
 import { listStates } from "@/lib/services/states.service";
 import { listAreas } from "@/lib/services/areas.service";
 import { listProperties, PropertiesApiError } from "@/lib/services/properties.service";
-import type { Area, City, Country, Property, State } from "@/types";
+import { listPropertySuppliers, PropertySuppliersApiError } from "@/lib/services/property-suppliers.service";
+import { useSessionStore } from "@/lib/store/session.store";
+import { UserType } from "@/types/user-type";
+import type { Area, City, Country, Property, PropertySupplier, State } from "@/types";
 
 const NONE = "__none__";
+
+/** Builds a minimal-but-valid Property from a supplier's assigned-property row, for callers that expect the full shape. */
+function supplierRowToProperty(row: PropertySupplier): Property {
+  return {
+    propertyId: row.propertyId,
+    tenantId: null,
+    companyId: null,
+    propertyCode: row.propertyCode ?? "",
+    propertyName: row.propertyName ?? null,
+    propertyDisplayName: row.propertyDisplayName ?? null,
+    shortDescription: null,
+    description: null,
+    internalRemarks: null,
+    propertyTypeIds: [],
+    propertyCategoryIds: [],
+    propertyUsageId: null,
+    ownershipTypeId: null,
+    propertyBrandId: null,
+    supplierId: row.supplierId,
+    addressLine1: null,
+    addressLine2: null,
+    buildingName: null,
+    buildingNumber: null,
+    streetName: null,
+    streetNumber: null,
+    zoneNumber: null,
+    countryId: row.countryId ?? 0,
+    stateId: null,
+    cityId: row.cityId ?? null,
+    areaId: null,
+    locationId: null,
+    postalCode: null,
+    poBox: null,
+    landmark: null,
+    latitude: null,
+    longitude: null,
+    googlePlaceId: null,
+    googleMapUrl: null,
+    plusCode: null,
+    timeZoneId: null,
+    openingDate: null,
+    closingDate: null,
+    rating: row.rating ?? null,
+    starRating: row.starRating ?? null,
+    isFeatured: false,
+    isPublished: false,
+    isActive: row.isActive,
+    createdBy: null,
+    createdDtTm: row.createdAt,
+    modifiedBy: null,
+    modifiedDtTm: null,
+    propertyTypeNames: [],
+    propertyCategoryNames: [],
+    countryName: row.countryName,
+    cityName: row.cityName,
+    coverImageUrl: row.coverImageUrl ?? null,
+  };
+}
 
 export type ExtranetPropertyPickerProps = {
   tenantId: number;
@@ -70,7 +131,44 @@ export function ExtranetPropertyPicker({
   const [propertiesLoading, setPropertiesLoading] = useState(false);
   const [countriesLoading, setCountriesLoading] = useState(true);
 
+  const sessionUser = useSessionStore((s) => s.user);
+  const isSupplier = sessionUser?.userTypeId === UserType.SupplierUser;
+  const supplierId = Number(sessionUser?.supplierId ?? 0);
+  const [supplierProperties, setSupplierProperties] = useState<PropertySupplier[]>([]);
+  const [supplierPropertiesLoading, setSupplierPropertiesLoading] = useState(true);
+
   useEffect(() => {
+    if (!isSupplier || supplierId <= 0) {
+      setSupplierPropertiesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSupplierPropertiesLoading(true);
+    listPropertySuppliers({ supplierId, activeOnly: true })
+      .then((rows) => {
+        if (!cancelled) setSupplierProperties(rows);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSupplierProperties([]);
+          toast.error(
+            err instanceof PropertySuppliersApiError ? err.message : "Failed to load your properties"
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSupplierPropertiesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupplier, supplierId]);
+
+  useEffect(() => {
+    if (isSupplier) {
+      setCountriesLoading(false);
+      return;
+    }
     let cancelled = false;
     setCountriesLoading(true);
     listCountries({ activeOnly: true })
@@ -89,7 +187,7 @@ export function ExtranetPropertyPicker({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isSupplier]);
 
   useEffect(() => {
     if (!filterCountryId) {
@@ -215,6 +313,38 @@ export function ExtranetPropertyPicker({
     setFilterCityId(null);
     setFilterAreaId(null);
     onChange(null, null);
+  }
+
+  if (isSupplier) {
+    return (
+      <div className={className ?? "space-y-3"}>
+        <div className="space-y-2">
+          <Label required={required}>Property</Label>
+          <SearchableCombobox
+            value={value && value > 0 ? value : null}
+            onChange={(v) => {
+              const row = supplierProperties.find((p) => p.propertyId === v) ?? null;
+              onChange(v > 0 ? v : null, row ? supplierRowToProperty(row) : null);
+            }}
+            options={supplierProperties.map((p) => ({
+              value: p.propertyId,
+              label: p.propertyDisplayName || p.propertyName || p.propertyCode || `Property #${p.propertyId}`,
+              sublabel: [p.cityName, p.countryName].filter(Boolean).join(", ") || p.propertyCode,
+            }))}
+            placeholder={
+              supplierPropertiesLoading ? "Loading your properties…" : "Search your assigned properties…"
+            }
+            emptyLabel="No properties are assigned to your supplier account."
+            disabled={disabled || supplierPropertiesLoading}
+            ariaInvalid={!!error}
+          />
+          {disabled && selectedLabel && (
+            <p className="text-xs text-muted-foreground">Currently: {selectedLabel}</p>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </div>
+    );
   }
 
   return (

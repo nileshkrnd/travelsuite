@@ -110,6 +110,7 @@ import {
   MessagesSquare,
   Phone,
   CircleDot,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -229,6 +230,7 @@ export const ICONS: Record<string, LucideIcon> = {
   MessagesSquare,
   Phone,
   CircleDot,
+  LayoutGrid,
 };
 
 /** Sorted icon names available for MenuIcon and similar DB/config fields. */

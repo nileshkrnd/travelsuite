@@ -12,6 +12,17 @@ export type ModuleKey =
   | "branch"
   | "branchType"
   | "adminProduct"
+  | "adminServiceProduct"
+  | "serviceType"
+  | "serviceProductClassification"
+  | "serviceProductCategory"
+  | "durationUnit"
+  | "bookingModel"
+  | "pricingModel"
+  | "serviceTypeConfiguration"
+  | "adminConfiguration"
+  | "commonStatusType"
+  | "commonStatus"
   | "property"
   | "propertySupplier"
   | "ratePlanType"
@@ -809,6 +820,76 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.tax",
             icon: "Landmark",
             path: "masters/tax",
+          },
+        ],
+      },
+      {
+        key: "adminServiceProduct",
+        labelKey: "sidebar.adminServiceProduct",
+        icon: "Package",
+        path: "administration/service-product",
+        children: [
+          {
+            key: "serviceType",
+            labelKey: "sidebar.serviceType",
+            icon: "Tags",
+            path: "masters/service-type",
+          },
+          {
+            key: "serviceProductClassification",
+            labelKey: "sidebar.serviceProductClassification",
+            icon: "ListTree",
+            path: "masters/service-product-classification",
+          },
+          {
+            key: "serviceProductCategory",
+            labelKey: "sidebar.serviceProductCategory",
+            icon: "LayoutGrid",
+            path: "masters/service-product-category",
+          },
+          {
+            key: "durationUnit",
+            labelKey: "sidebar.durationUnit",
+            icon: "Clock",
+            path: "masters/duration-unit",
+          },
+          {
+            key: "bookingModel",
+            labelKey: "sidebar.bookingModel",
+            icon: "BookMarked",
+            path: "masters/booking-model",
+          },
+          {
+            key: "pricingModel",
+            labelKey: "sidebar.pricingModel",
+            icon: "Coins",
+            path: "masters/pricing-model",
+          },
+          {
+            key: "serviceTypeConfiguration",
+            labelKey: "sidebar.serviceTypeConfiguration",
+            icon: "Settings",
+            path: "masters/service-type-configuration",
+          },
+        ],
+      },
+      {
+        key: "adminConfiguration",
+        labelKey: "sidebar.adminConfiguration",
+        icon: "Workflow",
+        path: "administration/configuration",
+        children: [
+          {
+            key: "commonStatusType",
+            labelKey: "sidebar.commonStatusType",
+            icon: "Workflow",
+            path: "masters/common-status-type",
+          },
+          {
+            key: "commonStatus",
+            labelKey: "sidebar.commonStatus",
+            icon: "ListOrdered",
+            path: "masters/common-status",
           },
         ],
       },

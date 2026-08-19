@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       where: { username },
       include: {
         employee: { select: { employeeImage: true, isActive: true, companyId: true } },
+        supplierUser: { select: { supplierId: true, isActive: true } },
       },
     });
     if (!row || !row.isActive || !verifyPassword(parsed.data.password, row.passwordHash)) {
@@ -72,7 +73,11 @@ export async function POST(request: Request) {
         : null;
     const employeeCompanyKey =
       row.employee?.isActive && row.employee.companyId > 0 ? row.employee.companyId : null;
-    const user = toAppUser(row, { tenantUidByKey, avatarUrl, employeeCompanyKey });
+    const supplierKey =
+      row.supplierUser?.isActive && row.supplierUser.supplierId != null
+        ? Number(row.supplierUser.supplierId)
+        : null;
+    const user = toAppUser(row, { tenantUidByKey, avatarUrl, employeeCompanyKey, supplierKey });
     return NextResponse.json(user);
   } catch (error) {
     return dbUnavailable(error);

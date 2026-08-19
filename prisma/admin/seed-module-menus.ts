@@ -59,6 +59,17 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "administration/property": ["Travel", "Real Estate"],
   "masters/property": ["Travel", "Real Estate"],
   "masters/property-supplier": ["Travel", "Real Estate"],
+  "administration/service-product": ["Travel"],
+  "masters/service-type": ["Travel"],
+  "masters/service-product-classification": ["Travel"],
+  "masters/service-product-category": ["Travel"],
+  "masters/duration-unit": ["Travel"],
+  "masters/booking-model": ["Travel"],
+  "masters/pricing-model": ["Travel"],
+  "masters/service-type-configuration": ["Travel"],
+  "administration/configuration": ["Travel"],
+  "masters/common-status-type": ["Travel"],
+  "masters/common-status": ["Travel"],
 };
 
 export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
@@ -181,6 +192,41 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
             { name: "Rate Plan Type", url: "masters/rate-plan-type", icon: "Tags" },
             { name: "Meal Plan", url: "masters/meal-plan", icon: "UtensilsCrossed" },
             { name: "Rate Basis", url: "masters/rate-basis", icon: "Scale" },
+          ],
+        },
+        {
+          name: "Product",
+          url: "administration/service-product",
+          icon: "Package",
+          children: [
+            { name: "Service Type", url: "masters/service-type", icon: "Tags" },
+            {
+              name: "Service Product Classification",
+              url: "masters/service-product-classification",
+              icon: "ListTree",
+            },
+            {
+              name: "Service Product Category",
+              url: "masters/service-product-category",
+              icon: "LayoutGrid",
+            },
+            { name: "Duration Unit", url: "masters/duration-unit", icon: "Clock" },
+            { name: "Booking Model", url: "masters/booking-model", icon: "BookMarked" },
+            { name: "Pricing Model", url: "masters/pricing-model", icon: "Coins" },
+            {
+              name: "Service Type Configuration",
+              url: "masters/service-type-configuration",
+              icon: "Settings",
+            },
+          ],
+        },
+        {
+          name: "Configuration",
+          url: "administration/configuration",
+          icon: "Workflow",
+          children: [
+            { name: "Common Status Type", url: "masters/common-status-type", icon: "Workflow" },
+            { name: "Common Status", url: "masters/common-status", icon: "ListOrdered" },
           ],
         },
       ],
