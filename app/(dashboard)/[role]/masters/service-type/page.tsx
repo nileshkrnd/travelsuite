@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Tags, MoreHorizontal, X, Search, Loader2 } from "lucide-react";
+import { Plus, Tags, Eye, Pencil, Power, PowerOff, Trash2, X, Search, Loader2 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -18,12 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -64,17 +59,30 @@ function useServiceTypeSchema(serviceTypes: ServiceType[], currentId?: number) {
     icon: z.string().trim().max(200).optional().or(z.literal("")),
     displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
   }).superRefine((values, ctx) => {
-    const duplicate = serviceTypes.some(
+    const duplicateCode = serviceTypes.some(
       (t) =>
         t.serviceTypeId !== currentId &&
         t.companyId === values.companyId &&
         t.serviceTypeCode.toLowerCase() === values.serviceTypeCode.trim().toLowerCase()
     );
-    if (duplicate) {
+    if (duplicateCode) {
       ctx.addIssue({
         code: "custom",
         path: ["serviceTypeCode"],
         message: "This service type code already exists for the selected company",
+      });
+    }
+    const duplicateName = serviceTypes.some(
+      (t) =>
+        t.serviceTypeId !== currentId &&
+        t.companyId === values.companyId &&
+        t.serviceTypeName.trim().toLowerCase() === values.serviceTypeName.trim().toLowerCase()
+    );
+    if (duplicateName) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serviceTypeName"],
+        message: "This service type name already exists for the selected company",
       });
     }
   });
@@ -118,6 +126,7 @@ function ServiceTypePanel({
     handleSubmit,
     control,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,7 +143,11 @@ function ServiceTypePanel({
 
   const iconWatch = watch("icon");
 
-  async function onSubmit(values: FormValues) {
+  function blankValues(): FormValues {
+    return { companyId: companies[0]?.companyKey ?? 0, serviceTypeCode: "", serviceTypeName: "", description: "", icon: "", displayOrder: 0 };
+  }
+
+  async function submit(values: FormValues, keepOpenForMore: boolean) {
     if (!userKey) {
       toast.error("Missing user key — sign in again.");
       return;
@@ -153,6 +166,8 @@ function ServiceTypePanel({
           modifiedBy: userKey,
         });
         toast.success("Service type updated");
+        await onSaved();
+        onClose();
       } else if (mode === "create") {
         await createServiceType({
           serviceTypeCode: values.serviceTypeCode.trim(),
@@ -165,9 +180,13 @@ function ServiceTypePanel({
           createdBy: userKey,
         });
         toast.success("Service type created");
+        await onSaved();
+        if (keepOpenForMore) {
+          reset(blankValues());
+        } else {
+          onClose();
+        }
       }
-      await onSaved();
-      onClose();
     } catch (error) {
       toast.error(error instanceof ServiceTypesApiError ? error.message : "Could not save service type");
     }
@@ -186,8 +205,8 @@ function ServiceTypePanel({
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <div className="space-y-2 sm:col-span-2">
+      <form onSubmit={handleSubmit((values) => submit(values, false))} className="grid grid-cols-2 gap-3 sm:grid-cols-4" noValidate>
+        <div className="col-span-2 space-y-1">
           <Label required>Company</Label>
           <Controller
             control={control}
@@ -219,7 +238,7 @@ function ServiceTypePanel({
           {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="serviceTypeCode" required>
             Code
           </Label>
@@ -236,7 +255,7 @@ function ServiceTypePanel({
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="serviceTypeName" required>
             Name
           </Label>
@@ -252,12 +271,28 @@ function ServiceTypePanel({
           )}
         </div>
 
-        <div className="space-y-2 sm:col-span-2">
+        <div className="space-y-1">
+          <Label htmlFor="displayOrder">Display order</Label>
+          <Input id="displayOrder" type="number" min={0} disabled={isReadOnly} {...register("displayOrder")} />
+        </div>
+
+        {mode === "view" && serviceType && (
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <div>
+              <Badge variant={serviceType.isActive ? "default" : "secondary"}>
+                {serviceType.isActive ? "active" : "inactive"}
+              </Badge>
+            </div>
+          </div>
+        )}
+
+        <div className="col-span-2 space-y-1 sm:col-span-4">
           <Label htmlFor="description">Description</Label>
           <Textarea id="description" rows={2} disabled={isReadOnly} {...register("description")} />
         </div>
 
-        <div className="space-y-2 sm:col-span-2">
+        <div className="col-span-2 space-y-1 sm:col-span-4">
           <Label htmlFor="icon">Icon</Label>
           <div className="flex items-center gap-2">
             <IconPreview name={iconWatch} />
@@ -277,28 +312,18 @@ function ServiceTypePanel({
           <p className="text-xs text-muted-foreground">Lucide icon name — start typing to see matches.</p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="displayOrder">Display order</Label>
-          <Input id="displayOrder" type="number" min={0} disabled={isReadOnly} {...register("displayOrder")} />
-        </div>
-
-        {mode === "view" && serviceType && (
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Status</Label>
-            <div>
-              <Badge variant={serviceType.isActive ? "default" : "secondary"}>
-                {serviceType.isActive ? "active" : "inactive"}
-              </Badge>
-            </div>
-          </div>
-        )}
-
         {!isReadOnly && (
-          <div className="flex items-center gap-2 sm:col-span-2">
+          <div className="col-span-2 flex items-center gap-2 sm:col-span-4">
             <Button type="submit" disabled={isSubmitting || companies.length === 0}>
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "edit" ? "Save" : "Create"}
             </Button>
+            {mode === "create" && (
+              <Button type="button" variant="secondary" disabled={isSubmitting} onClick={handleSubmit((values) => submit(values, true))}>
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create &amp; add more
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -530,10 +555,10 @@ function ServiceTypeList({ roleDef }: { roleDef: RoleDef }) {
             size="compact"
           />
         ) : scopeTenantId > 0 ? (
-          <Table>
+          <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-14">
+                <TableHead className="w-[8%] px-2 py-1.5">
                   <IconHeaderCell />
                 </TableHead>
                 <SortableTableHead
@@ -541,6 +566,7 @@ function ServiceTypeList({ roleDef }: { roleDef: RoleDef }) {
                   activeKey={sortKey}
                   direction={sortDirection}
                   onSort={toggleSort}
+                  className="w-[16%] px-2 py-1.5"
                 >
                   Code
                 </SortableTableHead>
@@ -549,75 +575,111 @@ function ServiceTypeList({ roleDef }: { roleDef: RoleDef }) {
                   activeKey={sortKey}
                   direction={sortDirection}
                   onSort={toggleSort}
+                  className="w-[20%] px-2 py-1.5"
                 >
                   Name
                 </SortableTableHead>
-                <TableHead>Company</TableHead>
+                <TableHead className="w-[20%] px-2 py-1.5">Company</TableHead>
                 <SortableTableHead
                   sortKey="displayOrder"
                   activeKey={sortKey}
                   direction={sortDirection}
                   onSort={toggleSort}
+                  className="w-[8%] px-2 py-1.5"
                 >
                   Order
                 </SortableTableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-20 text-right">Actions</TableHead>
+                <TableHead className="w-[12%] px-2 py-1.5">Status</TableHead>
+                <TableHead className="w-[16%] px-2 py-1.5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visible.map((row) => (
                 <TableRow key={row.serviceTypeId}>
-                  <TableCell>
+                  <TableCell className="px-2 py-1.5">
                     <IconPreview name={row.icon ?? undefined} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs font-medium">{row.serviceTypeCode}</TableCell>
-                  <TableCell className="font-medium">{row.serviceTypeName}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="px-2 py-1.5 font-mono font-medium leading-tight">{row.serviceTypeCode}</TableCell>
+                  <TableCell className="px-2 py-1.5 font-medium leading-tight">{row.serviceTypeName}</TableCell>
+                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">
                     {row.companyName ??
                       companies.find((c) => c.companyKey === row.companyId)?.name ??
                       `C${row.companyId}`}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{row.displayOrder}</TableCell>
-                  <TableCell>
-                    <Badge variant={row.isActive ? "default" : "secondary"}>
+                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.displayOrder}</TableCell>
+                  <TableCell className="px-2 py-1.5">
+                    <Badge variant={row.isActive ? "default" : "secondary"} className="px-1.5 py-0 text-[11px]">
                       {row.isActive ? "active" : "inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setTarget(row);
-                            setPanelMode("view");
-                          }}
-                        >
-                          View
-                        </DropdownMenuItem>
-                        {canEdit && (
-                          <>
-                            <DropdownMenuItem
+                  <TableCell className="px-2 py-1.5 text-right">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="View"
                               onClick={() => {
                                 setTarget(row);
-                                setPanelMode("edit");
+                                setPanelMode("view");
                               }}
+                            />
+                          }
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>View</TooltipContent>
+                      </Tooltip>
+                      {canEdit && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Edit"
+                                  onClick={() => {
+                                    setTarget(row);
+                                    setPanelMode("edit");
+                                  }}
+                                />
+                              }
                             >
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void toggleActive(row)}>
-                              {row.isActive ? "Deactivate" : "Activate"}
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {canDelete && (
-                          <DropdownMenuItem onClick={() => void removeRow(row)}>Delete</DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={row.isActive ? "Deactivate" : "Activate"}
+                                  onClick={() => void toggleActive(row)}
+                                />
+                              }
+                            >
+                              {row.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                            </TooltipTrigger>
+                            <TooltipContent>{row.isActive ? "Deactivate" : "Activate"}</TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+                      {canDelete && (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={<Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => void removeRow(row)} />}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

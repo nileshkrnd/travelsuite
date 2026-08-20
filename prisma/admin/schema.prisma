@@ -93,18 +93,21 @@ model Country {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  cities      City[]
-  states      State[]
-  areas       Area[]
-  locations   Location[]
-  airports    Airport[]
-  companies   Company[]
-  branches    Branch[]
-  employees   Employee[]
-  properties  Property[]
-  suppliers   Supplier[]
-  marketRules PropertyContractMarketRule[]
-  taxes       Tax[]
+  cities                          City[]
+  states                          State[]
+  areas                           Area[]
+  locations                       Location[]
+  airports                        Airport[]
+  companies                       Company[]
+  branches                        Branch[]
+  employees                       Employee[]
+  properties                      Property[]
+  suppliers                       Supplier[]
+  marketRules                     PropertyContractMarketRule[]
+  taxes                           Tax[]
+  serviceProducts                 ServiceProduct[]
+  serviceProductLocations         ServiceProductLocation[]
+  serviceProductSupplierLocations ServiceProductSupplierLocation[]
 
   @@map("Country")
 }
@@ -121,17 +124,20 @@ model City {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  country         Country    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  airports        Airport[]
-  companies       Company[]
-  branches        Branch[]
-  employees       Employee[]
-  properties      Property[]
-  capitalOfStates State[]    @relation("StateCapitalCity")
-  areas           Area[]
-  locations       Location[]
-  suppliers       Supplier[]
-  marketRules     PropertyContractMarketRule[]
+  country                         Country                          @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  airports                        Airport[]
+  companies                       Company[]
+  branches                        Branch[]
+  employees                       Employee[]
+  properties                      Property[]
+  capitalOfStates                 State[]                          @relation("StateCapitalCity")
+  areas                           Area[]
+  locations                       Location[]
+  suppliers                       Supplier[]
+  marketRules                     PropertyContractMarketRule[]
+  serviceProducts                 ServiceProduct[]
+  serviceProductLocations         ServiceProductLocation[]
+  serviceProductSupplierLocations ServiceProductSupplierLocation[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -227,7 +233,9 @@ model Area {
   city     City      @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
   areaType AreaType? @relation(fields: [areaTypeId], references: [areaTypeId], onDelete: SetNull)
 
-  locations Location[]
+  locations                       Location[]
+  serviceProductLocations         ServiceProductLocation[]
+  serviceProductSupplierLocations ServiceProductSupplierLocation[]
 
   @@unique([cityId, areaCode], map: "Area_City_Code_key")
   @@index([countryId], map: "Area_CountryID_idx")
@@ -323,8 +331,11 @@ model Region {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  marketRules PropertyContractMarketRule[]
-  taxes       Tax[]
+  marketRules                     PropertyContractMarketRule[]
+  taxes                           Tax[]
+  serviceProducts                 ServiceProduct[]
+  serviceProductLocations         ServiceProductLocation[]
+  serviceProductSupplierLocations ServiceProductSupplierLocation[]
 
   @@map("Region")
 }
@@ -517,14 +528,16 @@ model Supplier {
   modifiedDtTm           DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted              Boolean   @default(false) @map("IsDeleted")
 
-  supplierType  SupplierType       @relation(fields: [supplierTypeId], references: [supplierTypeId], onDelete: Restrict)
-  country       Country            @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  state         State?             @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
-  city          City               @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
-  currency      Currency           @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
-  propertyLinks PropertySupplier[]
-  supplierUsers SupplierUser[]
-  contracts     PropertyContract[]
+  supplierType        SupplierType             @relation(fields: [supplierTypeId], references: [supplierTypeId], onDelete: Restrict)
+  country             Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  state               State?                   @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
+  city                City                     @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  currency            Currency                 @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  propertyLinks       PropertySupplier[]
+  supplierUsers       SupplierUser[]
+  contracts           PropertyContract[]
+  serviceProducts     ServiceProduct[]
+  serviceProductLinks ServiceProductSupplier[]
 
   @@unique([tenantId, supplierCode], map: "Supplier_Tenant_Code_key")
   @@index([tenantId, companyId], map: "Supplier_TenantID_CompanyID_idx")
@@ -640,19 +653,19 @@ model PropertyContract {
   modifiedBy         Int?      @map("ModifiedBy")
   modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  property         Property       @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
-  supplier         Supplier       @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
-  contractType     ContractType   @relation(fields: [contractTypeId], references: [contractTypeId], onDelete: Restrict)
-  contractStatus   ContractStatus @relation(fields: [contractStatusId], references: [contractStatusId], onDelete: Restrict)
-  currency         Currency       @relation(fields: [contractCurrencyId], references: [currencyId], onDelete: Restrict)
-  signedByEmployee Employee?      @relation(fields: [signedByEmployeeId], references: [employeeId], onDelete: SetNull)
-  supplierContact  SupplierUser?  @relation(fields: [supplierContactId], references: [supplierUserId], onDelete: SetNull)
-  seasonPeriods    PropertyContractSeasonPeriod[]
-  ratePlans        PropertyContractRatePlan[]
-  rates            PropertyContractRate[]
-  inventories      PropertyContractInventory[]
-  supplements        PropertyContractSupplement[]
-  childPolicies      PropertyContractChildPolicy[]
+  property             Property                             @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  supplier             Supplier                             @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
+  contractType         ContractType                         @relation(fields: [contractTypeId], references: [contractTypeId], onDelete: Restrict)
+  contractStatus       ContractStatus                       @relation(fields: [contractStatusId], references: [contractStatusId], onDelete: Restrict)
+  currency             Currency                             @relation(fields: [contractCurrencyId], references: [currencyId], onDelete: Restrict)
+  signedByEmployee     Employee?                            @relation(fields: [signedByEmployeeId], references: [employeeId], onDelete: SetNull)
+  supplierContact      SupplierUser?                        @relation(fields: [supplierContactId], references: [supplierUserId], onDelete: SetNull)
+  seasonPeriods        PropertyContractSeasonPeriod[]
+  ratePlans            PropertyContractRatePlan[]
+  rates                PropertyContractRate[]
+  inventories          PropertyContractInventory[]
+  supplements          PropertyContractSupplement[]
+  childPolicies        PropertyContractChildPolicy[]
   cancellationPolicies PropertyContractCancellationPolicy[]
   promotions           PropertyContractPromotion[]
   stopSales            PropertyContractStopSale[]
@@ -684,7 +697,7 @@ model PropertySeason {
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  property             Property                                 @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  property             Property                             @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
   seasonPeriods        PropertyContractSeasonPeriod[]
   cancellationPolicies PropertyContractCancellationPolicy[]
 
@@ -713,9 +726,9 @@ model PropertyContractSeasonPeriod {
   modifiedBy                     Int?      @map("ModifiedBy")
   modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
-  propertySeason   PropertySeason   @relation(fields: [propertySeasonId], references: [propertySeasonId], onDelete: Restrict)
-  contractRates    PropertyContractRate[]
+  propertyContract    PropertyContract            @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  propertySeason      PropertySeason              @relation(fields: [propertySeasonId], references: [propertySeasonId], onDelete: Restrict)
+  contractRates       PropertyContractRate[]
   contractInventories PropertyContractInventory[]
 
   @@index([tenantId, companyId], map: "PropertyContractSeasonPeriod_TenantID_CompanyID_idx")
@@ -742,16 +755,16 @@ model PropertyContractRatePlan {
   modifiedBy                 Int?      @map("ModifiedBy")
   modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
-  ratePlanType     RatePlanType     @relation(fields: [ratePlanTypeId], references: [ratePlanTypeId], onDelete: Restrict)
-  mealPlan         MealPlan         @relation(fields: [mealPlanId], references: [mealPlanId], onDelete: Restrict)
-  rateBasis        RateBasis        @relation(fields: [rateBasisId], references: [rateBasisId], onDelete: Restrict)
-  contractRates    PropertyContractRate[]
-  supplementRatePlans PropertyContractSupplementRatePlan[]
-  cancellationPolicies PropertyContractCancellationPolicy[]
-  contractPromotions   PropertyContractPromotion[]
-  contractStopSales    PropertyContractStopSale[]
-  contractBlackouts    PropertyContractBlackout[]
+  propertyContract          PropertyContract                     @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  ratePlanType              RatePlanType                         @relation(fields: [ratePlanTypeId], references: [ratePlanTypeId], onDelete: Restrict)
+  mealPlan                  MealPlan                             @relation(fields: [mealPlanId], references: [mealPlanId], onDelete: Restrict)
+  rateBasis                 RateBasis                            @relation(fields: [rateBasisId], references: [rateBasisId], onDelete: Restrict)
+  contractRates             PropertyContractRate[]
+  supplementRatePlans       PropertyContractSupplementRatePlan[]
+  cancellationPolicies      PropertyContractCancellationPolicy[]
+  contractPromotions        PropertyContractPromotion[]
+  contractStopSales         PropertyContractStopSale[]
+  contractBlackouts         PropertyContractBlackout[]
   availabilityRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, propertyContractId, ratePlanCode], map: "PropertyContractRatePlan_Tenant_Contract_Code_key")
@@ -781,12 +794,12 @@ model PropertyContractRate {
   modifiedBy                     Int?      @map("ModifiedBy")
   modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyContract       PropertyContract             @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
-  seasonPeriod           PropertyContractSeasonPeriod @relation(fields: [propertyContractSeasonPeriodId], references: [propertyContractSeasonPeriodId], onDelete: Restrict)
-  ratePlan               PropertyContractRatePlan     @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
-  propertyRoom           PropertyRoom                 @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
-  occupancyType          OccupancyType                @relation(fields: [occupancyTypeId], references: [occupancyTypeId], onDelete: Restrict)
-  rateDays               PropertyContractRateDay[]
+  propertyContract PropertyContract             @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  seasonPeriod     PropertyContractSeasonPeriod @relation(fields: [propertyContractSeasonPeriodId], references: [propertyContractSeasonPeriodId], onDelete: Restrict)
+  ratePlan         PropertyContractRatePlan     @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
+  propertyRoom     PropertyRoom                 @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  occupancyType    OccupancyType                @relation(fields: [occupancyTypeId], references: [occupancyTypeId], onDelete: Restrict)
+  rateDays         PropertyContractRateDay[]
 
   @@unique([tenantId, propertyContractId, propertyContractSeasonPeriodId, propertyContractRatePlanId, propertyRoomId, occupancyTypeId], map: "PropertyContractRate_Unique_key")
   @@index([tenantId, companyId], map: "PropertyContractRate_TenantID_CompanyID_idx")
@@ -813,7 +826,7 @@ model OccupancyType {
   modifiedBy        Int?      @map("ModifiedBy")
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  contractRates PropertyContractRate[]
+  contractRates             PropertyContractRate[]
   availabilityRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, companyId, occupancyTypeCode], map: "OccupancyType_Tenant_Company_Code_key")
@@ -834,11 +847,14 @@ model DayOfWeek {
   modifiedBy    Int?      @map("ModifiedBy")
   modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  contractRateDays PropertyContractRateDay[]
-  contractSupplementDays PropertyContractSupplementDay[]
-  contractPromotionDays  PropertyContractPromotionDay[]
-  contractStopSaleDays   PropertyContractStopSaleDay[]
-  contractBlackoutDays   PropertyContractBlackoutDay[]
+  contractRateDays               PropertyContractRateDay[]
+  contractSupplementDays         PropertyContractSupplementDay[]
+  contractPromotionDays          PropertyContractPromotionDay[]
+  contractStopSaleDays           PropertyContractStopSaleDay[]
+  contractBlackoutDays           PropertyContractBlackoutDay[]
+  serviceProductAvailabilityDays ServiceProductAvailabilityDay[]
+  serviceProductSchedules        ServiceProductSchedule[]
+  serviceProductRateDays         ServiceProductRateDay[]
 
   @@map("DayOfWeek")
 }
@@ -890,8 +906,8 @@ model PropertyRoomAvailability {
   modifiedBy                 Int?      @map("ModifiedBy")
   modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  property     Property     @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
-  propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
+  property               Property                       @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  propertyRoom           PropertyRoom                   @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
   occupancyRateOverrides PropertyRoomAvailabilityRate[]
 
   @@unique([tenantId, propertyRoomId, availabilityDate], map: "PropertyRoomAvailability_Room_Date_key")
@@ -916,7 +932,7 @@ model PropertyRoomAvailabilityRate {
   modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   propertyRoomAvailability PropertyRoomAvailability @relation(fields: [propertyRoomAvailabilityId], references: [propertyRoomAvailabilityId], onDelete: Cascade)
-  ratePlan                PropertyContractRatePlan @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Cascade)
+  ratePlan                 PropertyContractRatePlan @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Cascade)
   occupancyType            OccupancyType            @relation(fields: [occupancyTypeId], references: [occupancyTypeId], onDelete: Cascade)
 
   @@unique([tenantId, propertyRoomAvailabilityId, propertyContractRatePlanId, occupancyTypeId], map: "PropertyRoomAvailabilityRate_Unique_key")
@@ -1020,10 +1036,10 @@ model PropertyContractSupplement {
   modifiedBy                   Int?      @map("ModifiedBy")
   modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
-  supplementType   SupplementType   @relation(fields: [supplementTypeId], references: [supplementTypeId], onDelete: Restrict)
-  propertyRoom     PropertyRoom?    @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
-  rateBasis        RateBasis        @relation(fields: [rateBasisId], references: [rateBasisId], onDelete: Restrict)
+  propertyContract PropertyContract                     @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  supplementType   SupplementType                       @relation(fields: [supplementTypeId], references: [supplementTypeId], onDelete: Restrict)
+  propertyRoom     PropertyRoom?                        @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  rateBasis        RateBasis                            @relation(fields: [rateBasisId], references: [rateBasisId], onDelete: Restrict)
   periods          PropertyContractSupplementPeriod[]
   ageBands         PropertyContractSupplementAge[]
   ratePlans        PropertyContractSupplementRatePlan[]
@@ -1212,7 +1228,7 @@ model CancellationPolicyType {
   tenantId                   Int       @map("TenantID")
   companyId                  Int       @map("CompanyID")
   cancellationPolicyTypeCode String    @map("CancellationPolicyTypeCode") @db.VarChar(50)
-  cancellationPolicyTypeName String  @map("CancellationPolicyTypeName") @db.VarChar(100)
+  cancellationPolicyTypeName String    @map("CancellationPolicyTypeName") @db.VarChar(100)
   displayOrder               Int       @default(0) @map("DisplayOrder")
   isActive                   Boolean   @default(true) @map("IsActive")
   createdBy                  Int       @map("CreatedBy")
@@ -1394,18 +1410,18 @@ model TaxType {
 
 /// Tax master — a specific tax definition (e.g. Qatar VAT 5%), optionally scoped to a country/region and tenant.
 model Tax {
-  taxId    BigInt    @id @default(autoincrement()) @map("TaxID")
+  taxId              BigInt    @id @default(autoincrement()) @map("TaxID")
   /// NULL = platform-wide default tax, usable by any tenant.
-  tenantId  Int?      @map("TenantID")
+  tenantId           Int?      @map("TenantID")
   /// NULL = tenant-wide, not restricted to one company.
-  companyId Int?      @map("CompanyID")
-  taxTypeId BigInt    @map("TaxTypeID")
-  taxCode   String    @unique @map("TaxCode") @db.VarChar(50)
-  taxName   String    @map("TaxName") @db.VarChar(200)
+  companyId          Int?      @map("CompanyID")
+  taxTypeId          BigInt    @map("TaxTypeID")
+  taxCode            String    @unique @map("TaxCode") @db.VarChar(50)
+  taxName            String    @map("TaxName") @db.VarChar(200)
   /// Applicable country; NULL = not country-restricted.
-  countryId Int?      @map("CountryID")
+  countryId          Int?      @map("CountryID")
   /// Applicable region; NULL = not region-restricted.
-  regionId  Int?      @map("RegionID")
+  regionId           Int?      @map("RegionID")
   /// PERCENTAGE | FIXED
   calculationType    String    @map("CalculationType") @db.VarChar(30)
   defaultRate        Decimal?  @map("DefaultRate") @db.Decimal(18, 4)
@@ -1441,30 +1457,30 @@ model Tax {
 /// Contract-level assignment of a Tax — the actual rate/amount and behavior applied on this contract.
 model PropertyContractTax {
   propertyContractTaxId BigInt    @id @default(autoincrement()) @map("PropertyContractTaxID")
-  tenantId               Int       @map("TenantID")
-  companyId              Int       @map("CompanyID")
-  propertyContractId     BigInt    @map("PropertyContractID")
-  taxId                  BigInt    @map("TaxID")
+  tenantId              Int       @map("TenantID")
+  companyId             Int       @map("CompanyID")
+  propertyContractId    BigInt    @map("PropertyContractID")
+  taxId                 BigInt    @map("TaxID")
   /// Contract-facing display name; defaults to the Tax master's name but can be overridden.
-  taxName                String    @map("TaxName") @db.VarChar(200)
+  taxName               String    @map("TaxName") @db.VarChar(200)
   /// PERCENTAGE | FIXED
-  calculationType        String    @map("CalculationType") @db.VarChar(30)
-  taxRate                Decimal?  @map("TaxRate") @db.Decimal(18, 4)
-  taxAmount              Decimal?  @map("TaxAmount") @db.Decimal(18, 4)
-  currencyId             Int?      @map("CurrencyID")
+  calculationType       String    @map("CalculationType") @db.VarChar(30)
+  taxRate               Decimal?  @map("TaxRate") @db.Decimal(18, 4)
+  taxAmount             Decimal?  @map("TaxAmount") @db.Decimal(18, 4)
+  currencyId            Int?      @map("CurrencyID")
   /// ROOM_RATE | ROOM_NIGHT | PERSON | PERSON_NIGHT | MEAL | SUPPLEMENT | TOTAL
-  applicationBasis       String    @map("ApplicationBasis") @db.VarChar(50)
-  isInclusive            Boolean   @default(false) @map("IsInclusive")
-  isCompound             Boolean   @default(false) @map("IsCompound")
-  sequenceNo             Int       @default(0) @map("SequenceNo")
-  fromDate               DateTime  @map("FromDate") @db.Date
-  toDate                 DateTime? @map("ToDate") @db.Date
-  isActive               Boolean   @default(true) @map("IsActive")
-  remarks                String?   @map("Remarks") @db.VarChar(500)
-  createdBy              Int       @map("CreatedBy")
-  createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy             Int?      @map("ModifiedBy")
-  modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  applicationBasis      String    @map("ApplicationBasis") @db.VarChar(50)
+  isInclusive           Boolean   @default(false) @map("IsInclusive")
+  isCompound            Boolean   @default(false) @map("IsCompound")
+  sequenceNo            Int       @default(0) @map("SequenceNo")
+  fromDate              DateTime  @map("FromDate") @db.Date
+  toDate                DateTime? @map("ToDate") @db.Date
+  isActive              Boolean   @default(true) @map("IsActive")
+  remarks               String?   @map("Remarks") @db.VarChar(500)
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("ModifiedBy")
+  modifiedDtTm          DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   propertyContract PropertyContract @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
   tax              Tax              @relation(fields: [taxId], references: [taxId], onDelete: Restrict)
@@ -1538,10 +1554,10 @@ model PropertyContractPromotion {
   modifiedBy                  Int?      @map("ModifiedBy")
   modifiedDtTm                DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  propertyContract PropertyContract                        @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
-  promotionType    PromotionType                           @relation(fields: [promotionTypeId], references: [promotionTypeId], onDelete: Restrict)
-  propertyRoom     PropertyRoom?                           @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
-  ratePlan         PropertyContractRatePlan?               @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
+  propertyContract PropertyContract                     @relation(fields: [propertyContractId], references: [propertyContractId], onDelete: Cascade)
+  promotionType    PromotionType                        @relation(fields: [promotionTypeId], references: [promotionTypeId], onDelete: Restrict)
+  propertyRoom     PropertyRoom?                        @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  ratePlan         PropertyContractRatePlan?            @relation(fields: [propertyContractRatePlanId], references: [propertyContractRatePlanId], onDelete: Restrict)
   periods          PropertyContractPromotionPeriod[]
   conditions       PropertyContractPromotionCondition[]
   benefits         PropertyContractPromotionBenefit[]
@@ -1626,10 +1642,10 @@ model PropertyContractPromotionBenefit {
   modifiedBy                         Int?      @map("ModifiedBy")
   modifiedDtTm                       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  promotion        PropertyContractPromotion @relation(fields: [propertyContractPromotionId], references: [propertyContractPromotionId], onDelete: Cascade)
-  benefitType      PromotionBenefitType      @relation(fields: [promotionBenefitTypeId], references: [promotionBenefitTypeId], onDelete: Restrict)
-  upgradeRoom      PropertyRoom?             @relation("PromotionUpgradeRoom", fields: [upgradeToPropertyRoomId], references: [propertyRoomId], onDelete: Restrict)
-  upgradeMealPlan  MealPlan?                 @relation(fields: [upgradeToMealPlanId], references: [mealPlanId], onDelete: Restrict)
+  promotion       PropertyContractPromotion @relation(fields: [propertyContractPromotionId], references: [propertyContractPromotionId], onDelete: Cascade)
+  benefitType     PromotionBenefitType      @relation(fields: [promotionBenefitTypeId], references: [promotionBenefitTypeId], onDelete: Restrict)
+  upgradeRoom     PropertyRoom?             @relation("PromotionUpgradeRoom", fields: [upgradeToPropertyRoomId], references: [propertyRoomId], onDelete: Restrict)
+  upgradeMealPlan MealPlan?                 @relation(fields: [upgradeToMealPlanId], references: [mealPlanId], onDelete: Restrict)
 
   @@index([tenantId, companyId], map: "PropertyContractPromotionBenefit_TenantID_CompanyID_idx")
   @@index([propertyContractPromotionId], map: "PropertyContractPromotionBenefit_PromotionID_idx")
@@ -1882,18 +1898,18 @@ model RatePlanType {
 
 /// Meal Plan master — RO, BB, HB, FB, AI, … Tenant + Company scoped.
 model MealPlan {
-  mealPlanId    BigInt    @id @default(autoincrement()) @map("MealPlanID")
-  tenantId      Int       @map("TenantID")
-  companyId     Int       @map("CompanyID")
-  mealPlanCode  String    @map("MealPlanCode") @db.VarChar(20)
-  mealPlanName  String    @map("MealPlanName") @db.VarChar(100)
-  description   String?   @map("Description") @db.VarChar(500)
-  displayOrder  Int       @default(0) @map("DisplayOrder")
-  isActive      Boolean   @default(true) @map("IsActive")
-  createdBy     Int       @map("CreatedBy")
-  createdDtTm   DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy    Int?      @map("ModifiedBy")
-  modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  mealPlanId   BigInt    @id @default(autoincrement()) @map("MealPlanID")
+  tenantId     Int       @map("TenantID")
+  companyId    Int       @map("CompanyID")
+  mealPlanCode String    @map("MealPlanCode") @db.VarChar(20)
+  mealPlanName String    @map("MealPlanName") @db.VarChar(100)
+  description  String?   @map("Description") @db.VarChar(500)
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   contractRatePlans PropertyContractRatePlan[]
   promotionBenefits PropertyContractPromotionBenefit[]
@@ -1918,9 +1934,9 @@ model RateBasis {
   modifiedBy    Int?      @map("ModifiedBy")
   modifiedDtTm  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  contractRatePlans PropertyContractRatePlan[]
+  contractRatePlans   PropertyContractRatePlan[]
   contractSupplements PropertyContractSupplement[]
-  supplementAgeBands PropertyContractSupplementAge[] @relation("SupplementAgeRateBasis")
+  supplementAgeBands  PropertyContractSupplementAge[] @relation("SupplementAgeRateBasis")
 
   @@unique([tenantId, companyId, rateBasisCode], map: "RateBasis_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "RateBasis_TenantID_CompanyID_idx")
@@ -2031,7 +2047,7 @@ model RoomType {
   modifiedDtTm   DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted      Boolean   @default(false) @map("IsDeleted")
 
-  category RoomCategory @relation(fields: [roomCategoryId], references: [roomCategoryId], onDelete: Restrict)
+  category      RoomCategory   @relation(fields: [roomCategoryId], references: [roomCategoryId], onDelete: Restrict)
   propertyRooms PropertyRoom[]
 
   @@index([roomCategoryId], map: "RoomType_RoomCategoryID_idx")
@@ -2040,31 +2056,31 @@ model RoomType {
 
 /// Property-specific room type — maps a property room code/name to a global RoomType with occupancy and attributes.
 model PropertyRoom {
-  propertyRoomId   BigInt    @id @default(autoincrement()) @map("PropertyRoomID")
-  tenantId         Int       @map("TenantID")
-  companyId        Int       @map("CompanyID")
-  propertyId       Int       @map("PropertyID")
-  roomTypeId       BigInt    @map("RoomTypeID")
+  propertyRoomId  BigInt    @id @default(autoincrement()) @map("PropertyRoomID")
+  tenantId        Int       @map("TenantID")
+  companyId       Int       @map("CompanyID")
+  propertyId      Int       @map("PropertyID")
+  roomTypeId      BigInt    @map("RoomTypeID")
   /// Property-specific room code (maps to RoomTypeCode in the domain model).
-  roomCode         String    @map("RoomCode") @db.VarChar(50)
+  roomCode        String    @map("RoomCode") @db.VarChar(50)
   /// Property-specific room name (maps to RoomTypeName in the domain model).
-  roomName         String    @map("RoomName") @db.VarChar(200)
-  description      String?   @map("Description") @db.Text
-  maxAdult         Int       @default(0) @map("MaxAdult")
-  maxChild         Int       @default(0) @map("MaxChild")
-  maxOccupancy     Int       @default(0) @map("MaxOccupancy")
-  roomSize         Decimal?  @map("RoomSize") @db.Decimal(10, 2)
-  roomSizeUnitId   BigInt?   @map("RoomSizeUnitID")
-  smokingTypeId    BigInt?   @map("SmokingTypeID")
-  viewTypeId       BigInt?   @map("ViewTypeID")
-  extraBedAllowed  Boolean   @default(false) @map("ExtraBedAllowed")
-  maxExtraBed      Int       @default(0) @map("MaxExtraBed")
-  isActive         Boolean   @default(true) @map("IsActive")
-  displayOrder     Int       @default(0) @map("DisplayOrder")
-  createdBy        Int       @map("CreatedBy")
-  createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy       Int?      @map("ModifiedBy")
-  modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  roomName        String    @map("RoomName") @db.VarChar(200)
+  description     String?   @map("Description") @db.Text
+  maxAdult        Int       @default(0) @map("MaxAdult")
+  maxChild        Int       @default(0) @map("MaxChild")
+  maxOccupancy    Int       @default(0) @map("MaxOccupancy")
+  roomSize        Decimal?  @map("RoomSize") @db.Decimal(10, 2)
+  roomSizeUnitId  BigInt?   @map("RoomSizeUnitID")
+  smokingTypeId   BigInt?   @map("SmokingTypeID")
+  viewTypeId      BigInt?   @map("ViewTypeID")
+  extraBedAllowed Boolean   @default(false) @map("ExtraBedAllowed")
+  maxExtraBed     Int       @default(0) @map("MaxExtraBed")
+  isActive        Boolean   @default(true) @map("IsActive")
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   property     Property      @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
   roomType     RoomType      @relation(fields: [roomTypeId], references: [roomTypeId], onDelete: Restrict)
@@ -2072,20 +2088,20 @@ model PropertyRoom {
   smokingType  SmokingType?  @relation(fields: [smokingTypeId], references: [smokingTypeId], onDelete: SetNull)
   viewType     ViewType?     @relation(fields: [viewTypeId], references: [viewTypeId], onDelete: SetNull)
 
-  beds      PropertyRoomTypeBed[]
-  views     PropertyRoomTypeView[]
-  extraBeds PropertyRoomTypeExtraBed[]
-  media     PropertyRoomTypeMedia[]
-  contractRates PropertyContractRate[]
-  availability  PropertyRoomAvailability[]
-  contractInventories PropertyContractInventory[]
-  contractSupplements PropertyContractSupplement[]
-  contractChildPolicies PropertyContractChildPolicy[]
+  beds                         PropertyRoomTypeBed[]
+  views                        PropertyRoomTypeView[]
+  extraBeds                    PropertyRoomTypeExtraBed[]
+  media                        PropertyRoomTypeMedia[]
+  contractRates                PropertyContractRate[]
+  availability                 PropertyRoomAvailability[]
+  contractInventories          PropertyContractInventory[]
+  contractSupplements          PropertyContractSupplement[]
+  contractChildPolicies        PropertyContractChildPolicy[]
   contractCancellationPolicies PropertyContractCancellationPolicy[]
   contractPromotions           PropertyContractPromotion[]
   contractStopSales            PropertyContractStopSale[]
   contractBlackouts            PropertyContractBlackout[]
-  promotionUpgradeBenefits     PropertyContractPromotionBenefit[] @relation("PromotionUpgradeRoom")
+  promotionUpgradeBenefits     PropertyContractPromotionBenefit[]   @relation("PromotionUpgradeRoom")
 
   @@unique([tenantId, propertyId, roomCode], map: "PropertyRoom_Tenant_Property_Code_key")
   @@index([tenantId, companyId], map: "PropertyRoom_TenantID_CompanyID_idx")
@@ -2155,14 +2171,14 @@ model PropertyRoomTypeExtraBed {
   propertyRoomId             BigInt    @map("PropertyRoomTypeID")
   extraBedTypeId             BigInt    @map("ExtraBedTypeID")
   maxQuantity                Int       @default(1) @map("MaxQuantity")
-  adultAllowed                Boolean   @default(true) @map("AdultAllowed")
-  childAllowed                Boolean   @default(true) @map("ChildAllowed")
-  isComplimentary             Boolean   @default(false) @map("IsComplimentary")
-  isActive                    Boolean   @default(true) @map("IsActive")
-  createdBy                   Int       @map("CreatedBy")
-  createdDtTm                 DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy                  Int?      @map("ModifiedBy")
-  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  adultAllowed               Boolean   @default(true) @map("AdultAllowed")
+  childAllowed               Boolean   @default(true) @map("ChildAllowed")
+  isComplimentary            Boolean   @default(false) @map("IsComplimentary")
+  isActive                   Boolean   @default(true) @map("IsActive")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   propertyRoom PropertyRoom @relation(fields: [propertyRoomId], references: [propertyRoomId], onDelete: Cascade)
   extraBedType BedType      @relation("PropertyRoomExtraBed", fields: [extraBedTypeId], references: [bedTypeId], onDelete: Restrict)
@@ -2184,7 +2200,8 @@ model MediaType {
   modifiedBy   Int?      @map("ModifiedBy")
   modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  media PropertyRoomTypeMedia[]
+  media               PropertyRoomTypeMedia[]
+  serviceProductMedia ServiceProductMedia[]
 
   @@map("MediaType")
 }
@@ -2200,7 +2217,8 @@ model MediaCategory {
   modifiedBy      Int?      @map("ModifiedBy")
   modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  media PropertyRoomTypeMedia[]
+  media               PropertyRoomTypeMedia[]
+  serviceProductMedia ServiceProductMedia[]
 
   @@map("MediaCategory")
 }
@@ -2315,7 +2333,7 @@ model ViewType {
   modifiedDtTm DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted    Boolean   @default(false) @map("IsDeleted")
 
-  propertyRooms      PropertyRoom[]
+  propertyRooms       PropertyRoom[]
   roomViewAssignments PropertyRoomTypeView[]
 
   @@map("ViewTypeMaster")
@@ -2495,24 +2513,24 @@ model Property {
   modifiedBy          Int?      @map("ModifiedBy")
   modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  typeLinks      PropertyTypeLink[]
-  categoryLinks  PropertyCategoryLink[]
-  propertyUsage  PropertyUsage?           @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
-  ownershipType  OwnershipType?           @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
-  propertyBrand  PropertyBrand?           @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
-  country        Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  city           City?                    @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
-  media          PropertyMedia[]
-  amenityLinks   PropertyAmenity[]
-  facilityLinks  PropertyFacility[]
-  supplierLinks  PropertySupplier[]
-  employeeAccess EmployeePropertyAccess[]
-  contracts      PropertyContract[]
-  seasons        PropertySeason[]
-  rooms              PropertyRoom[]
-  roomTypeMedia      PropertyRoomTypeMedia[]
-  roomAvailability   PropertyRoomAvailability[]
-  setupNotes         PropertySetupNote[]
+  typeLinks        PropertyTypeLink[]
+  categoryLinks    PropertyCategoryLink[]
+  propertyUsage    PropertyUsage?             @relation(fields: [propertyUsageId], references: [propertyUsageId], onDelete: SetNull)
+  ownershipType    OwnershipType?             @relation(fields: [ownershipTypeId], references: [ownershipTypeId], onDelete: SetNull)
+  propertyBrand    PropertyBrand?             @relation(fields: [propertyBrandId], references: [propertyBrandId], onDelete: SetNull)
+  country          Country                    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city             City?                      @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  media            PropertyMedia[]
+  amenityLinks     PropertyAmenity[]
+  facilityLinks    PropertyFacility[]
+  supplierLinks    PropertySupplier[]
+  employeeAccess   EmployeePropertyAccess[]
+  contracts        PropertyContract[]
+  seasons          PropertySeason[]
+  rooms            PropertyRoom[]
+  roomTypeMedia    PropertyRoomTypeMedia[]
+  roomAvailability PropertyRoomAvailability[]
+  setupNotes       PropertySetupNote[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -2969,6 +2987,7 @@ model ServiceTypeMaster {
   classifications ServiceProductClassificationMaster[]
   categories      ServiceProductCategory[]
   configurations  ServiceTypeConfiguration[]
+  serviceProducts ServiceProduct[]
 
   @@unique([tenantId, companyId, serviceTypeCode], map: "ServiceTypeMaster_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "ServiceTypeMaster_TenantID_CompanyID_idx")
@@ -2993,11 +3012,12 @@ model ServiceProductClassificationMaster {
   modifiedBy                     Int?      @map("ModifiedBy")
   modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  serviceType ServiceTypeMaster                    @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
-  parent      ServiceProductClassificationMaster?  @relation("ServiceProductClassificationHierarchy", fields: [parentClassificationId], references: [serviceProductClassificationId], onDelete: Restrict, onUpdate: Restrict)
-  children    ServiceProductClassificationMaster[] @relation("ServiceProductClassificationHierarchy")
-  categories  ServiceProductCategory[]
-  configurations ServiceProductClassificationConfiguration[]
+  serviceType     ServiceTypeMaster                           @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
+  parent          ServiceProductClassificationMaster?         @relation("ServiceProductClassificationHierarchy", fields: [parentClassificationId], references: [serviceProductClassificationId], onDelete: Restrict, onUpdate: Restrict)
+  children        ServiceProductClassificationMaster[]        @relation("ServiceProductClassificationHierarchy")
+  categories      ServiceProductCategory[]
+  configurations  ServiceProductClassificationConfiguration[]
+  serviceProducts ServiceProduct[]
 
   @@unique([tenantId, companyId, serviceTypeId, classificationCode], map: "SvcProductClassification_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "ServiceProductClassificationMaster_TenantID_CompanyID_idx")
@@ -3027,10 +3047,11 @@ model ServiceProductCategory {
   modifiedBy                     Int?      @map("ModifiedBy")
   modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
-  serviceType    ServiceTypeMaster                   @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
-  classification ServiceProductClassificationMaster? @relation(fields: [serviceProductClassificationId], references: [serviceProductClassificationId], onDelete: Restrict)
-  parent         ServiceProductCategory?              @relation("ServiceProductCategoryHierarchy", fields: [parentServiceProductCategoryId], references: [serviceProductCategoryId], onDelete: Restrict, onUpdate: Restrict)
-  children       ServiceProductCategory[]             @relation("ServiceProductCategoryHierarchy")
+  serviceType     ServiceTypeMaster                   @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
+  classification  ServiceProductClassificationMaster? @relation(fields: [serviceProductClassificationId], references: [serviceProductClassificationId], onDelete: Restrict)
+  parent          ServiceProductCategory?             @relation("ServiceProductCategoryHierarchy", fields: [parentServiceProductCategoryId], references: [serviceProductCategoryId], onDelete: Restrict, onUpdate: Restrict)
+  children        ServiceProductCategory[]            @relation("ServiceProductCategoryHierarchy")
+  serviceProducts ServiceProduct[]
 
   @@unique([tenantId, companyId, serviceTypeId, categoryCode], map: "SvcProductCategory_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "ServiceProductCategory_TenantID_CompanyID_idx")
@@ -3054,6 +3075,8 @@ model DurationUnit {
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
+  serviceProductConfigurations ServiceProductConfiguration[]
+
   @@unique([tenantId, companyId, durationUnitCode], map: "DurationUnit_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "DurationUnit_TenantID_CompanyID_idx")
   @@map("DurationUnit")
@@ -3074,6 +3097,8 @@ model BookingModel {
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
+  serviceProductConfigurations ServiceProductConfiguration[]
+
   @@unique([tenantId, companyId, bookingModelCode], map: "BookingModel_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "BookingModel_TenantID_CompanyID_idx")
   @@map("BookingModel")
@@ -3093,6 +3118,8 @@ model PricingModel {
   createdDtTm      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
   modifiedBy       Int?      @map("ModifiedBy")
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProductConfigurations ServiceProductConfiguration[]
 
   @@unique([tenantId, companyId, pricingModelCode], map: "PricingModel_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "PricingModel_TenantID_CompanyID_idx")
@@ -3131,7 +3158,7 @@ model CommonStatus {
   description        String?   @map("Description") @db.VarChar(500)
   displayOrder       Int       @default(0) @map("DisplayOrder")
   isInitial          Boolean   @default(false) @map("IsInitial")
-  isFinal             Boolean  @default(false) @map("IsFinal")
+  isFinal            Boolean   @default(false) @map("IsFinal")
   isActive           Boolean   @default(true) @map("IsActive")
   createdBy          Int       @map("CreatedBy")
   createdDtTm        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
@@ -3139,6 +3166,19 @@ model CommonStatus {
   modifiedDtTm       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   statusType CommonStatusType @relation(fields: [commonStatusTypeId], references: [commonStatusTypeId], onDelete: Restrict)
+
+  serviceProducts                   ServiceProduct[]
+  serviceProductOptions             ServiceProductOption[]
+  serviceProductVariants            ServiceProductVariant[]
+  serviceProductStatusHistoryFrom   ServiceProductStatusHistory[]      @relation("ServiceProductStatusHistoryFrom")
+  serviceProductStatusHistoryTo     ServiceProductStatusHistory[]      @relation("ServiceProductStatusHistoryTo")
+  serviceProductAvailabilities      ServiceProductAvailability[]
+  serviceProductSchedules           ServiceProductSchedule[]
+  serviceProductRates               ServiceProductRate[]
+  serviceProductLocations           ServiceProductLocation[]
+  serviceProductSupplierLocations   ServiceProductSupplierLocation[]
+  serviceProductMedia               ServiceProductMedia[]
+  serviceProductInclusionExclusions ServiceProductInclusionExclusion[]
 
   @@unique([tenantId, companyId, commonStatusTypeId, statusCode], map: "CommonStatus_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "CommonStatus_TenantID_CompanyID_idx")
@@ -3151,23 +3191,23 @@ model ServiceTypeConfiguration {
   serviceTypeConfigurationId BigInt    @id @default(autoincrement()) @map("ServiceTypeConfigurationID")
   tenantId                   Int?      @map("TenantID")
   companyId                  Int?      @map("CompanyID")
-  serviceTypeId               BigInt   @map("ServiceTypeID")
-  isDurationApplicable        Boolean  @default(false) @map("IsDurationApplicable")
-  isBookingModelApplicable    Boolean  @default(false) @map("IsBookingModelApplicable")
-  isPricingModelApplicable    Boolean  @default(false) @map("IsPricingModelApplicable")
-  isPaxApplicable              Boolean @default(false) @map("IsPaxApplicable")
-  isAgeApplicable              Boolean @default(false) @map("IsAgeApplicable")
-  isPickupApplicable           Boolean @default(false) @map("IsPickupApplicable")
-  isDropoffApplicable          Boolean @default(false) @map("IsDropoffApplicable")
-  isScheduleApplicable         Boolean @default(false) @map("IsScheduleApplicable")
-  isAvailabilityApplicable     Boolean @default(false) @map("IsAvailabilityApplicable")
-  isItineraryApplicable        Boolean @default(false) @map("IsItineraryApplicable")
-  isCancellationApplicable     Boolean @default(false) @map("IsCancellationApplicable")
-  isOnlineSellable             Boolean @default(false) @map("IsOnlineSellable")
-  createdBy                    Int      @map("CreatedBy")
-  createdDtTm                  DateTime @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy                   Int?      @map("ModifiedBy")
-  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  serviceTypeId              BigInt    @map("ServiceTypeID")
+  isDurationApplicable       Boolean   @default(false) @map("IsDurationApplicable")
+  isBookingModelApplicable   Boolean   @default(false) @map("IsBookingModelApplicable")
+  isPricingModelApplicable   Boolean   @default(false) @map("IsPricingModelApplicable")
+  isPaxApplicable            Boolean   @default(false) @map("IsPaxApplicable")
+  isAgeApplicable            Boolean   @default(false) @map("IsAgeApplicable")
+  isPickupApplicable         Boolean   @default(false) @map("IsPickupApplicable")
+  isDropoffApplicable        Boolean   @default(false) @map("IsDropoffApplicable")
+  isScheduleApplicable       Boolean   @default(false) @map("IsScheduleApplicable")
+  isAvailabilityApplicable   Boolean   @default(false) @map("IsAvailabilityApplicable")
+  isItineraryApplicable      Boolean   @default(false) @map("IsItineraryApplicable")
+  isCancellationApplicable   Boolean   @default(false) @map("IsCancellationApplicable")
+  isOnlineSellable           Boolean   @default(false) @map("IsOnlineSellable")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   serviceType ServiceTypeMaster @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Cascade)
 
@@ -3204,4 +3244,626 @@ model ServiceProductClassificationConfiguration {
   @@unique([tenantId, companyId, serviceProductClassificationId], map: "SvcProdClsConfig_Tenant_Company_Classification_key")
   @@index([serviceProductClassificationId], map: "SvcProdClsConfig_ClassificationID_idx")
   @@map("ServiceProductClassificationConfiguration")
+}
+
+/// The core sellable product catalog entry — Transfer/Tour/Activity/etc. product, classified and optionally categorized, with a primary supplier/location and a lifecycle status.
+model ServiceProduct {
+  serviceProductId               BigInt    @id @default(autoincrement()) @map("ServiceProductID")
+  tenantId                       Int       @map("TenantID")
+  companyId                      Int       @map("CompanyID")
+  serviceProductCode             String    @map("ServiceProductCode") @db.VarChar(50)
+  serviceProductName             String    @map("ServiceProductName") @db.VarChar(250)
+  serviceTypeId                  BigInt    @map("ServiceTypeID")
+  serviceProductClassificationId BigInt    @map("ServiceProductClassificationID")
+  serviceProductCategoryId       BigInt?   @map("ServiceProductCategoryID")
+  supplierId                     BigInt?   @map("SupplierID")
+  countryId                      Int?      @map("CountryID")
+  regionId                       Int?      @map("RegionID")
+  cityId                         Int?      @map("CityID")
+  shortDescription               String?   @map("ShortDescription") @db.VarChar(1000)
+  description                    String?   @map("Description") @db.Text
+  isOnlineSellable               Boolean   @default(false) @map("IsOnlineSellable")
+  isFeatured                     Boolean   @default(false) @map("IsFeatured")
+  displayOrder                   Int       @default(0) @map("DisplayOrder")
+  commonStatusId                 BigInt    @map("CommonStatusID")
+  isActive                       Boolean   @default(true) @map("IsActive")
+  createdBy                      Int       @map("CreatedBy")
+  createdDtTm                    DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                     Int?      @map("ModifiedBy")
+  modifiedDtTm                   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceType    ServiceTypeMaster                  @relation(fields: [serviceTypeId], references: [serviceTypeId], onDelete: Restrict)
+  classification ServiceProductClassificationMaster @relation(fields: [serviceProductClassificationId], references: [serviceProductClassificationId], onDelete: Restrict)
+  category       ServiceProductCategory?            @relation(fields: [serviceProductCategoryId], references: [serviceProductCategoryId], onDelete: Restrict)
+  supplier       Supplier?                          @relation(fields: [supplierId], references: [supplierId], onDelete: SetNull)
+  country        Country?                           @relation(fields: [countryId], references: [countryId], onDelete: SetNull)
+  region         Region?                            @relation(fields: [regionId], references: [regionId], onDelete: SetNull)
+  city           City?                              @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  commonStatus   CommonStatus                       @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  configuration       ServiceProductConfiguration?
+  statusHistory       ServiceProductStatusHistory[]
+  options             ServiceProductOption[]
+  supplierLinks       ServiceProductSupplier[]
+  availabilities      ServiceProductAvailability[]
+  schedules           ServiceProductSchedule[]
+  rates               ServiceProductRate[]
+  locations           ServiceProductLocation[]
+  media               ServiceProductMedia[]
+  inclusionExclusions ServiceProductInclusionExclusion[]
+
+  @@unique([tenantId, companyId, serviceProductCode], map: "ServiceProduct_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "ServiceProduct_TenantID_CompanyID_idx")
+  @@index([serviceTypeId], map: "ServiceProduct_ServiceTypeID_idx")
+  @@index([serviceProductClassificationId], map: "ServiceProduct_ClassificationID_idx")
+  @@index([serviceProductCategoryId], map: "ServiceProduct_CategoryID_idx")
+  @@index([supplierId], map: "ServiceProduct_SupplierID_idx")
+  @@index([commonStatusId], map: "ServiceProduct_CommonStatusID_idx")
+  @@map("ServiceProduct")
+}
+
+/// One configuration row per Service Product — duration/booking/pricing model and the boolean "does this product require X" flags.
+model ServiceProductConfiguration {
+  serviceProductConfigurationId BigInt    @id @default(autoincrement()) @map("ServiceProductConfigurationID")
+  serviceProductId              BigInt    @unique @map("ServiceProductID")
+  durationValue                 Decimal?  @map("DurationValue") @db.Decimal(10, 2)
+  durationUnitId                BigInt?   @map("DurationUnitID")
+  bookingModelId                BigInt?   @map("BookingModelID")
+  pricingModelId                BigInt?   @map("PricingModelID")
+  minimumPax                    Int?      @map("MinimumPax")
+  maximumPax                    Int?      @map("MaximumPax")
+  minimumAge                    Int?      @map("MinimumAge")
+  maximumAge                    Int?      @map("MaximumAge")
+  isInstantConfirmation         Boolean   @default(false) @map("IsInstantConfirmation")
+  isRequestOnly                 Boolean   @default(false) @map("IsRequestOnly")
+  isDateRequired                Boolean   @default(false) @map("IsDateRequired")
+  isTimeRequired                Boolean   @default(false) @map("IsTimeRequired")
+  isPickupRequired              Boolean   @default(false) @map("IsPickupRequired")
+  isDropoffRequired             Boolean   @default(false) @map("IsDropoffRequired")
+  isScheduleRequired            Boolean   @default(false) @map("IsScheduleRequired")
+  isAvailabilityRequired        Boolean   @default(false) @map("IsAvailabilityRequired")
+  isItineraryRequired           Boolean   @default(false) @map("IsItineraryRequired")
+  isCancellationPolicyRequired  Boolean   @default(false) @map("IsCancellationPolicyRequired")
+  createdBy                     Int       @map("CreatedBy")
+  createdDtTm                   DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                    Int?      @map("ModifiedBy")
+  modifiedDtTm                  DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  durationUnit   DurationUnit?  @relation(fields: [durationUnitId], references: [durationUnitId], onDelete: SetNull)
+  bookingModel   BookingModel?  @relation(fields: [bookingModelId], references: [bookingModelId], onDelete: SetNull)
+  pricingModel   PricingModel?  @relation(fields: [pricingModelId], references: [pricingModelId], onDelete: SetNull)
+
+  @@index([durationUnitId], map: "SvcProductConfig_DurationUnitID_idx")
+  @@index([bookingModelId], map: "SvcProductConfig_BookingModelID_idx")
+  @@index([pricingModelId], map: "SvcProductConfig_PricingModelID_idx")
+  @@map("ServiceProductConfiguration")
+}
+
+/// Append-only audit log of a Service Product's status transitions.
+model ServiceProductStatusHistory {
+  serviceProductStatusHistoryId BigInt   @id @default(autoincrement()) @map("ServiceProductStatusHistoryID")
+  serviceProductId              BigInt   @map("ServiceProductID")
+  fromCommonStatusId            BigInt?  @map("FromCommonStatusID")
+  toCommonStatusId              BigInt   @map("ToCommonStatusID")
+  remarks                       String?  @map("Remarks") @db.VarChar(1000)
+  changedBy                     Int      @map("ChangedBy")
+  changedDtTm                   DateTime @default(now()) @map("ChangedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  fromStatus     CommonStatus?  @relation("ServiceProductStatusHistoryFrom", fields: [fromCommonStatusId], references: [commonStatusId], onDelete: SetNull)
+  toStatus       CommonStatus   @relation("ServiceProductStatusHistoryTo", fields: [toCommonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductStatusHistory_ProductID_idx")
+  @@map("ServiceProductStatusHistory")
+}
+
+/// A sellable option within a Service Product (e.g. Standard / Premium / Private Safari).
+model ServiceProductOption {
+  serviceProductOptionId BigInt    @id @default(autoincrement()) @map("ServiceProductOptionID")
+  serviceProductId       BigInt    @map("ServiceProductID")
+  optionCode             String    @map("OptionCode") @db.VarChar(50)
+  optionName             String    @map("OptionName") @db.VarChar(200)
+  description            String?   @map("Description") @db.VarChar(1000)
+  displayOrder           Int       @default(0) @map("DisplayOrder")
+  isDefault              Boolean   @default(false) @map("IsDefault")
+  isOnlineSellable       Boolean   @default(false) @map("IsOnlineSellable")
+  commonStatusId         BigInt    @map("CommonStatusID")
+  isActive               Boolean   @default(true) @map("IsActive")
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("ModifiedBy")
+  modifiedDtTm           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct               @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  commonStatus   CommonStatus                 @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+  variants       ServiceProductVariant[]
+  availabilities ServiceProductAvailability[]
+  schedules      ServiceProductSchedule[]
+  rates          ServiceProductRate[]
+
+  @@unique([serviceProductId, optionCode], map: "SvcProductOption_Product_Code_key")
+  @@index([serviceProductId], map: "SvcProductOption_ProductID_idx")
+  @@index([commonStatusId], map: "SvcProductOption_CommonStatusID_idx")
+  @@map("ServiceProductOption")
+}
+
+/// A sellable variant within a Service Product Option (e.g. Sedan / SUV / Van under Private Transfer).
+model ServiceProductVariant {
+  serviceProductVariantId BigInt    @id @default(autoincrement()) @map("ServiceProductVariantID")
+  serviceProductOptionId  BigInt    @map("ServiceProductOptionID")
+  variantCode             String    @map("VariantCode") @db.VarChar(50)
+  variantName             String    @map("VariantName") @db.VarChar(200)
+  description             String?   @map("Description") @db.VarChar(1000)
+  displayOrder            Int       @default(0) @map("DisplayOrder")
+  isDefault               Boolean   @default(false) @map("IsDefault")
+  isOnlineSellable        Boolean   @default(false) @map("IsOnlineSellable")
+  commonStatusId          BigInt    @map("CommonStatusID")
+  isActive                Boolean   @default(true) @map("IsActive")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  option         ServiceProductOption         @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  commonStatus   CommonStatus                 @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+  availabilities ServiceProductAvailability[]
+  schedules      ServiceProductSchedule[]
+  rates          ServiceProductRate[]
+
+  @@unique([serviceProductOptionId, variantCode], map: "SvcProductVariant_Option_Code_key")
+  @@index([serviceProductOptionId], map: "SvcProductVariant_OptionID_idx")
+  @@index([commonStatusId], map: "SvcProductVariant_CommonStatusID_idx")
+  @@map("ServiceProductVariant")
+}
+
+/// Group classification for rate types — Passenger, Unit, Vehicle, Group, Room, Application.
+model RateTypeGroupMaster {
+  rateTypeGroupId   BigInt    @id @default(autoincrement()) @map("RateTypeGroupID")
+  tenantId          Int?      @map("TenantID")
+  companyId         Int?      @map("CompanyID")
+  rateTypeGroupCode String    @map("RateTypeGroupCode") @db.VarChar(50)
+  rateTypeGroupName String    @map("RateTypeGroupName") @db.VarChar(100)
+  displayOrder      Int       @default(0) @map("DisplayOrder")
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("ModifiedBy")
+  modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  rateTypes RateType[]
+
+  @@unique([tenantId, companyId, rateTypeGroupCode], map: "RateTypeGroupMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "RateTypeGroupMaster_TenantID_CompanyID_idx")
+  @@map("RateTypeGroupMaster")
+}
+
+/// Rate type catalog — Adult, Child, Infant, Vehicle, Room, Unit, Applicant, …
+model RateType {
+  rateTypeId      BigInt    @id @default(autoincrement()) @map("RateTypeID")
+  tenantId        Int?      @map("TenantID")
+  companyId       Int?      @map("CompanyID")
+  rateTypeCode    String    @map("RateTypeCode") @db.VarChar(50)
+  rateTypeName    String    @map("RateTypeName") @db.VarChar(100)
+  description     String?   @map("Description") @db.VarChar(500)
+  rateTypeGroupId BigInt?   @map("RateTypeGroupID")
+  isPaxType       Boolean   @default(false) @map("IsPaxType")
+  isQuantityType  Boolean   @default(false) @map("IsQuantityType")
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  rateTypeGroup       RateTypeGroupMaster? @relation(fields: [rateTypeGroupId], references: [rateTypeGroupId], onDelete: Restrict)
+  serviceProductRates ServiceProductRate[]
+
+  @@unique([tenantId, companyId, rateTypeCode], map: "RateType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "RateType_TenantID_CompanyID_idx")
+  @@index([rateTypeGroupId], map: "RateType_RateTypeGroupID_idx")
+  @@map("RateType")
+}
+
+/// Links a Service Product to a Supplier that can fulfil/rate it — a product can be sourced from multiple suppliers, each with their own rates.
+model ServiceProductSupplier {
+  serviceProductSupplierId BigInt    @id @default(autoincrement()) @map("ServiceProductSupplierID")
+  serviceProductId         BigInt    @map("ServiceProductID")
+  supplierId               BigInt    @map("SupplierID")
+  supplierProductCode      String?   @map("SupplierProductCode") @db.VarChar(100)
+  isPrimary                Boolean   @default(false) @map("IsPrimary")
+  isActive                 Boolean   @default(true) @map("IsActive")
+  validFrom                DateTime? @map("ValidFrom") @db.Date
+  validTo                  DateTime? @map("ValidTo") @db.Date
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplier       Supplier       @relation(fields: [supplierId], references: [supplierId], onDelete: Restrict)
+
+  rates             ServiceProductRate[]
+  supplierLocations ServiceProductSupplierLocation[]
+
+  @@unique([serviceProductId, supplierId], map: "SvcProductSupplier_Product_Supplier_key")
+  @@index([supplierId], map: "SvcProductSupplier_SupplierID_idx")
+  @@map("ServiceProductSupplier")
+}
+
+/// A booking/service date window for a Service Product (optionally scoped to an Option/Variant) — when it can be booked and when the service actually runs.
+model ServiceProductAvailability {
+  serviceProductAvailabilityId BigInt    @id @default(autoincrement()) @map("ServiceProductAvailabilityID")
+  serviceProductId             BigInt    @map("ServiceProductID")
+  serviceProductOptionId       BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId      BigInt?   @map("ServiceProductVariantID")
+  bookingFromDate              DateTime? @map("BookingFromDate") @db.Date
+  bookingToDate                DateTime? @map("BookingToDate") @db.Date
+  serviceFromDate              DateTime? @map("ServiceFromDate") @db.Date
+  serviceToDate                DateTime? @map("ServiceToDate") @db.Date
+  isAvailable                  Boolean   @default(true) @map("IsAvailable")
+  commonStatusId               BigInt    @map("CommonStatusID")
+  isActive                     Boolean   @default(true) @map("IsActive")
+  createdBy                    Int       @map("CreatedBy")
+  createdDtTm                  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct         @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  option         ServiceProductOption?  @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant? @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  commonStatus   CommonStatus           @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  days      ServiceProductAvailabilityDay[]
+  schedules ServiceProductSchedule[]
+
+  @@index([serviceProductId], map: "SvcProductAvail_ProductID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductAvail_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductAvail_VariantID_idx")
+  @@index([commonStatusId], map: "SvcProductAvail_CommonStatusID_idx")
+  @@map("ServiceProductAvailability")
+}
+
+/// Which days of the week a Service Product Availability window applies to.
+model ServiceProductAvailabilityDay {
+  serviceProductAvailabilityDayId BigInt    @id @default(autoincrement()) @map("ServiceProductAvailabilityDayID")
+  serviceProductAvailabilityId    BigInt    @map("ServiceProductAvailabilityID")
+  dayOfWeekId                     BigInt    @map("DayOfWeekID")
+  isAvailable                     Boolean   @default(true) @map("IsAvailable")
+  createdBy                       Int       @map("CreatedBy")
+  createdDtTm                     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                      Int?      @map("ModifiedBy")
+  modifiedDtTm                    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  availability ServiceProductAvailability @relation(fields: [serviceProductAvailabilityId], references: [serviceProductAvailabilityId], onDelete: Cascade)
+  dayOfWeek    DayOfWeek                  @relation(fields: [dayOfWeekId], references: [dayOfWeekId], onDelete: Restrict)
+
+  @@unique([serviceProductAvailabilityId, dayOfWeekId], map: "SvcProductAvailDay_Avail_Day_key")
+  @@index([dayOfWeekId], map: "SvcProductAvailDay_DayOfWeekID_idx")
+  @@map("ServiceProductAvailabilityDay")
+}
+
+/// A time slot / departure schedule within a Service Product Availability window.
+model ServiceProductSchedule {
+  serviceProductScheduleId     BigInt    @id @default(autoincrement()) @map("ServiceProductScheduleID")
+  serviceProductAvailabilityId BigInt    @map("ServiceProductAvailabilityID")
+  serviceProductId             BigInt    @map("ServiceProductID")
+  serviceProductOptionId       BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId      BigInt?   @map("ServiceProductVariantID")
+  dayOfWeekId                  BigInt?   @map("DayOfWeekID")
+  startTime                    DateTime? @map("StartTime") @db.Time(6)
+  endTime                      DateTime? @map("EndTime") @db.Time(6)
+  capacity                     Int?      @map("Capacity")
+  isAvailable                  Boolean   @default(true) @map("IsAvailable")
+  commonStatusId               BigInt    @map("CommonStatusID")
+  isActive                     Boolean   @default(true) @map("IsActive")
+  createdBy                    Int       @map("CreatedBy")
+  createdDtTm                  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  availability   ServiceProductAvailability @relation(fields: [serviceProductAvailabilityId], references: [serviceProductAvailabilityId], onDelete: Cascade)
+  serviceProduct ServiceProduct             @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  option         ServiceProductOption?      @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant?     @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  dayOfWeek      DayOfWeek?                 @relation(fields: [dayOfWeekId], references: [dayOfWeekId], onDelete: Restrict)
+  commonStatus   CommonStatus               @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  rates ServiceProductRate[]
+
+  @@index([serviceProductAvailabilityId], map: "SvcProductSchedule_AvailID_idx")
+  @@index([serviceProductId], map: "SvcProductSchedule_ProductID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductSchedule_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductSchedule_VariantID_idx")
+  @@index([dayOfWeekId], map: "SvcProductSchedule_DayOfWeekID_idx")
+  @@index([commonStatusId], map: "SvcProductSchedule_CommonStatusID_idx")
+  @@map("ServiceProductSchedule")
+}
+
+/// A supplier's rate for a Service Product by Rate Type (Adult/Child/Vehicle/…), optionally scoped to an Option/Variant/Schedule and a pax/quantity slab.
+model ServiceProductRate {
+  serviceProductRateId     BigInt    @id @default(autoincrement()) @map("ServiceProductRateID")
+  serviceProductId         BigInt    @map("ServiceProductID")
+  serviceProductSupplierId BigInt    @map("ServiceProductSupplierID")
+  serviceProductOptionId   BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId  BigInt?   @map("ServiceProductVariantID")
+  serviceProductScheduleId BigInt?   @map("ServiceProductScheduleID")
+  rateTypeId               BigInt    @map("RateTypeID")
+  minimumPax               Int?      @map("MinimumPax")
+  maximumPax               Int?      @map("MaximumPax")
+  minimumQuantity          Decimal?  @map("MinimumQuantity") @db.Decimal(10, 2)
+  maximumQuantity          Decimal?  @map("MaximumQuantity") @db.Decimal(10, 2)
+  rateAmount               Decimal   @map("RateAmount") @db.Decimal(18, 4)
+  validFrom                DateTime? @map("ValidFrom") @db.Date
+  validTo                  DateTime? @map("ValidTo") @db.Date
+  commonStatusId           BigInt    @map("CommonStatusID")
+  isActive                 Boolean   @default(true) @map("IsActive")
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplierLink   ServiceProductSupplier  @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  option         ServiceProductOption?   @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant?  @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  schedule       ServiceProductSchedule? @relation(fields: [serviceProductScheduleId], references: [serviceProductScheduleId], onDelete: SetNull)
+  rateType       RateType                @relation(fields: [rateTypeId], references: [rateTypeId], onDelete: Restrict)
+  commonStatus   CommonStatus            @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+  days           ServiceProductRateDay[]
+
+  @@index([serviceProductId], map: "SvcProductRate_ProductID_idx")
+  @@index([serviceProductSupplierId], map: "SvcProductRate_SupplierLinkID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductRate_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductRate_VariantID_idx")
+  @@index([serviceProductScheduleId], map: "SvcProductRate_ScheduleID_idx")
+  @@index([rateTypeId], map: "SvcProductRate_RateTypeID_idx")
+  @@index([commonStatusId], map: "SvcProductRate_CommonStatusID_idx")
+  @@map("ServiceProductRate")
+}
+
+/// Which days of the week a Service Product Rate applies to.
+model ServiceProductRateDay {
+  serviceProductRateDayId BigInt    @id @default(autoincrement()) @map("ServiceProductRateDayID")
+  serviceProductRateId    BigInt    @map("ServiceProductRateID")
+  dayOfWeekId             BigInt    @map("DayOfWeekID")
+  isActive                Boolean   @default(true) @map("IsActive")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  rate      ServiceProductRate @relation(fields: [serviceProductRateId], references: [serviceProductRateId], onDelete: Cascade)
+  dayOfWeek DayOfWeek          @relation(fields: [dayOfWeekId], references: [dayOfWeekId], onDelete: Restrict)
+
+  @@unique([serviceProductRateId, dayOfWeekId], map: "SvcProductRateDay_Rate_Day_key")
+  @@index([dayOfWeekId], map: "SvcProductRateDay_DayOfWeekID_idx")
+  @@map("ServiceProductRateDay")
+}
+
+/// Location type lookup for Service Products — Destination, Pickup, Drop-off, Meeting Point, Airport, … Global.
+model ServiceProductLocationType {
+  serviceProductLocationTypeId BigInt    @id @default(autoincrement()) @map("ServiceProductLocationTypeID")
+  locationTypeCode             String    @unique @map("LocationTypeCode") @db.VarChar(50)
+  locationTypeName             String    @map("LocationTypeName") @db.VarChar(100)
+  description                  String?   @map("Description") @db.VarChar(500)
+  isPickupLocation             Boolean   @default(false) @map("IsPickupLocation")
+  isDropoffLocation            Boolean   @default(false) @map("IsDropoffLocation")
+  isMeetingPoint               Boolean   @default(false) @map("IsMeetingPoint")
+  isDestination                Boolean   @default(false) @map("IsDestination")
+  displayOrder                 Int       @default(0) @map("DisplayOrder")
+  isActive                     Boolean   @default(true) @map("IsActive")
+  createdBy                    Int       @map("CreatedBy")
+  createdDtTm                  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  locations         ServiceProductLocation[]
+  supplierLocations ServiceProductSupplierLocation[]
+
+  @@map("ServiceProductLocationType")
+}
+
+/// A physical location tied to a Service Product — pickup point, meeting point, destination, venue, … Country required; Region/City/Area optional.
+model ServiceProductLocation {
+  serviceProductLocationId     BigInt    @id @default(autoincrement()) @map("ServiceProductLocationID")
+  serviceProductId             BigInt    @map("ServiceProductID")
+  serviceProductLocationTypeId BigInt    @map("ServiceProductLocationTypeID")
+  countryId                    Int       @map("CountryID")
+  regionId                     Int?      @map("RegionID")
+  cityId                       Int?      @map("CityID")
+  areaId                       Int?      @map("AreaID")
+  locationName                 String    @map("LocationName") @db.VarChar(250)
+  addressLine1                 String?   @map("AddressLine1") @db.VarChar(500)
+  addressLine2                 String?   @map("AddressLine2") @db.VarChar(500)
+  postalCode                   String?   @map("PostalCode") @db.VarChar(30)
+  latitude                     Decimal?  @map("Latitude") @db.Decimal(10, 7)
+  longitude                    Decimal?  @map("Longitude") @db.Decimal(10, 7)
+  googlePlaceId                String?   @map("GooglePlaceID") @db.VarChar(200)
+  googleMapUrl                 String?   @map("GoogleMapURL") @db.VarChar(1000)
+  locationInstructions         String?   @map("LocationInstructions") @db.VarChar(2000)
+  isPrimary                    Boolean   @default(false) @map("IsPrimary")
+  displayOrder                 Int       @default(0) @map("DisplayOrder")
+  commonStatusId               BigInt    @map("CommonStatusID")
+  isActive                     Boolean   @default(true) @map("IsActive")
+  createdBy                    Int       @map("CreatedBy")
+  createdDtTm                  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                   Int?      @map("ModifiedBy")
+  modifiedDtTm                 DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct             @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  locationType   ServiceProductLocationType @relation(fields: [serviceProductLocationTypeId], references: [serviceProductLocationTypeId], onDelete: Restrict)
+  country        Country                    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  region         Region?                    @relation(fields: [regionId], references: [regionId], onDelete: SetNull)
+  city           City?                      @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  area           Area?                      @relation(fields: [areaId], references: [areaId], onDelete: SetNull)
+  commonStatus   CommonStatus               @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  supplierLocations ServiceProductSupplierLocation[]
+
+  @@index([serviceProductId], map: "SvcProductLocation_ProductID_idx")
+  @@index([serviceProductLocationTypeId], map: "SvcProductLocation_TypeID_idx")
+  @@index([countryId], map: "SvcProductLocation_CountryID_idx")
+  @@index([cityId], map: "SvcProductLocation_CityID_idx")
+  @@index([areaId], map: "SvcProductLocation_AreaID_idx")
+  @@index([commonStatusId], map: "SvcProductLocation_CommonStatusID_idx")
+  @@map("ServiceProductLocation")
+}
+
+/// A supplier's own location for a Service Product — may optionally reference a canonical ServiceProductLocation, or stand alone with its own address/geo.
+model ServiceProductSupplierLocation {
+  serviceProductSupplierLocationId BigInt    @id @default(autoincrement()) @map("ServiceProductSupplierLocationID")
+  serviceProductSupplierId         BigInt    @map("ServiceProductSupplierID")
+  serviceProductLocationId         BigInt?   @map("ServiceProductLocationID")
+  serviceProductLocationTypeId     BigInt    @map("ServiceProductLocationTypeID")
+  countryId                        Int       @map("CountryID")
+  regionId                         Int?      @map("RegionID")
+  cityId                           Int?      @map("CityID")
+  areaId                           Int?      @map("AreaID")
+  supplierLocationCode             String?   @map("SupplierLocationCode") @db.VarChar(100)
+  supplierLocationName             String    @map("SupplierLocationName") @db.VarChar(250)
+  supplierLocationReference        String?   @map("SupplierLocationReference") @db.VarChar(200)
+  addressLine1                     String?   @map("AddressLine1") @db.VarChar(500)
+  addressLine2                     String?   @map("AddressLine2") @db.VarChar(500)
+  postalCode                       String?   @map("PostalCode") @db.VarChar(30)
+  latitude                         Decimal?  @map("Latitude") @db.Decimal(10, 7)
+  longitude                        Decimal?  @map("Longitude") @db.Decimal(10, 7)
+  supplierGooglePlaceId            String?   @map("SupplierGooglePlaceID") @db.VarChar(200)
+  locationInstructions             String?   @map("LocationInstructions") @db.VarChar(2000)
+  isPickupAvailable                Boolean   @default(false) @map("IsPickupAvailable")
+  isDropoffAvailable               Boolean   @default(false) @map("IsDropoffAvailable")
+  isMeetingPoint                   Boolean   @default(false) @map("IsMeetingPoint")
+  isPrimary                        Boolean   @default(false) @map("IsPrimary")
+  isAvailable                      Boolean   @default(true) @map("IsAvailable")
+  displayOrder                     Int       @default(0) @map("DisplayOrder")
+  commonStatusId                   BigInt    @map("CommonStatusID")
+  isActive                         Boolean   @default(true) @map("IsActive")
+  createdBy                        Int       @map("CreatedBy")
+  createdDtTm                      DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                       Int?      @map("ModifiedBy")
+  modifiedDtTm                     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  supplierLink ServiceProductSupplier     @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  location     ServiceProductLocation?    @relation(fields: [serviceProductLocationId], references: [serviceProductLocationId], onDelete: SetNull)
+  locationType ServiceProductLocationType @relation(fields: [serviceProductLocationTypeId], references: [serviceProductLocationTypeId], onDelete: Restrict)
+  country      Country                    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  region       Region?                    @relation(fields: [regionId], references: [regionId], onDelete: SetNull)
+  city         City?                      @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  area         Area?                      @relation(fields: [areaId], references: [areaId], onDelete: SetNull)
+  commonStatus CommonStatus               @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([serviceProductSupplierId], map: "SvcProductSupplierLoc_SupplierLinkID_idx")
+  @@index([serviceProductLocationId], map: "SvcProductSupplierLoc_LocationID_idx")
+  @@index([serviceProductLocationTypeId], map: "SvcProductSupplierLoc_TypeID_idx")
+  @@index([countryId], map: "SvcProductSupplierLoc_CountryID_idx")
+  @@index([cityId], map: "SvcProductSupplierLoc_CityID_idx")
+  @@index([commonStatusId], map: "SvcProductSupplierLoc_CommonStatusID_idx")
+  @@map("ServiceProductSupplierLocation")
+}
+
+/// Media (photos/videos/PDFs) for a Service Product — Cover, Gallery, Map, Location, …
+model ServiceProductMedia {
+  serviceProductMediaId BigInt    @id @default(autoincrement()) @map("ServiceProductMediaID")
+  serviceProductId      BigInt    @map("ServiceProductID")
+  mediaTypeId           BigInt    @map("MediaTypeID")
+  mediaCategoryId       BigInt    @map("MediaCategoryID")
+  mediaUrl              String    @map("MediaURL") @db.VarChar(1000)
+  thumbnailUrl          String?   @map("ThumbnailURL") @db.VarChar(1000)
+  mediaTitle            String?   @map("MediaTitle") @db.VarChar(250)
+  mediaDescription      String?   @map("MediaDescription") @db.VarChar(1000)
+  altText               String?   @map("AltText") @db.VarChar(500)
+  fileName              String?   @map("FileName") @db.VarChar(250)
+  fileExtension         String?   @map("FileExtension") @db.VarChar(20)
+  mimeType              String?   @map("MimeType") @db.VarChar(100)
+  fileSize              BigInt?   @map("FileSize")
+  width                 Int?      @map("Width")
+  height                Int?      @map("Height")
+  durationSeconds       Int?      @map("DurationSeconds")
+  isPrimary             Boolean   @default(false) @map("IsPrimary")
+  displayOrder          Int       @default(0) @map("DisplayOrder")
+  commonStatusId        BigInt    @map("CommonStatusID")
+  isActive              Boolean   @default(true) @map("IsActive")
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("ModifiedBy")
+  modifiedDtTm          DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  mediaType      MediaType      @relation(fields: [mediaTypeId], references: [mediaTypeId], onDelete: Restrict)
+  mediaCategory  MediaCategory  @relation(fields: [mediaCategoryId], references: [mediaCategoryId], onDelete: Restrict)
+  commonStatus   CommonStatus   @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductMedia_ProductID_idx")
+  @@index([mediaTypeId], map: "SvcProductMedia_MediaTypeID_idx")
+  @@index([mediaCategoryId], map: "SvcProductMedia_MediaCategoryID_idx")
+  @@index([commonStatusId], map: "SvcProductMedia_CommonStatusID_idx")
+  @@map("ServiceProductMedia")
+}
+
+/// INCLUSION / EXCLUSION type lookup. Global.
+model InclusionExclusionType {
+  inclusionExclusionTypeId BigInt    @id @default(autoincrement()) @map("InclusionExclusionTypeID")
+  typeCode                 String    @unique @map("TypeCode") @db.VarChar(50)
+  typeName                 String    @map("TypeName") @db.VarChar(100)
+  isActive                 Boolean   @default(true) @map("IsActive")
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  inclusionExclusions ServiceProductInclusionExclusion[]
+
+  @@map("InclusionExclusionType")
+}
+
+/// Inclusion/exclusion line-item type lookup — Transport, Meal, Ticket, Guide, … Global.
+/// Also reused as the Quantity unit on ServiceProductInclusionExclusion (Person, Vehicle, Meal, Ticket, …).
+model ServiceProductItemType {
+  serviceProductItemTypeId BigInt    @id @default(autoincrement()) @map("ServiceProductItemTypeID")
+  itemTypeCode             String    @unique @map("ItemTypeCode") @db.VarChar(50)
+  itemTypeName             String    @map("ItemTypeName") @db.VarChar(100)
+  displayOrder             Int       @default(0) @map("DisplayOrder")
+  isActive                 Boolean   @default(true) @map("IsActive")
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  inclusionExclusionsAsItem ServiceProductInclusionExclusion[] @relation("InclExclItemType")
+  inclusionExclusionsAsUnit ServiceProductInclusionExclusion[] @relation("InclExclUnitType")
+
+  @@map("ServiceProductItemType")
+}
+
+/// What's included / excluded in a Service Product — item, optional quantity + unit, mandatory flag.
+model ServiceProductInclusionExclusion {
+  serviceProductInclusionExclusionId BigInt    @id @default(autoincrement()) @map("ServiceProductInclusionExclusionID")
+  serviceProductId                   BigInt    @map("ServiceProductID")
+  inclusionExclusionTypeId           BigInt    @map("InclusionExclusionTypeID")
+  itemTypeId                         BigInt?   @map("ItemTypeID")
+  itemName                           String    @map("ItemName") @db.VarChar(250)
+  description                        String?   @map("Description") @db.VarChar(1000)
+  quantity                           Decimal?  @map("Quantity") @db.Decimal(10, 2)
+  unitId                             BigInt?   @map("UnitID")
+  isMandatory                        Boolean   @default(false) @map("IsMandatory")
+  displayOrder                       Int       @default(0) @map("DisplayOrder")
+  commonStatusId                     BigInt    @map("CommonStatusID")
+  isActive                           Boolean   @default(true) @map("IsActive")
+  createdBy                          Int       @map("CreatedBy")
+  createdDtTm                        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                         Int?      @map("ModifiedBy")
+  modifiedDtTm                       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct         ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  inclusionExclusionType InclusionExclusionType  @relation(fields: [inclusionExclusionTypeId], references: [inclusionExclusionTypeId], onDelete: Restrict)
+  itemType               ServiceProductItemType? @relation("InclExclItemType", fields: [itemTypeId], references: [serviceProductItemTypeId], onDelete: SetNull)
+  unit                   ServiceProductItemType? @relation("InclExclUnitType", fields: [unitId], references: [serviceProductItemTypeId], onDelete: SetNull)
+  commonStatus           CommonStatus            @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductInclExcl_ProductID_idx")
+  @@index([inclusionExclusionTypeId], map: "SvcProductInclExcl_TypeID_idx")
+  @@index([itemTypeId], map: "SvcProductInclExcl_ItemTypeID_idx")
+  @@index([unitId], map: "SvcProductInclExcl_UnitID_idx")
+  @@index([commonStatusId], map: "SvcProductInclExcl_CommonStatusID_idx")
+  @@map("ServiceProductInclusionExclusion")
 }

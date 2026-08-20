@@ -1,0 +1,41 @@
+/** A supplier's own location for a Service Product — may optionally reference a canonical ServiceProductLocation, or stand alone with its own address/geo. */
+export interface ServiceProductSupplierLocation {
+  serviceProductSupplierLocationId: number;
+  serviceProductSupplierId: number;
+  supplierName?: string;
+  serviceProductLocationId: number | null;
+  serviceProductLocationName?: string;
+  serviceProductLocationTypeId: number;
+  locationTypeName?: string;
+  countryId: number;
+  countryName?: string;
+  regionId: number | null;
+  regionName?: string;
+  cityId: number | null;
+  cityName?: string;
+  areaId: number | null;
+  areaName?: string;
+  supplierLocationCode: string | null;
+  supplierLocationName: string;
+  supplierLocationReference: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  postalCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  supplierGooglePlaceId: string | null;
+  locationInstructions: string | null;
+  isPickupAvailable: boolean;
+  isDropoffAvailable: boolean;
+  isMeetingPoint: boolean;
+  isPrimary: boolean;
+  isAvailable: boolean;
+  displayOrder: number;
+  commonStatusId: number;
+  statusName?: string;
+  isActive: boolean;
+  createdBy: number;
+  createdDtTm: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
+}

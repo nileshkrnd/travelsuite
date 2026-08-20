@@ -20,9 +20,27 @@ export type ModuleKey =
   | "bookingModel"
   | "pricingModel"
   | "serviceTypeConfiguration"
+  | "serviceProductClassificationConfiguration"
+  | "serviceProduct"
+  | "serviceProductConfiguration"
+  | "serviceProductOption"
+  | "serviceProductVariant"
+  | "serviceProductSupplier"
+  | "serviceProductAvailability"
+  | "serviceProductSchedule"
+  | "serviceProductRate"
+  | "serviceProductLocationType"
+  | "serviceProductLocation"
+  | "serviceProductSupplierLocation"
+  | "serviceProductMedia"
+  | "inclusionExclusionType"
+  | "serviceProductItemType"
+  | "serviceProductInclusionExclusion"
   | "adminConfiguration"
   | "commonStatusType"
   | "commonStatus"
+  | "rateTypeGroup"
+  | "rateType"
   | "property"
   | "propertySupplier"
   | "ratePlanType"
@@ -848,6 +866,116 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "masters/service-product-category",
           },
           {
+            key: "serviceTypeConfiguration",
+            labelKey: "sidebar.serviceTypeConfiguration",
+            icon: "Settings",
+            path: "masters/service-type-configuration",
+          },
+          {
+            key: "serviceProductClassificationConfiguration",
+            labelKey: "sidebar.serviceProductClassificationConfiguration",
+            icon: "Settings",
+            path: "masters/service-product-classification-configuration",
+          },
+          {
+            key: "serviceProduct",
+            labelKey: "sidebar.serviceProduct",
+            icon: "Package",
+            path: "masters/service-product",
+          },
+          {
+            key: "serviceProductConfiguration",
+            labelKey: "sidebar.serviceProductConfiguration",
+            icon: "Settings",
+            path: "masters/service-product-configuration",
+          },
+          {
+            key: "serviceProductOption",
+            labelKey: "sidebar.serviceProductOption",
+            icon: "ListTree",
+            path: "masters/service-product-option",
+          },
+          {
+            key: "serviceProductVariant",
+            labelKey: "sidebar.serviceProductVariant",
+            icon: "Layers",
+            path: "masters/service-product-variant",
+          },
+          {
+            key: "serviceProductSupplier",
+            labelKey: "sidebar.serviceProductSupplier",
+            icon: "Truck",
+            path: "masters/service-product-supplier",
+          },
+          {
+            key: "serviceProductAvailability",
+            labelKey: "sidebar.serviceProductAvailability",
+            icon: "CalendarRange",
+            path: "masters/service-product-availability",
+          },
+          {
+            key: "serviceProductSchedule",
+            labelKey: "sidebar.serviceProductSchedule",
+            icon: "Clock3",
+            path: "masters/service-product-schedule",
+          },
+          {
+            key: "serviceProductRate",
+            labelKey: "sidebar.serviceProductRate",
+            icon: "DollarSign",
+            path: "masters/service-product-rate",
+          },
+          {
+            key: "serviceProductLocationType",
+            labelKey: "sidebar.serviceProductLocationType",
+            icon: "Tags",
+            path: "masters/service-product-location-type",
+          },
+          {
+            key: "serviceProductLocation",
+            labelKey: "sidebar.serviceProductLocation",
+            icon: "MapPin",
+            path: "masters/service-product-location",
+          },
+          {
+            key: "serviceProductSupplierLocation",
+            labelKey: "sidebar.serviceProductSupplierLocation",
+            icon: "Building2",
+            path: "masters/service-product-supplier-location",
+          },
+          {
+            key: "serviceProductMedia",
+            labelKey: "sidebar.serviceProductMedia",
+            icon: "Image",
+            path: "masters/service-product-media",
+          },
+          {
+            key: "inclusionExclusionType",
+            labelKey: "sidebar.inclusionExclusionType",
+            icon: "ListChecks",
+            path: "masters/inclusion-exclusion-type",
+          },
+          {
+            key: "serviceProductItemType",
+            labelKey: "sidebar.serviceProductItemType",
+            icon: "Tag",
+            path: "masters/service-product-item-type",
+          },
+          {
+            key: "serviceProductInclusionExclusion",
+            labelKey: "sidebar.serviceProductInclusionExclusion",
+            icon: "ListChecks",
+            path: "masters/service-product-inclusion-exclusion",
+          },
+        ],
+      },
+      {
+        key: "adminConfiguration",
+        labelKey: "sidebar.adminConfiguration",
+        icon: "Workflow",
+        path: "administration/configuration",
+        children: [
+          {
             key: "durationUnit",
             labelKey: "sidebar.durationUnit",
             icon: "Clock",
@@ -866,20 +994,6 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "masters/pricing-model",
           },
           {
-            key: "serviceTypeConfiguration",
-            labelKey: "sidebar.serviceTypeConfiguration",
-            icon: "Settings",
-            path: "masters/service-type-configuration",
-          },
-        ],
-      },
-      {
-        key: "adminConfiguration",
-        labelKey: "sidebar.adminConfiguration",
-        icon: "Workflow",
-        path: "administration/configuration",
-        children: [
-          {
             key: "commonStatusType",
             labelKey: "sidebar.commonStatusType",
             icon: "Workflow",
@@ -890,6 +1004,18 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.commonStatus",
             icon: "ListOrdered",
             path: "masters/common-status",
+          },
+          {
+            key: "rateTypeGroup",
+            labelKey: "sidebar.rateTypeGroup",
+            icon: "Users",
+            path: "masters/rate-type-group",
+          },
+          {
+            key: "rateType",
+            labelKey: "sidebar.rateType",
+            icon: "Tags",
+            path: "masters/rate-type",
           },
         ],
       },
