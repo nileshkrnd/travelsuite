@@ -566,7 +566,7 @@ function OptionList({ roleDef }: { roleDef: RoleDef }) {
           ) : visible.length === 0 ? (
             <EmptyState icon={Search} tone="muted" heading="No matching options" description="Try a different search or status filter." size="compact" />
           ) : (
-            <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+            <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
               <TableHeader>
                 <TableRow>
                   <SortableTableHead sortKey="optionCode" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="w-[18%] px-2 py-1.5">

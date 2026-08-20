@@ -555,7 +555,7 @@ function ServiceTypeList({ roleDef }: { roleDef: RoleDef }) {
             size="compact"
           />
         ) : scopeTenantId > 0 ? (
-          <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+          <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[8%] px-2 py-1.5">

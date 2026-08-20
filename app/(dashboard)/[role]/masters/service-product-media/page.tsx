@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { ServiceProductMediaUploadField, type UploadedFileInfo } from "@/components/masters/ServiceProductMediaUploadField";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -66,6 +67,7 @@ function useMediaSchema(rows: ServiceProductMedia[], currentId?: number) {
     width: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().nonnegative().nullable()),
     height: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().nonnegative().nullable()),
     durationSeconds: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().nonnegative().nullable()),
+    fileSize: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().nonnegative().nullable()),
     isPrimary: z.boolean(),
     displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
     commonStatusId: z.number().int().positive("Status is required"),
@@ -96,6 +98,7 @@ function blankValues(statuses: CommonStatus[]): FormValues {
     width: null,
     height: null,
     durationSeconds: null,
+    fileSize: null,
     isPrimary: false,
     displayOrder: 0,
     commonStatusId: statuses.find((s) => s.isInitial)?.commonStatusId ?? statuses[0]?.commonStatusId ?? 0,
@@ -133,6 +136,7 @@ function MediaPanel({
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,11 +155,33 @@ function MediaPanel({
       width: row?.width ?? null,
       height: row?.height ?? null,
       durationSeconds: row?.durationSeconds ?? null,
+      fileSize: row?.fileSize ?? null,
       isPrimary: row?.isPrimary ?? false,
       displayOrder: row?.displayOrder ?? 0,
       commonStatusId: row?.commonStatusId ?? statuses.find((s) => s.isInitial)?.commonStatusId ?? statuses[0]?.commonStatusId ?? 0,
     },
   });
+
+  const mediaTypeIdWatch = useWatch({ control, name: "mediaTypeId" });
+  const mediaUrlWatch = useWatch({ control, name: "mediaUrl" });
+  const fileNameWatch = useWatch({ control, name: "fileName" });
+  const selectedMediaTypeName = mediaTypes.find((t) => t.mediaTypeKey === mediaTypeIdWatch)?.name;
+
+  function handleUpload(info: UploadedFileInfo | null) {
+    if (info) {
+      setValue("mediaUrl", info.mediaUrl, { shouldValidate: true });
+      setValue("fileName", info.fileName);
+      setValue("fileExtension", info.fileExtension);
+      setValue("mimeType", info.mimeType);
+      setValue("fileSize", info.fileSize);
+    } else {
+      setValue("mediaUrl", "", { shouldValidate: true });
+      setValue("fileName", "");
+      setValue("fileExtension", "");
+      setValue("mimeType", "");
+      setValue("fileSize", null);
+    }
+  }
 
   async function submit(values: FormValues, keepOpenForMore: boolean) {
     if (!userKey) {
@@ -177,6 +203,7 @@ function MediaPanel({
       width: values.width,
       height: values.height,
       durationSeconds: values.durationSeconds,
+      fileSize: values.fileSize,
       isPrimary: values.isPrimary,
       displayOrder: values.displayOrder,
       commonStatusId: values.commonStatusId,
@@ -215,11 +242,30 @@ function MediaPanel({
       </div>
 
       <form onSubmit={handleSubmit((values) => submit(values, false))} className="grid grid-cols-2 gap-3 sm:grid-cols-4" noValidate>
+        <div className="sm:col-span-4">
+          {!isReadOnly && (
+            <ServiceProductMediaUploadField
+              id="mediaUpload"
+              label="Upload media"
+              mediaTypeName={selectedMediaTypeName}
+              mediaUrl={mediaUrlWatch || null}
+              fileName={fileNameWatch || null}
+              onChange={handleUpload}
+            />
+          )}
+        </div>
+
         <div className="space-y-1 sm:col-span-4">
           <Label htmlFor="mediaUrl" required>
             Media URL
           </Label>
-          <Input id="mediaUrl" disabled={isReadOnly} placeholder="https://…" aria-invalid={!!errors.mediaUrl} {...register("mediaUrl")} />
+          <Input
+            id="mediaUrl"
+            disabled={isReadOnly}
+            placeholder="Uploaded automatically, or paste an external URL (e.g. a virtual tour link)"
+            aria-invalid={!!errors.mediaUrl}
+            {...register("mediaUrl")}
+          />
           {errors.mediaUrl && <p className="text-sm text-destructive">{errors.mediaUrl.message}</p>}
         </div>
 
@@ -695,7 +741,7 @@ function MediaList({ roleDef }: { roleDef: RoleDef }) {
           ) : visible.length === 0 ? (
             <EmptyState icon={Search} tone="muted" heading="No matching media" description="Try a different search or status filter." size="compact" />
           ) : (
-            <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+            <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[26%] px-2 py-1.5">Title / URL</TableHead>

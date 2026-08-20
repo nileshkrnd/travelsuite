@@ -479,7 +479,7 @@ function PricingModelList({ roleDef }: { roleDef: RoleDef }) {
         ) : visible.length === 0 && !loading && scopeTenantId > 0 ? (
           <EmptyState icon={Search} tone="muted" heading="No matching pricing models" description="Try a different search, company, or status filter." size="compact" />
         ) : scopeTenantId > 0 ? (
-          <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+          <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 <SortableTableHead sortKey="pricingModelCode" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="w-[16%] px-2 py-1.5">

@@ -731,7 +731,7 @@ function CategoryList({ roleDef }: { roleDef: RoleDef }) {
               size="compact"
             />
           ) : (
-            <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+            <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[10%] px-2 py-1.5">Image</TableHead>

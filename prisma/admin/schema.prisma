@@ -3761,6 +3761,46 @@ model ServiceProductSupplierLocation {
   @@map("ServiceProductSupplierLocation")
 }
 
+/// Day-by-day itinerary stop for a Service Product — optionally nested under a parent stop, optionally tied to a canonical location.
+model ServiceProductItinerary {
+  serviceProductItineraryId       BigInt    @id @default(autoincrement()) @map("ServiceProductItineraryID")
+  serviceProductId                BigInt    @map("ServiceProductID")
+  parentServiceProductItineraryId BigInt?   @map("ParentServiceProductItineraryID")
+  dayNumber                       Int?      @map("DayNumber")
+  sequenceNumber                  Int       @map("SequenceNumber")
+  title                           String    @map("Title") @db.VarChar(250)
+  description                     String?   @map("Description") @db.Text
+  durationValue                   Decimal?  @map("DurationValue") @db.Decimal(10, 2)
+  durationUnitId                  BigInt?   @map("DurationUnitID")
+  startTime                       DateTime? @map("StartTime") @db.Time(6)
+  endTime                         DateTime? @map("EndTime") @db.Time(6)
+  serviceProductLocationId        BigInt?   @map("ServiceProductLocationID")
+  isOvernight                     Boolean   @default(false) @map("IsOvernight")
+  isOptional                      Boolean   @default(false) @map("IsOptional")
+  isHighlight                     Boolean   @default(false) @map("IsHighlight")
+  displayOrder                    Int       @default(0) @map("DisplayOrder")
+  commonStatusId                  BigInt    @map("CommonStatusID")
+  isActive                        Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct            @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  parent         ServiceProductItinerary?  @relation("ServiceProductItineraryHierarchy", fields: [parentServiceProductItineraryId], references: [serviceProductItineraryId], onDelete: SetNull)
+  children       ServiceProductItinerary[] @relation("ServiceProductItineraryHierarchy")
+  durationUnit   DurationUnit?             @relation(fields: [durationUnitId], references: [durationUnitId], onDelete: SetNull)
+  location       ServiceProductLocation?   @relation(fields: [serviceProductLocationId], references: [serviceProductLocationId], onDelete: SetNull)
+  commonStatus   CommonStatus              @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductItinerary_ProductID_idx")
+  @@index([parentServiceProductItineraryId], map: "SvcProductItinerary_ParentID_idx")
+  @@index([durationUnitId], map: "SvcProductItinerary_DurationUnitID_idx")
+  @@index([serviceProductLocationId], map: "SvcProductItinerary_LocationID_idx")
+  @@index([commonStatusId], map: "SvcProductItinerary_CommonStatusID_idx")
+  @@map("ServiceProductItinerary")
+}
+
 /// Media (photos/videos/PDFs) for a Service Product — Cover, Gallery, Map, Location, …
 model ServiceProductMedia {
   serviceProductMediaId BigInt    @id @default(autoincrement()) @map("ServiceProductMediaID")

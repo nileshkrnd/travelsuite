@@ -516,7 +516,7 @@ function SupplierLinkList({ roleDef }: { roleDef: RoleDef }) {
           ) : visible.length === 0 ? (
             <EmptyState icon={Search} tone="muted" heading="No matching supplier links" description="Try a different search or status filter." size="compact" />
           ) : (
-            <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+            <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[22%] px-2 py-1.5">Supplier</TableHead>

@@ -323,7 +323,7 @@ function ItemTypeList({ roleDef }: { roleDef: RoleDef }) {
         ) : visible.length === 0 && !loading ? (
           <EmptyState icon={Search} tone="muted" heading="No matching item types" description="Try a different search or status filter." size="compact" />
         ) : (
-          <Table className="table-fixed border-collapse text-xs [&_th]:whitespace-normal [&_td]:whitespace-normal">
+          <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 <SortableTableHead sortKey="itemTypeCode" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="w-[25%] px-2 py-1.5">
