@@ -83,6 +83,7 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "masters/inclusion-exclusion-type": ["Travel"],
   "masters/service-product-item-type": ["Travel"],
   "masters/service-product-inclusion-exclusion": ["Travel"],
+  "masters/service-product-itinerary": ["Travel"],
   "administration/configuration": ["Travel"],
   "masters/common-status-type": ["Travel"],
   "masters/common-status": ["Travel"],
@@ -257,6 +258,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
             { name: "Inclusion Exclusion Type", url: "masters/inclusion-exclusion-type", icon: "ListChecks" },
             { name: "Product Item Type", url: "masters/service-product-item-type", icon: "Tag" },
             { name: "Product Inclusion Exclusion", url: "masters/service-product-inclusion-exclusion", icon: "ListChecks" },
+            { name: "Product Itinerary", url: "masters/service-product-itinerary", icon: "Route" },
           ],
         },
         {

@@ -124,6 +124,7 @@ export * from "./service-product-media";
 export * from "./inclusion-exclusion-type";
 export * from "./service-product-item-type";
 export * from "./service-product-inclusion-exclusion";
+export * from "./service-product-itinerary";
 export * from "./service-product-variant";
 export * from "./account-group";
 export * from "./ledger";

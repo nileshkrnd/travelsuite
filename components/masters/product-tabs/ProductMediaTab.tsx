@@ -5,8 +5,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Image as ImageIcon, Package, Eye, Pencil, Power, PowerOff, Trash2, X, Search, Loader2, Star, Film } from "lucide-react";
-import { AccessGate } from "@/components/shared/AccessGate";
+import { Plus, Image as ImageIcon, Eye, Pencil, Power, PowerOff, Trash2, X, Search, Loader2, Star, Film } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card } from "@/components/ui/card";
@@ -22,10 +21,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { ServiceProductMediaUploadField, type UploadedFileInfo } from "@/components/masters/ServiceProductMediaUploadField";
 import { ServiceProductMediaBulkUploadField, type StagedMediaFile } from "@/components/masters/ServiceProductMediaBulkUploadField";
 import { useSessionStore } from "@/lib/store/session.store";
-import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
-import { listServiceTypes, ServiceTypesApiError } from "@/lib/services/service-types.service";
-import { listServiceProducts, ServiceProductsApiError } from "@/lib/services/service-products.service";
 import { listMediaTypes } from "@/lib/services/media-types.service";
 import { listMediaCategories } from "@/lib/services/media-categories.service";
 import { listCommonStatusTypes } from "@/lib/services/common-status-types.service";
@@ -39,16 +35,7 @@ import {
   ServiceProductMediaApiError,
 } from "@/lib/services/service-product-media.service";
 import { can } from "@/config/permissions";
-import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type {
-  CommonStatus,
-  MediaCategory,
-  MediaType,
-  RoleDef,
-  ServiceProduct,
-  ServiceProductMedia,
-  ServiceType,
-} from "@/types";
+import type { CommonStatus, MediaCategory, MediaType, RoleDef, ServiceProduct, ServiceProductMedia } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
 type StatusFilter = "all" | "active" | "inactive";
@@ -196,9 +183,7 @@ function MediaBulkCreatePanel({
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">Add media</h2>
-          <p className="text-sm text-muted-foreground">
-            Under {product.serviceProductName} — upload one or more files, then add a title and description for each.
-          </p>
+          <p className="text-sm text-muted-foreground">Upload one or more files, then add a title and description for each.</p>
         </div>
         <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" />
@@ -460,10 +445,7 @@ function MediaEditViewPanel({
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold">{mode === "edit" ? "Edit media" : "Media details"}</h2>
-          <p className="text-sm text-muted-foreground">Under {product.serviceProductName}</p>
-        </div>
+        <h2 className="text-base font-semibold">{mode === "edit" ? "Edit media" : "Media details"}</h2>
         <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" />
         </Button>
@@ -637,143 +619,64 @@ function MediaEditViewPanel({
   );
 }
 
-/* ---------------------------------- List page ---------------------------------- */
+/* ---------------------------------- Tab ---------------------------------- */
 
-function MediaList({ roleDef }: { roleDef: RoleDef }) {
+export function ProductMediaTab({ product, roleDef }: { product: ServiceProduct; roleDef: RoleDef }) {
   const user = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
-  const activeTenantId = useTenantStore((s) => s.tenantId);
-  const activeTenant = useTenantStore((s) => s.tenant);
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
-  const [products, setProducts] = useState<ServiceProduct[]>([]);
   const [mediaTypes, setMediaTypes] = useState<MediaType[]>([]);
   const [mediaCategories, setMediaCategories] = useState<MediaCategory[]>([]);
   const [statuses, setStatuses] = useState<CommonStatus[]>([]);
-  const [productCounts, setProductCounts] = useState<Map<number, number>>(new Map());
   const [rows, setRows] = useState<ServiceProductMedia[]>([]);
-  const [loadingTypes, setLoadingTypes] = useState(true);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [loadingRows, setLoadingRows] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [panelMode, setPanelMode] = useState<PanelMode>("closed");
   const [target, setTarget] = useState<ServiceProductMedia | undefined>();
-  const [serviceTypeFilter, setServiceTypeFilter] = useState<number | null>(null);
-  const [productFilter, setProductFilter] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-
-  const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
-  const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
-  const scopeTenantId = platformMode ? 0 : (user?.tenantKey ?? activeTenant.tenantKey ?? 0);
 
   const canEdit = can(roleDef, "serviceProductMedia", "edit");
   const canCreate = can(roleDef, "serviceProductMedia", "create");
   const canDelete = can(roleDef, "serviceProductMedia", "delete");
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
 
-  const selectedProduct = products.find((p) => p.serviceProductId === productFilter);
-
-  async function loadServiceTypes() {
-    if (scopeTenantId <= 0) {
-      setServiceTypes([]);
-      setLoadingTypes(false);
-      setLoadError(platformMode ? "Select a tenant workspace to manage media." : "Missing tenant scope.");
-      return;
-    }
-    setLoadingTypes(true);
-    setLoadError(null);
-    try {
-      const [typeRows, allProducts, mediaTypeRows, mediaCategoryRows, statusTypeRows] = await Promise.all([
-        listServiceTypes({ tenantId: scopeTenantId, activeOnly: true }),
-        listServiceProducts({ tenantId: scopeTenantId }),
-        listMediaTypes({ activeOnly: true }),
-        listMediaCategories({ activeOnly: true }),
-        listCommonStatusTypes({ tenantId: scopeTenantId, activeOnly: true }),
-      ]);
-      setServiceTypes(typeRows);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      listMediaTypes({ activeOnly: true }),
+      listMediaCategories({ activeOnly: true }),
+      listCommonStatusTypes({ tenantId: product.tenantId, activeOnly: true }),
+    ]).then(async ([mediaTypeRows, mediaCategoryRows, statusTypeRows]) => {
+      if (cancelled) return;
       setMediaTypes(mediaTypeRows);
       setMediaCategories(mediaCategoryRows);
-      const typeProductCounts = new Map<number, number>();
-      for (const p of allProducts) {
-        typeProductCounts.set(p.serviceTypeId, (typeProductCounts.get(p.serviceTypeId) ?? 0) + 1);
-      }
-      setServiceTypeFilter((current) => {
-        if (current && typeRows.some((t) => t.serviceTypeId === current)) return current;
-        const withData = typeRows.find((t) => (typeProductCounts.get(t.serviceTypeId) ?? 0) > 0);
-        return withData?.serviceTypeId ?? typeRows[0]?.serviceTypeId ?? null;
-      });
-
       const productStatusType = statusTypeRows.find((t) => t.statusTypeCode === "SERVICE_PRODUCT");
       if (productStatusType) {
-        const statusRows = await listCommonStatuses({ tenantId: scopeTenantId, commonStatusTypeId: productStatusType.commonStatusTypeId, activeOnly: true });
-        setStatuses(statusRows);
+        const statusRows = await listCommonStatuses({ tenantId: product.tenantId, commonStatusTypeId: productStatusType.commonStatusTypeId, activeOnly: true });
+        if (!cancelled) setStatuses(statusRows);
       }
-    } catch (error) {
-      setLoadError(error instanceof ServiceTypesApiError ? error.message : "Failed to load service types");
-      setServiceTypes([]);
-    } finally {
-      setLoadingTypes(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadServiceTypes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeTenantId]);
-
-  useEffect(() => {
-    if (!serviceTypeFilter || scopeTenantId <= 0) {
-      setProducts([]);
-      setProductFilter(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingProducts(true);
-    listServiceProducts({ tenantId: scopeTenantId, serviceTypeId: serviceTypeFilter, activeOnly: true })
-      .then((productRows) => {
-        if (cancelled) return;
-        setProducts(productRows);
-        setProductFilter((current) =>
-          current && productRows.some((p) => p.serviceProductId === current) ? current : (productRows[0]?.serviceProductId ?? null)
-        );
-      })
-      .catch((error) => {
-        if (!cancelled) toast.error(error instanceof ServiceProductsApiError ? error.message : "Failed to load products");
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingProducts(false);
-      });
+    });
     return () => {
       cancelled = true;
     };
-  }, [serviceTypeFilter, scopeTenantId]);
+  }, [product.tenantId]);
 
   async function refreshRows() {
-    if (!productFilter) {
-      setRows([]);
-      return;
-    }
-    setLoadingRows(true);
+    setLoading(true);
     try {
-      const rowsResult = await listServiceProductMedia({ serviceProductId: productFilter });
+      const rowsResult = await listServiceProductMedia({ serviceProductId: product.serviceProductId });
       setRows(rowsResult);
-      setProductCounts((prev) => {
-        const next = new Map(prev);
-        next.set(productFilter, rowsResult.length);
-        return next;
-      });
     } catch (error) {
       toast.error(error instanceof ServiceProductMediaApiError ? error.message : "Failed to load media");
       setRows([]);
     } finally {
-      setLoadingRows(false);
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     void refreshRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productFilter]);
+  }, [product.serviceProductId]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -813,18 +716,13 @@ function MediaList({ roleDef }: { roleDef: RoleDef }) {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Service Product Media"
-        description="Photos, videos, and documents for a Service Product — Cover, Gallery, Map, Location, …"
+        title="Media"
+        description="Photos, videos, and documents for this product — Cover, Gallery, Map, Location, …"
         actions={
-          canCreate && panelMode === "closed" && selectedProduct && mediaTypes.length > 0 && mediaCategories.length > 0 && statuses.length > 0 ? (
-            <Button
-              onClick={() => {
-                setTarget(undefined);
-                setPanelMode("create");
-              }}
-            >
+          canCreate && panelMode === "closed" && mediaTypes.length > 0 && mediaCategories.length > 0 && statuses.length > 0 ? (
+            <Button onClick={() => { setTarget(undefined); setPanelMode("create"); }}>
               <Plus className="h-4 w-4" />
               Add media
             </Button>
@@ -832,59 +730,9 @@ function MediaList({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
-      {loadingTypes && <p className="text-sm text-muted-foreground">Loading service types…</p>}
-
-      {!loadingTypes && serviceTypes.length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Select value={serviceTypeFilter ? String(serviceTypeFilter) : ""} onValueChange={(v) => setServiceTypeFilter(v ? Number(v) : null)}>
-            <SelectTrigger className="w-56">
-              <SelectValue>
-                {(value: string | null) => {
-                  if (!value) return "Select service type";
-                  return serviceTypes.find((t) => String(t.serviceTypeId) === value)?.serviceTypeName ?? value;
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {serviceTypes.map((t) => (
-                <SelectItem key={t.serviceTypeId} value={String(t.serviceTypeId)}>
-                  {t.serviceTypeName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {loadingProducts ? (
-            <p className="text-sm text-muted-foreground">Loading products…</p>
-          ) : products.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No products under this service type yet.</p>
-          ) : (
-            <Select value={productFilter ? String(productFilter) : ""} onValueChange={(v) => setProductFilter(v ? Number(v) : null)}>
-              <SelectTrigger className="w-64">
-                <SelectValue>
-                  {(value: string | null) => {
-                    if (!value) return "Select product";
-                    const p = products.find((p) => String(p.serviceProductId) === value);
-                    return p ? `${p.serviceProductName} (${productCounts.get(p.serviceProductId) ?? 0})` : value;
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.serviceProductId} value={String(p.serviceProductId)}>
-                    {p.serviceProductName} ({productCounts.get(p.serviceProductId) ?? 0})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-      )}
-
-      {panelMode === "create" && selectedProduct && (
+      {panelMode === "create" && (
         <MediaBulkCreatePanel
-          product={selectedProduct}
+          product={product}
           mediaTypes={mediaTypes}
           mediaCategories={mediaCategories}
           statuses={statuses}
@@ -894,25 +742,22 @@ function MediaList({ roleDef }: { roleDef: RoleDef }) {
         />
       )}
 
-      {(panelMode === "edit" || panelMode === "view") && selectedProduct && target && (
+      {(panelMode === "edit" || panelMode === "view") && target && (
         <MediaEditViewPanel
           mode={panelMode}
           row={target}
           rows={rows}
-          product={selectedProduct}
+          product={product}
           mediaTypes={mediaTypes}
           mediaCategories={mediaCategories}
           statuses={statuses}
           userKey={userKey}
           onSaved={refreshRows}
-          onClose={() => {
-            setPanelMode("closed");
-            setTarget(undefined);
-          }}
+          onClose={() => { setPanelMode("closed"); setTarget(undefined); }}
         />
       )}
 
-      {selectedProduct && rows.length > 0 && (
+      {rows.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
@@ -931,96 +776,86 @@ function MediaList({ roleDef }: { roleDef: RoleDef }) {
         </div>
       )}
 
-      {selectedProduct && (
-        <Card>
-          {loadingRows ? (
-            <p className="p-6 text-sm text-muted-foreground">Loading media…</p>
-          ) : rows.length === 0 ? (
-            <EmptyState icon={ImageIcon} tone="primary" heading="No media yet" description={`Add media under ${selectedProduct.serviceProductName}.`} size="compact" />
-          ) : visible.length === 0 ? (
-            <EmptyState icon={Search} tone="muted" heading="No matching media" description="Try a different search or status filter." size="compact" />
-          ) : (
-            <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[10%] px-2 py-1.5">Preview</TableHead>
-                  <TableHead className="w-[24%] px-2 py-1.5">Title</TableHead>
-                  <TableHead className="w-[14%] px-2 py-1.5">Type</TableHead>
-                  <TableHead className="w-[14%] px-2 py-1.5">Category</TableHead>
-                  <TableHead className="w-[8%] px-2 py-1.5">Order</TableHead>
-                  <TableHead className="w-[10%] px-2 py-1.5">Status</TableHead>
-                  <TableHead className="w-[20%] px-2 py-1.5 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((row) => (
-                  <TableRow key={row.serviceProductMediaId}>
-                    <TableCell className="px-2 py-1.5">
-                      <MediaThumb url={row.mediaUrl} className="h-10 w-10" />
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 font-medium leading-tight">
-                      <span className="flex items-center gap-1.5">
-                        {row.isPrimary && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
-                        <span className="truncate">{row.mediaTitle ?? "Untitled"}</span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.mediaTypeName ?? "—"}</TableCell>
-                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.mediaCategoryName ?? "—"}</TableCell>
-                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.displayOrder}</TableCell>
-                    <TableCell className="px-2 py-1.5">
-                      <Badge variant={row.isActive ? "default" : "secondary"} className="px-1.5 py-0 text-[11px]">
-                        {row.isActive ? "active" : "inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-2 py-1.5 text-right">
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Tooltip>
-                          <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="View" onClick={() => { setTarget(row); setPanelMode("view"); }} />}>
-                            <Eye className="h-3.5 w-3.5" />
-                          </TooltipTrigger>
-                          <TooltipContent>View</TooltipContent>
-                        </Tooltip>
-                        {canEdit && (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Edit" onClick={() => { setTarget(row); setPanelMode("edit"); }} />}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </TooltipTrigger>
-                              <TooltipContent>Edit</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={row.isActive ? "Deactivate" : "Activate"} onClick={() => void toggleActive(row)} />}>
-                                {row.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
-                              </TooltipTrigger>
-                              <TooltipContent>{row.isActive ? "Deactivate" : "Activate"}</TooltipContent>
-                            </Tooltip>
-                          </>
-                        )}
-                        {canDelete && (
+      <Card>
+        {loading ? (
+          <p className="p-6 text-sm text-muted-foreground">Loading media…</p>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={ImageIcon} tone="primary" heading="No media yet" description="Add media for this product." size="compact" />
+        ) : visible.length === 0 ? (
+          <EmptyState icon={Search} tone="muted" heading="No matching media" description="Try a different search or status filter." size="compact" />
+        ) : (
+          <Table className="table-fixed border-collapse text-xs [&_th]:h-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[10%] px-2 py-1.5">Preview</TableHead>
+                <TableHead className="w-[24%] px-2 py-1.5">Title</TableHead>
+                <TableHead className="w-[14%] px-2 py-1.5">Type</TableHead>
+                <TableHead className="w-[14%] px-2 py-1.5">Category</TableHead>
+                <TableHead className="w-[8%] px-2 py-1.5">Order</TableHead>
+                <TableHead className="w-[10%] px-2 py-1.5">Status</TableHead>
+                <TableHead className="w-[20%] px-2 py-1.5 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((row) => (
+                <TableRow key={row.serviceProductMediaId}>
+                  <TableCell className="px-2 py-1.5">
+                    <MediaThumb url={row.mediaUrl} className="h-10 w-10" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 font-medium leading-tight">
+                    <span className="flex items-center gap-1.5">
+                      {row.isPrimary && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
+                      <span className="truncate">{row.mediaTitle ?? "Untitled"}</span>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.mediaTypeName ?? "—"}</TableCell>
+                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.mediaCategoryName ?? "—"}</TableCell>
+                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.displayOrder}</TableCell>
+                  <TableCell className="px-2 py-1.5">
+                    <Badge variant={row.isActive ? "default" : "secondary"} className="px-1.5 py-0 text-[11px]">
+                      {row.isActive ? "active" : "inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 text-right">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Tooltip>
+                        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="View" onClick={() => { setTarget(row); setPanelMode("view"); }} />}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>View</TooltipContent>
+                      </Tooltip>
+                      {canEdit && (
+                        <>
                           <Tooltip>
-                            <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => void removeRow(row)} />}>
-                              <Trash2 className="h-3.5 w-3.5" />
+                            <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Edit" onClick={() => { setTarget(row); setPanelMode("edit"); }} />}>
+                              <Pencil className="h-3.5 w-3.5" />
                             </TooltipTrigger>
-                            <TooltipContent>Delete</TooltipContent>
+                            <TooltipContent>Edit</TooltipContent>
                           </Tooltip>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-      )}
-
-      {!selectedProduct && !loadingTypes && serviceTypes.length > 0 && (
-        <EmptyState icon={Package} tone="muted" heading="Select a product" description="Choose a service type and product above to manage its media." size="compact" />
-      )}
+                          <Tooltip>
+                            <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={row.isActive ? "Deactivate" : "Activate"} onClick={() => void toggleActive(row)} />}>
+                              {row.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                            </TooltipTrigger>
+                            <TooltipContent>{row.isActive ? "Deactivate" : "Activate"}</TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+                      {canDelete && (
+                        <Tooltip>
+                          <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => void removeRow(row)} />}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
-}
-
-export default function ServiceProductMediaMasterPage() {
-  return <AccessGate module="serviceProductMedia">{(roleDef) => <MediaList roleDef={roleDef} />}</AccessGate>;
 }

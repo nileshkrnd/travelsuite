@@ -36,6 +36,7 @@ export type ModuleKey =
   | "inclusionExclusionType"
   | "serviceProductItemType"
   | "serviceProductInclusionExclusion"
+  | "serviceProductItinerary"
   | "adminConfiguration"
   | "commonStatusType"
   | "commonStatus"
@@ -966,6 +967,12 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.serviceProductInclusionExclusion",
             icon: "ListChecks",
             path: "masters/service-product-inclusion-exclusion",
+          },
+          {
+            key: "serviceProductItinerary",
+            labelKey: "sidebar.serviceProductItinerary",
+            icon: "Route",
+            path: "masters/service-product-itinerary",
           },
         ],
       },

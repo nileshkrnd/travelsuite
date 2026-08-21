@@ -30,7 +30,7 @@ type Props = {
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,.ico";
 const VIDEO_ACCEPT = "video/mp4,.mp4";
 
-function acceptFor(mediaTypeName: string | undefined): string {
+export function acceptFor(mediaTypeName: string | undefined): string {
   const name = mediaTypeName?.toLowerCase() ?? "";
   if (name.includes("video")) return VIDEO_ACCEPT;
   if (name.includes("image")) return IMAGE_ACCEPT;

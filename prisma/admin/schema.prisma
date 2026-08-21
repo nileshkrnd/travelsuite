@@ -3076,6 +3076,7 @@ model DurationUnit {
   modifiedDtTm     DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   serviceProductConfigurations ServiceProductConfiguration[]
+  serviceProductItineraries    ServiceProductItinerary[]
 
   @@unique([tenantId, companyId, durationUnitCode], map: "DurationUnit_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "DurationUnit_TenantID_CompanyID_idx")
@@ -3179,6 +3180,7 @@ model CommonStatus {
   serviceProductSupplierLocations   ServiceProductSupplierLocation[]
   serviceProductMedia               ServiceProductMedia[]
   serviceProductInclusionExclusions ServiceProductInclusionExclusion[]
+  serviceProductItineraries         ServiceProductItinerary[]
 
   @@unique([tenantId, companyId, commonStatusTypeId, statusCode], map: "CommonStatus_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "CommonStatus_TenantID_CompanyID_idx")
@@ -3260,7 +3262,7 @@ model ServiceProduct {
   countryId                      Int?      @map("CountryID")
   regionId                       Int?      @map("RegionID")
   cityId                         Int?      @map("CityID")
-  shortDescription               String?   @map("ShortDescription") @db.VarChar(1000)
+  shortDescription               String?   @map("ShortDescription") @db.Text
   description                    String?   @map("Description") @db.Text
   isOnlineSellable               Boolean   @default(false) @map("IsOnlineSellable")
   isFeatured                     Boolean   @default(false) @map("IsFeatured")
@@ -3291,6 +3293,7 @@ model ServiceProduct {
   locations           ServiceProductLocation[]
   media               ServiceProductMedia[]
   inclusionExclusions ServiceProductInclusionExclusion[]
+  itineraries         ServiceProductItinerary[]
 
   @@unique([tenantId, companyId, serviceProductCode], map: "ServiceProduct_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "ServiceProduct_TenantID_CompanyID_idx")
@@ -3700,6 +3703,7 @@ model ServiceProductLocation {
   commonStatus   CommonStatus               @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
 
   supplierLocations ServiceProductSupplierLocation[]
+  itineraryStops    ServiceProductItinerary[]
 
   @@index([serviceProductId], map: "SvcProductLocation_ProductID_idx")
   @@index([serviceProductLocationTypeId], map: "SvcProductLocation_TypeID_idx")
@@ -3781,10 +3785,10 @@ model ServiceProductItinerary {
   displayOrder                    Int       @default(0) @map("DisplayOrder")
   commonStatusId                  BigInt    @map("CommonStatusID")
   isActive                        Boolean   @default(true) @map("IsActive")
-  createdBy    Int       @map("CreatedBy")
-  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
-  modifiedBy   Int?      @map("ModifiedBy")
-  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+  createdBy                       Int       @map("CreatedBy")
+  createdDtTm                     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                      Int?      @map("ModifiedBy")
+  modifiedDtTm                    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   serviceProduct ServiceProduct            @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
   parent         ServiceProductItinerary?  @relation("ServiceProductItineraryHierarchy", fields: [parentServiceProductItineraryId], references: [serviceProductItineraryId], onDelete: SetNull)

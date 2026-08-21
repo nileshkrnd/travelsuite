@@ -45,6 +45,12 @@ export async function listServiceProducts(options?: {
   return ((await res.json()) as ServiceProductRow[]).map(toAppServiceProduct);
 }
 
+export async function getServiceProduct(serviceProductId: number): Promise<ServiceProduct> {
+  const res = await fetch(`/api/service-products/${serviceProductId}`, { cache: "no-store" });
+  if (!res.ok) throw new ServiceProductsApiError(await parseError(res), res.status);
+  return toAppServiceProduct(await res.json());
+}
+
 export interface ServiceProductWriteInput {
   serviceProductCode: string;
   serviceProductName: string;
