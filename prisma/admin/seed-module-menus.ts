@@ -293,6 +293,8 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
       icon: "Store",
       children: [
         { name: "Sales Dashboard", url: "sales/dashboard", icon: "LayoutDashboard" },
+        { name: "Product Catalog", url: "sales/product-catalog", icon: "LayoutGrid" },
+        { name: "Property Catalog", url: "sales/property-catalog", icon: "Hotel" },
         {
           name: "Book Offline",
           url: "book-offline",

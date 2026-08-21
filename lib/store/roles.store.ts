@@ -81,7 +81,7 @@ export const useRolesStore = create<RolesState>()(
     }),
     {
       name: "travelsuite.roles",
-      version: 31,
+      version: 32,
       migrate: () => ({ roles: seedRoles }),
     }
   )

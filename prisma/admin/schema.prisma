@@ -3355,7 +3355,7 @@ model ServiceProduct {
 model ServiceProductConfiguration {
   serviceProductConfigurationId BigInt    @id @default(autoincrement()) @map("ServiceProductConfigurationID")
   serviceProductId              BigInt    @unique @map("ServiceProductID")
-  durationValue                 Decimal?  @map("DurationValue") @db.Decimal(10, 2)
+  durationValue                 String?   @map("DurationValue") @db.VarChar(100)
   durationUnitId                BigInt?   @map("DurationUnitID")
   bookingModelId                BigInt?   @map("BookingModelID")
   pricingModelId                BigInt?   @map("PricingModelID")

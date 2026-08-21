@@ -22,10 +22,16 @@ async function parseError(res: Response): Promise<string> {
 
 export async function listServiceProductMedia(options?: {
   serviceProductId?: number;
+  serviceProductIds?: number[];
+  isPrimary?: boolean;
   activeOnly?: boolean;
 }): Promise<ServiceProductMedia[]> {
   const params = new URLSearchParams();
   if (options?.serviceProductId !== undefined) params.set("serviceProductId", String(options.serviceProductId));
+  if (options?.serviceProductIds && options.serviceProductIds.length > 0) {
+    params.set("serviceProductIds", options.serviceProductIds.join(","));
+  }
+  if (options?.isPrimary) params.set("isPrimary", "true");
   if (options?.activeOnly) params.set("activeOnly", "true");
   const qs = params.toString();
   const res = await fetch(`/api/service-product-media${qs ? `?${qs}` : ""}`, { cache: "no-store" });

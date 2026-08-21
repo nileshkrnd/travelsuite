@@ -96,7 +96,7 @@ async function main() {
     await prisma.serviceProductConfiguration.create({
       data: {
         serviceProductId: product.serviceProductId,
-        durationValue: 2,
+        durationValue: "2 hours",
         durationUnitId: durationUnit?.durationUnitId ?? null,
         bookingModelId: bookingModel?.bookingModelId ?? null,
         pricingModelId: pricingModel?.pricingModelId ?? null,

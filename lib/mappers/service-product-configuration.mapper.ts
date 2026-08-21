@@ -3,7 +3,7 @@ import type { ServiceProductConfiguration } from "@/types";
 export interface ServiceProductConfigurationRow {
   serviceProductConfigurationId: bigint | number;
   serviceProductId: bigint | number;
-  durationValue: { toString(): string } | string | number | null;
+  durationValue: string | null;
   durationUnitId: bigint | number | null;
   bookingModelId: bigint | number | null;
   pricingModelId: bigint | number | null;
@@ -39,7 +39,7 @@ export function toAppServiceProductConfiguration(row: ServiceProductConfiguratio
   return {
     serviceProductConfigurationId: Number(row.serviceProductConfigurationId),
     serviceProductId: Number(row.serviceProductId),
-    durationValue: row.durationValue != null ? Number(row.durationValue.toString()) : null,
+    durationValue: row.durationValue,
     durationUnitId: row.durationUnitId != null ? Number(row.durationUnitId) : null,
     durationUnitName: row.durationUnit?.durationUnitName ?? undefined,
     bookingModelId: row.bookingModelId != null ? Number(row.bookingModelId) : null,

@@ -18,7 +18,6 @@ import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { listServiceTypes, ServiceTypesApiError } from "@/lib/services/service-types.service";
 import { listServiceProducts, ServiceProductsApiError } from "@/lib/services/service-products.service";
-import { listDurationUnits } from "@/lib/services/duration-units.service";
 import { listBookingModels } from "@/lib/services/booking-models.service";
 import { listPricingModels } from "@/lib/services/pricing-models.service";
 import {
@@ -28,13 +27,12 @@ import {
 } from "@/lib/services/service-product-configurations.service";
 import { can } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type { BookingModel, DurationUnit, PricingModel, RoleDef, ServiceProduct, ServiceType } from "@/types";
+import type { BookingModel, PricingModel, RoleDef, ServiceProduct, ServiceType } from "@/types";
 
 const NONE_OPTION = "__none__";
 
 interface FormValues {
   durationValue: string;
-  durationUnitId: number | null;
   bookingModelId: number | null;
   pricingModelId: number | null;
   minimumPax: string;
@@ -55,7 +53,6 @@ interface FormValues {
 
 const EMPTY_VALUES: FormValues = {
   durationValue: "",
-  durationUnitId: null,
   bookingModelId: null,
   pricingModelId: null,
   minimumPax: "",
@@ -94,7 +91,6 @@ function ServiceProductConfigurationView({ roleDef }: { roleDef: RoleDef }) {
   const activeTenant = useTenantStore((s) => s.tenant);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [products, setProducts] = useState<ServiceProduct[]>([]);
-  const [durationUnits, setDurationUnits] = useState<DurationUnit[]>([]);
   const [bookingModels, setBookingModels] = useState<BookingModel[]>([]);
   const [pricingModels, setPricingModels] = useState<PricingModel[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
@@ -125,15 +121,13 @@ function ServiceProductConfigurationView({ roleDef }: { roleDef: RoleDef }) {
     setLoadingTypes(true);
     setLoadError(null);
     try {
-      const [typeRows, unitRows, bookingRows, pricingRows, allProducts] = await Promise.all([
+      const [typeRows, bookingRows, pricingRows, allProducts] = await Promise.all([
         listServiceTypes({ tenantId: scopeTenantId, activeOnly: true }),
-        listDurationUnits({ tenantId: scopeTenantId, activeOnly: true }),
         listBookingModels({ tenantId: scopeTenantId, activeOnly: true }),
         listPricingModels({ tenantId: scopeTenantId, activeOnly: true }),
         listServiceProducts({ tenantId: scopeTenantId }),
       ]);
       setServiceTypes(typeRows);
-      setDurationUnits(unitRows);
       setBookingModels(bookingRows);
       setPricingModels(pricingRows);
       const typeProductCounts = new Map<number, number>();
@@ -198,8 +192,7 @@ function ServiceProductConfigurationView({ roleDef }: { roleDef: RoleDef }) {
         reset(
           existing
             ? {
-                durationValue: existing.durationValue != null ? String(existing.durationValue) : "",
-                durationUnitId: existing.durationUnitId,
+                durationValue: existing.durationValue ?? "",
                 bookingModelId: existing.bookingModelId,
                 pricingModelId: existing.pricingModelId,
                 minimumPax: existing.minimumPax != null ? String(existing.minimumPax) : "",
@@ -240,8 +233,7 @@ function ServiceProductConfigurationView({ roleDef }: { roleDef: RoleDef }) {
     try {
       await saveServiceProductConfiguration({
         serviceProductId: selectedProduct.serviceProductId,
-        durationValue: values.durationValue === "" ? null : Number(values.durationValue),
-        durationUnitId: values.durationUnitId,
+        durationValue: values.durationValue.trim() === "" ? null : values.durationValue.trim(),
         bookingModelId: values.bookingModelId,
         pricingModelId: values.pricingModelId,
         minimumPax: values.minimumPax === "" ? null : Number(values.minimumPax),
@@ -338,35 +330,14 @@ function ServiceProductConfigurationView({ roleDef }: { roleDef: RoleDef }) {
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="durationValue">Duration value</Label>
-                    <Input id="durationValue" type="number" min={0} step="0.5" disabled={!canEdit} {...register("durationValue")} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Duration unit</Label>
-                    <Controller
-                      control={control}
-                      name="durationUnitId"
-                      render={({ field }) => (
-                        <Select value={field.value == null ? NONE_OPTION : String(field.value)} onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))} disabled={!canEdit}>
-                          <SelectTrigger className="h-10 w-full min-w-0">
-                            <SelectValue>
-                              {(value: string | null) => {
-                                if (!value || value === NONE_OPTION) return "None";
-                                return durationUnits.find((u) => String(u.durationUnitId) === value)?.durationUnitName ?? "None";
-                              }}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NONE_OPTION}>None</SelectItem>
-                            {durationUnits.map((u) => (
-                              <SelectItem key={u.durationUnitId} value={String(u.durationUnitId)}>
-                                {u.durationUnitName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="durationValue">Duration</Label>
+                    <Input
+                      id="durationValue"
+                      type="text"
+                      placeholder="e.g. 4 to 5 hours, 45 mins to 1 hour"
+                      disabled={!canEdit}
+                      {...register("durationValue")}
                     />
                   </div>
                   <div className="space-y-2">

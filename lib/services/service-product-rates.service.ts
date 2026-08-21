@@ -22,11 +22,15 @@ async function parseError(res: Response): Promise<string> {
 
 export async function listServiceProductRates(options?: {
   serviceProductId?: number;
+  serviceProductIds?: number[];
   serviceProductSupplierId?: number;
   activeOnly?: boolean;
 }): Promise<ServiceProductRate[]> {
   const params = new URLSearchParams();
   if (options?.serviceProductId !== undefined) params.set("serviceProductId", String(options.serviceProductId));
+  if (options?.serviceProductIds && options.serviceProductIds.length > 0) {
+    params.set("serviceProductIds", options.serviceProductIds.join(","));
+  }
   if (options?.serviceProductSupplierId !== undefined) params.set("serviceProductSupplierId", String(options.serviceProductSupplierId));
   if (options?.activeOnly) params.set("activeOnly", "true");
   const qs = params.toString();

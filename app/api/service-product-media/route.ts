@@ -59,16 +59,27 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const productIdParam = searchParams.get("serviceProductId");
+    const productIdsParam = searchParams.get("serviceProductIds");
+    const isPrimaryParam = searchParams.get("isPrimary");
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const where: Prisma.ServiceProductMediaWhereInput = {};
     if (productIdParam != null && productIdParam !== "") where.serviceProductId = BigInt(productIdParam);
+    if (productIdsParam != null && productIdsParam !== "") {
+      const ids = productIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => BigInt(s));
+      if (ids.length > 0) where.serviceProductId = { in: ids };
+    }
+    if (isPrimaryParam === "true") where.isPrimary = true;
     if (activeOnly) where.isActive = true;
 
     const rows = await prisma.serviceProductMedia.findMany({
       where,
       include: rowInclude,
-      orderBy: [{ displayOrder: "asc" }],
+      orderBy: [{ isPrimary: "desc" }, { displayOrder: "asc" }],
     });
     return NextResponse.json(rows.map(toRow));
   } catch (error) {

@@ -5,7 +5,7 @@ import { dbUnavailable } from "@/lib/api/db-error";
 
 const upsertSchema = z.object({
   serviceProductId: z.number().int().positive(),
-  durationValue: z.number().nullable().optional(),
+  durationValue: z.string().trim().max(100).nullable().optional(),
   durationUnitId: z.number().int().positive().nullable().optional(),
   bookingModelId: z.number().int().positive().nullable().optional(),
   pricingModelId: z.number().int().positive().nullable().optional(),
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     const flags = {
-      durationValue: data.durationValue ?? null,
+      durationValue: data.durationValue?.trim() || null,
       durationUnitId: data.durationUnitId != null ? BigInt(data.durationUnitId) : null,
       bookingModelId: data.bookingModelId != null ? BigInt(data.bookingModelId) : null,
       pricingModelId: data.pricingModelId != null ? BigInt(data.pricingModelId) : null,

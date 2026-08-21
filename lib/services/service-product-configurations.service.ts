@@ -33,7 +33,7 @@ export async function getServiceProductConfiguration(serviceProductId: number): 
 }
 
 export interface ServiceProductConfigurationFlags {
-  durationValue?: number | null;
+  durationValue?: string | null;
   durationUnitId?: number | null;
   bookingModelId?: number | null;
   pricingModelId?: number | null;

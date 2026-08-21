@@ -76,11 +76,20 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const productIdParam = searchParams.get("serviceProductId");
+    const productIdsParam = searchParams.get("serviceProductIds");
     const supplierLinkIdParam = searchParams.get("serviceProductSupplierId");
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const where: Prisma.ServiceProductRateWhereInput = {};
     if (productIdParam != null && productIdParam !== "") where.serviceProductId = BigInt(productIdParam);
+    if (productIdsParam != null && productIdsParam !== "") {
+      const ids = productIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => BigInt(s));
+      if (ids.length > 0) where.serviceProductId = { in: ids };
+    }
     if (supplierLinkIdParam != null && supplierLinkIdParam !== "") where.serviceProductSupplierId = BigInt(supplierLinkIdParam);
     if (activeOnly) where.isActive = true;
 

@@ -169,6 +169,8 @@ export type ModuleKey =
   // POS — Point of Sales
   | "sales"
   | "salesDashboard"
+  | "productCatalog"
+  | "propertyCatalog"
   | "salesCustomers"
   | "salesLeads"
   | "quotations"
@@ -1233,6 +1235,8 @@ export const MENU_ITEMS: MenuItem[] = [
     path: "sales",
     children: [
       { key: "salesDashboard", labelKey: "sidebar.salesDashboard", icon: "LayoutDashboard", path: "sales/dashboard" },
+      { key: "productCatalog", labelKey: "sidebar.productCatalog", icon: "LayoutGrid", path: "sales/product-catalog" },
+      { key: "propertyCatalog", labelKey: "sidebar.propertyCatalog", icon: "Hotel", path: "sales/property-catalog" },
       {
         key: "bookOffline",
         labelKey: "sidebar.bookOffline",

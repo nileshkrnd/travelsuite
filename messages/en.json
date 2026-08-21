@@ -249,6 +249,8 @@
 
     "sales": "POS",
     "salesDashboard": "POS Dashboard",
+    "productCatalog": "Product Catalog",
+    "propertyCatalog": "Property Catalog",
     "salesCustomers": "Customers",
     "salesLeads": "Leads",
     "quotations": "Quotations",

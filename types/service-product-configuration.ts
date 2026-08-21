@@ -2,7 +2,8 @@
 export interface ServiceProductConfiguration {
   serviceProductConfigurationId: number;
   serviceProductId: number;
-  durationValue: number | null;
+  /** Free-text duration, e.g. "4 to 5 hours", "45 mins to 1 hour". */
+  durationValue: string | null;
   durationUnitId: number | null;
   durationUnitName?: string;
   bookingModelId: number | null;
