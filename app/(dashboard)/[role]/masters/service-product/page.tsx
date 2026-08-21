@@ -4,7 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Package, MoreHorizontal, Search, Star } from "lucide-react";
+import {
+  Plus,
+  Package,
+  MoreHorizontal,
+  Search,
+  Star,
+  Car,
+  Ship,
+  TrainFront,
+  ShieldCheck,
+  Compass,
+  Sparkles,
+  Binoculars,
+  Plane,
+  Building2,
+  FileCheck,
+  UserRound,
+  UtensilsCrossed,
+  Ticket as TicketIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -37,6 +57,26 @@ import type { RoleDef, ServiceProduct, ServiceType } from "@/types";
 
 type SortKey = "serviceProductName" | "serviceProductCode" | "displayOrder";
 type StatusFilter = "all" | "active" | "inactive";
+
+const SERVICE_TYPE_ICONS: { match: RegExp; icon: LucideIcon }[] = [
+  { match: /transfer|car hire|rail/i, icon: Car },
+  { match: /cruise/i, icon: Ship },
+  { match: /rail/i, icon: TrainFront },
+  { match: /insurance|visa/i, icon: ShieldCheck },
+  { match: /tour guide/i, icon: UserRound },
+  { match: /tour/i, icon: Compass },
+  { match: /activity/i, icon: Sparkles },
+  { match: /sightseeing/i, icon: Binoculars },
+  { match: /flight/i, icon: Plane },
+  { match: /hotel/i, icon: Building2 },
+  { match: /visa/i, icon: FileCheck },
+  { match: /restaurant/i, icon: UtensilsCrossed },
+  { match: /ticket/i, icon: TicketIcon },
+];
+
+function iconForServiceType(name: string): LucideIcon {
+  return SERVICE_TYPE_ICONS.find((entry) => entry.match.test(name))?.icon ?? Package;
+}
 
 function ProductList({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
@@ -209,24 +249,39 @@ function ProductList({ roleDef }: { roleDef: RoleDef }) {
       )}
 
       {!loadingTypes && serviceTypes.length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Select value={serviceTypeFilter ? String(serviceTypeFilter) : ""} onValueChange={(v) => setServiceTypeFilter(v ? Number(v) : null)}>
-            <SelectTrigger className="w-56">
-              <SelectValue>
-                {(value: string | null) => {
-                  if (!value) return "Select service type";
-                  return serviceTypes.find((t) => String(t.serviceTypeId) === value)?.serviceTypeName ?? value;
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {serviceTypes.map((t) => (
-                <SelectItem key={t.serviceTypeId} value={String(t.serviceTypeId)}>
-                  {t.serviceTypeName} ({typeCounts.get(t.serviceTypeId) ?? 0})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {serviceTypes.map((t) => {
+            const Icon = iconForServiceType(t.serviceTypeName);
+            const count = typeCounts.get(t.serviceTypeId) ?? 0;
+            const isSelected = t.serviceTypeId === serviceTypeFilter;
+            return (
+              <button
+                key={t.serviceTypeId}
+                type="button"
+                onClick={() => setServiceTypeFilter(t.serviceTypeId)}
+                className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition-colors ${
+                  isSelected
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "border-border bg-card hover:border-primary/40 hover:bg-muted/40"
+                }`}
+              >
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{t.serviceTypeName}</p>
+                  <p className="text-xl font-semibold tabular-nums">
+                    {count}
+                    <span className="ms-1 text-xs font-normal text-muted-foreground">{count === 1 ? "product" : "products"}</span>
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
