@@ -104,7 +104,8 @@ function FlagSelectAll({
       )}
     >
       <Checkbox
-        checked={checked}
+        checked={checked === true}
+        indeterminate={checked === "indeterminate"}
         disabled={disabled}
         onCheckedChange={(v) => onChange(v === true)}
         aria-label={`Select all ${label}`}

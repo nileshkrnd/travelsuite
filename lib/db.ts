@@ -33,7 +33,9 @@ function countAdminSchemaModels(): number | undefined {
 }
 
 function adminClientModelCount(client: AdminPrismaClient): number {
-  return Object.keys(client._runtimeDataModel?.models ?? {}).length;
+  // `_runtimeDataModel` is a private Prisma internal, not part of the public types.
+  const internal = client as unknown as { _runtimeDataModel?: { models?: Record<string, unknown> } };
+  return Object.keys(internal._runtimeDataModel?.models ?? {}).length;
 }
 
 function adminClientIsStale(client: AdminPrismaClient): boolean {

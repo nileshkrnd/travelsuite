@@ -269,7 +269,8 @@ export function PropertyContractPromotionForm({
     getValues,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema as any),
     defaultValues: entry ? valuesFromEntry(entry) : defaultValues(lockedContract),
   });
 

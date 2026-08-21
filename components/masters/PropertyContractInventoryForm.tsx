@@ -221,10 +221,10 @@ export function PropertyContractInventoryForm({
               name="propertyContractSeasonPeriodId"
               render={({ field }) => (
                 <SearchableCombobox
-                  value={field.value > 0 ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
+                  value={field.value > 0 ? field.value : null}
+                  onChange={(v) => field.onChange(v)}
                   options={seasonPeriods.map((p) => ({
-                    value: String(p.propertyContractSeasonPeriodKey),
+                    value: p.propertyContractSeasonPeriodKey,
                     label: seasonPeriodLabel(p),
                   }))}
                   placeholder="Select season period"
@@ -244,10 +244,10 @@ export function PropertyContractInventoryForm({
               name="propertyRoomId"
               render={({ field }) => (
                 <SearchableCombobox
-                  value={field.value > 0 ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
+                  value={field.value > 0 ? field.value : null}
+                  onChange={(v) => field.onChange(v)}
                   options={rooms.map((r) => ({
-                    value: String(r.propertyRoomKey),
+                    value: r.propertyRoomKey,
                     label: `${r.roomName} (${r.roomCode})`,
                   }))}
                   placeholder="Select room type"
@@ -275,10 +275,10 @@ export function PropertyContractInventoryForm({
               name="inventoryTypeId"
               render={({ field }) => (
                 <SearchableCombobox
-                  value={field.value > 0 ? String(field.value) : ""}
-                  onValueChange={(v) => field.onChange(Number(v))}
+                  value={field.value > 0 ? field.value : null}
+                  onChange={(v) => field.onChange(v)}
                   options={inventoryTypes.map((t) => ({
-                    value: String(t.inventoryTypeKey),
+                    value: t.inventoryTypeKey,
                     label: t.inventoryTypeName,
                   }))}
                   placeholder="Select inventory type"

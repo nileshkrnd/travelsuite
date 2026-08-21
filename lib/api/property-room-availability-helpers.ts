@@ -128,7 +128,7 @@ export async function loadAvailabilityCalendar(options: {
   for (const room of rooms) {
     const propertyRoomId = Number(room.propertyRoomId);
     for (const availabilityDate of days) {
-      const key = `${propertyRoomId}:${availabilityDate}`;
+      const key = `${propertyRoomId}:${availabilityDate}` as `${number}:${string}`;
       const saved = savedByKey.get(key);
       const ari = ariByKey.get(key);
       const closure = closureByKey.get(key);

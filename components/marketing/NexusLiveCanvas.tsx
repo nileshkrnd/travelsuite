@@ -35,7 +35,7 @@ function useLiveFeed() {
 }
 
 function useCountingKpis() {
-  const [ticks, setTicks] = useState(NEXUS_KPIS.map((k) => k.value));
+  const [ticks, setTicks] = useState<number[]>(() => NEXUS_KPIS.map((k) => k.value));
 
   useEffect(() => {
     const id = window.setInterval(() => {
