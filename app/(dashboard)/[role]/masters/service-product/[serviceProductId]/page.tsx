@@ -25,6 +25,10 @@ import {
   Warehouse,
   Globe2,
   Receipt,
+  FileText,
+  Info,
+  ClipboardCheck,
+  HelpCircle,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -52,6 +56,10 @@ import { ProductCancellationPolicyTab } from "@/components/masters/product-tabs/
 import { ProductInventoryTab } from "@/components/masters/product-tabs/ProductInventoryTab";
 import { ProductMarketRuleTab } from "@/components/masters/product-tabs/ProductMarketRuleTab";
 import { ProductTaxTab } from "@/components/masters/product-tabs/ProductTaxTab";
+import { ProductContentSectionTab } from "@/components/masters/product-tabs/ProductContentSectionTab";
+import { ProductAdditionalInfoTab } from "@/components/masters/product-tabs/ProductAdditionalInfoTab";
+import { ProductRequirementTab } from "@/components/masters/product-tabs/ProductRequirementTab";
+import { ProductBookingQuestionTab } from "@/components/masters/product-tabs/ProductBookingQuestionTab";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -281,6 +289,22 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
               <Receipt className="h-4 w-4" />
               Taxes
             </TabsTrigger>
+            <TabsTrigger value="contentSection" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <FileText className="h-4 w-4" />
+              Content
+            </TabsTrigger>
+            <TabsTrigger value="additionalInfo" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Info className="h-4 w-4" />
+              Additional Info
+            </TabsTrigger>
+            <TabsTrigger value="requirement" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <ClipboardCheck className="h-4 w-4" />
+              Requirements
+            </TabsTrigger>
+            <TabsTrigger value="bookingQuestion" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <HelpCircle className="h-4 w-4" />
+              Booking Questions
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -389,6 +413,18 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="tax" className="mt-4">
           <ProductTaxTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="contentSection" className="mt-4">
+          <ProductContentSectionTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="additionalInfo" className="mt-4">
+          <ProductAdditionalInfoTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="requirement" className="mt-4">
+          <ProductRequirementTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="bookingQuestion" className="mt-4">
+          <ProductBookingQuestionTab product={product} roleDef={roleDef} />
         </TabsContent>
       </Tabs>
     </div>

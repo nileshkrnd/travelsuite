@@ -267,6 +267,10 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
             { name: "Product Inventory", url: "masters/service-product-inventory", icon: "Warehouse" },
             { name: "Product Market Rule", url: "masters/service-product-market-rule", icon: "Globe2" },
             { name: "Product Tax", url: "masters/service-product-tax", icon: "Receipt" },
+            { name: "Product Content Sections", url: "masters/service-product-content-section", icon: "FileText" },
+            { name: "Product Additional Info", url: "masters/service-product-additional-info", icon: "Info" },
+            { name: "Product Requirements", url: "masters/service-product-requirement", icon: "ClipboardCheck" },
+            { name: "Product Booking Questions", url: "masters/service-product-booking-question", icon: "HelpCircle" },
           ],
         },
         {

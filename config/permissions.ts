@@ -41,6 +41,10 @@ export type ModuleKey =
   | "serviceProductInventory"
   | "serviceProductMarketRule"
   | "serviceProductTax"
+  | "serviceProductContentSection"
+  | "serviceProductAdditionalInfo"
+  | "serviceProductRequirement"
+  | "serviceProductBookingQuestion"
   | "adminConfiguration"
   | "commonStatusType"
   | "commonStatus"
@@ -1003,6 +1007,30 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.serviceProductTax",
             icon: "Receipt",
             path: "masters/service-product-tax",
+          },
+          {
+            key: "serviceProductContentSection",
+            labelKey: "sidebar.serviceProductContentSection",
+            icon: "FileText",
+            path: "masters/service-product-content-section",
+          },
+          {
+            key: "serviceProductAdditionalInfo",
+            labelKey: "sidebar.serviceProductAdditionalInfo",
+            icon: "Info",
+            path: "masters/service-product-additional-info",
+          },
+          {
+            key: "serviceProductRequirement",
+            labelKey: "sidebar.serviceProductRequirement",
+            icon: "ClipboardCheck",
+            path: "masters/service-product-requirement",
+          },
+          {
+            key: "serviceProductBookingQuestion",
+            labelKey: "sidebar.serviceProductBookingQuestion",
+            icon: "HelpCircle",
+            path: "masters/service-product-booking-question",
           },
         ],
       },

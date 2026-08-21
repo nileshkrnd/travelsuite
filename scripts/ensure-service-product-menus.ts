@@ -46,6 +46,10 @@ const NEW_MENU_URLS = [
   "masters/service-product-inventory",
   "masters/service-product-market-rule",
   "masters/service-product-tax",
+  "masters/service-product-content-section",
+  "masters/service-product-additional-info",
+  "masters/service-product-requirement",
+  "masters/service-product-booking-question",
 ] as const;
 const PERM_SOURCE_URL = "masters/property";
 
