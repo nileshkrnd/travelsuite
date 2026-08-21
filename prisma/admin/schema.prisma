@@ -108,6 +108,7 @@ model Country {
   serviceProducts                 ServiceProduct[]
   serviceProductLocations         ServiceProductLocation[]
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
+  serviceProductMarketRules       ServiceProductMarketRule[]
 
   @@map("Country")
 }
@@ -138,6 +139,7 @@ model City {
   serviceProducts                 ServiceProduct[]
   serviceProductLocations         ServiceProductLocation[]
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
+  serviceProductMarketRules       ServiceProductMarketRule[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -336,6 +338,7 @@ model Region {
   serviceProducts                 ServiceProduct[]
   serviceProductLocations         ServiceProductLocation[]
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
+  serviceProductMarketRules       ServiceProductMarketRule[]
 
   @@map("Region")
 }
@@ -956,6 +959,7 @@ model InventoryType {
   modifiedDtTm      DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   contractInventories PropertyContractInventory[]
+  serviceProductInventories ServiceProductInventory[]
 
   @@map("InventoryType")
 }
@@ -1237,6 +1241,7 @@ model CancellationPolicyType {
   modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   cancellationPolicyRules PropertyContractCancellationPolicyRule[]
+  serviceProductCancellationPolicyRules ServiceProductCancellationPolicyRule[]
 
   @@unique([tenantId, companyId, cancellationPolicyTypeCode], map: "CancellationPolicyType_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "CancellationPolicyType_TenantID_CompanyID_idx")
@@ -1318,6 +1323,7 @@ model MarketType {
   modifiedDtTm   DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   marketRules PropertyContractMarketRule[]
+  serviceProductMarketRules ServiceProductMarketRule[]
 
   @@unique([tenantId, companyId, marketTypeCode], map: "MarketType_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "MarketType_TenantID_CompanyID_idx")
@@ -1338,6 +1344,7 @@ model MarketGroup {
   modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
 
   marketRules PropertyContractMarketRule[]
+  serviceProductMarketRules ServiceProductMarketRule[]
 
   @@unique([tenantId, companyId, marketGroupCode], map: "MarketGroup_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "MarketGroup_TenantID_CompanyID_idx")
@@ -1408,6 +1415,40 @@ model TaxType {
   @@map("TaxType")
 }
 
+/// Tax calculation method lookup — Percentage / Fixed. Global.
+model TaxCalculationType {
+  taxCalculationTypeId   BigInt    @id @default(autoincrement()) @map("TaxCalculationTypeID")
+  taxCalculationTypeCode String    @unique @map("TaxCalculationTypeCode") @db.VarChar(50)
+  taxCalculationTypeName String    @map("TaxCalculationTypeName") @db.VarChar(100)
+  isActive                Boolean   @default(true) @map("IsActive")
+  displayOrder            Int       @default(0) @map("DisplayOrder")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProductTaxes ServiceProductTax[]
+
+  @@map("TaxCalculationType")
+}
+
+/// Tax application basis lookup — Per Person / Per Adult / Per Booking / Per Vehicle, … Global.
+model TaxApplicationBasis {
+  taxApplicationBasisId   BigInt    @id @default(autoincrement()) @map("TaxApplicationBasisID")
+  taxApplicationBasisCode String    @unique @map("TaxApplicationBasisCode") @db.VarChar(50)
+  taxApplicationBasisName String    @map("TaxApplicationBasisName") @db.VarChar(100)
+  isActive                Boolean   @default(true) @map("IsActive")
+  displayOrder            Int       @default(0) @map("DisplayOrder")
+  createdBy               Int       @map("CreatedBy")
+  createdDtTm             DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy              Int?      @map("ModifiedBy")
+  modifiedDtTm            DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProductTaxes ServiceProductTax[]
+
+  @@map("TaxApplicationBasis")
+}
+
 /// Tax master — a specific tax definition (e.g. Qatar VAT 5%), optionally scoped to a country/region and tenant.
 model Tax {
   taxId              BigInt    @id @default(autoincrement()) @map("TaxID")
@@ -1445,6 +1486,7 @@ model Tax {
   region        Region?               @relation(fields: [regionId], references: [regionId], onDelete: Restrict)
   currency      Currency?             @relation("TaxCurrency", fields: [currencyId], references: [currencyId], onDelete: Restrict)
   contractTaxes PropertyContractTax[]
+  serviceProductTaxes ServiceProductTax[]
 
   @@index([tenantId, companyId], map: "Tax_TenantID_CompanyID_idx")
   @@index([taxTypeId], map: "Tax_TaxTypeID_idx")
@@ -3294,6 +3336,10 @@ model ServiceProduct {
   media               ServiceProductMedia[]
   inclusionExclusions ServiceProductInclusionExclusion[]
   itineraries         ServiceProductItinerary[]
+  cancellationPolicies ServiceProductCancellationPolicy[]
+  inventories         ServiceProductInventory[]
+  marketRules         ServiceProductMarketRule[]
+  taxes               ServiceProductTax[]
 
   @@unique([tenantId, companyId, serviceProductCode], map: "ServiceProduct_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "ServiceProduct_TenantID_CompanyID_idx")
@@ -3384,6 +3430,10 @@ model ServiceProductOption {
   availabilities ServiceProductAvailability[]
   schedules      ServiceProductSchedule[]
   rates          ServiceProductRate[]
+  cancellationPolicies ServiceProductCancellationPolicy[]
+  inventories ServiceProductInventory[]
+  marketRules ServiceProductMarketRule[]
+  taxes ServiceProductTax[]
 
   @@unique([serviceProductId, optionCode], map: "SvcProductOption_Product_Code_key")
   @@index([serviceProductId], map: "SvcProductOption_ProductID_idx")
@@ -3413,6 +3463,10 @@ model ServiceProductVariant {
   availabilities ServiceProductAvailability[]
   schedules      ServiceProductSchedule[]
   rates          ServiceProductRate[]
+  cancellationPolicies ServiceProductCancellationPolicy[]
+  inventories ServiceProductInventory[]
+  marketRules ServiceProductMarketRule[]
+  taxes ServiceProductTax[]
 
   @@unique([serviceProductOptionId, variantCode], map: "SvcProductVariant_Option_Code_key")
   @@index([serviceProductOptionId], map: "SvcProductVariant_OptionID_idx")
@@ -3488,6 +3542,10 @@ model ServiceProductSupplier {
 
   rates             ServiceProductRate[]
   supplierLocations ServiceProductSupplierLocation[]
+  cancellationPolicies ServiceProductCancellationPolicy[]
+  inventories ServiceProductInventory[]
+  marketRules ServiceProductMarketRule[]
+  taxes ServiceProductTax[]
 
   @@unique([serviceProductId, supplierId], map: "SvcProductSupplier_Product_Supplier_key")
   @@index([supplierId], map: "SvcProductSupplier_SupplierID_idx")
@@ -3573,6 +3631,7 @@ model ServiceProductSchedule {
   commonStatus   CommonStatus               @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
 
   rates ServiceProductRate[]
+  inventories ServiceProductInventory[]
 
   @@index([serviceProductAvailabilityId], map: "SvcProductSchedule_AvailID_idx")
   @@index([serviceProductId], map: "SvcProductSchedule_ProductID_idx")
@@ -3803,6 +3862,227 @@ model ServiceProductItinerary {
   @@index([serviceProductLocationId], map: "SvcProductItinerary_LocationID_idx")
   @@index([commonStatusId], map: "SvcProductItinerary_CommonStatusID_idx")
   @@map("ServiceProductItinerary")
+}
+
+/// Cancellation policy for a Service Product — optionally scoped to a supplier link, option, or variant.
+model ServiceProductCancellationPolicy {
+  serviceProductCancellationPolicyId BigInt    @id @default(autoincrement()) @map("ServiceProductCancellationPolicyID")
+  serviceProductId                   BigInt    @map("ServiceProductID")
+  policyCode                         String    @map("PolicyCode") @db.VarChar(50)
+  policyName                         String    @map("PolicyName") @db.VarChar(150)
+  /// Supplier-specific policy; NULL = applies to all suppliers.
+  serviceProductSupplierId           BigInt?   @map("ServiceProductSupplierID")
+  /// Option-specific policy; NULL = applies to all options.
+  serviceProductOptionId             BigInt?   @map("ServiceProductOptionID")
+  /// Variant-specific policy; NULL = applies to all variants.
+  serviceProductVariantId            BigInt?   @map("ServiceProductVariantID")
+  isDefault                          Boolean   @default(false) @map("IsDefault")
+  isActive                           Boolean   @default(true) @map("IsActive")
+  createdBy                          Int       @map("CreatedBy")
+  createdDtTm                        DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                         Int?      @map("ModifiedBy")
+  modifiedDtTm                       DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplierLink   ServiceProductSupplier? @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  option         ServiceProductOption?   @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant?  @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  rules          ServiceProductCancellationPolicyRule[]
+
+  @@unique([serviceProductId, policyCode], map: "SvcProductCxlPolicy_Product_Code_key")
+  @@index([serviceProductId], map: "SvcProductCxlPolicy_ProductID_idx")
+  @@index([serviceProductSupplierId], map: "SvcProductCxlPolicy_SupplierID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductCxlPolicy_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductCxlPolicy_VariantID_idx")
+  @@map("ServiceProductCancellationPolicy")
+}
+
+/// Cancellation window rule for a Service Product cancellation policy — days-before-departure band + refund/penalty type.
+model ServiceProductCancellationPolicyRule {
+  serviceProductCancellationPolicyRuleId BigInt    @id @default(autoincrement()) @map("ServiceProductCancellationPolicyRuleID")
+  serviceProductCancellationPolicyId     BigInt    @map("ServiceProductCancellationPolicyID")
+  fromDaysBefore                         Int       @map("FromDaysBefore")
+  toDaysBefore                           Int?      @map("ToDaysBefore")
+  cancellationPolicyTypeId               BigInt    @map("CancellationPolicyTypeID")
+  penaltyValue                           Decimal   @map("PenaltyValue") @db.Decimal(18, 4)
+  isActive                               Boolean   @default(true) @map("IsActive")
+  createdBy                              Int       @map("CreatedBy")
+  createdDtTm                            DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                             Int?      @map("ModifiedBy")
+  modifiedDtTm                           DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  cancellationPolicy ServiceProductCancellationPolicy @relation(fields: [serviceProductCancellationPolicyId], references: [serviceProductCancellationPolicyId], onDelete: Cascade)
+  policyType         CancellationPolicyType           @relation(fields: [cancellationPolicyTypeId], references: [cancellationPolicyTypeId], onDelete: Restrict)
+
+  @@index([serviceProductCancellationPolicyId], map: "SvcProductCxlPolicyRule_PolicyID_idx")
+  @@index([cancellationPolicyTypeId], map: "SvcProductCxlPolicyRule_TypeID_idx")
+  @@map("ServiceProductCancellationPolicyRule")
+}
+
+/// Allow/Block rule-direction lookup used by ServiceProductMarketRule. Global.
+model RuleType {
+  ruleTypeId   BigInt    @id @default(autoincrement()) @map("RuleTypeID")
+  ruleTypeCode String    @unique @map("RuleTypeCode") @db.VarChar(50)
+  ruleTypeName String    @map("RuleTypeName") @db.VarChar(100)
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("ModifiedBy")
+  modifiedDtTm DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  marketRules ServiceProductMarketRule[]
+
+  @@map("RuleType")
+}
+
+/// Inventory/allotment header for a Service Product — optionally scoped to a supplier, option, variant, or schedule.
+model ServiceProductInventory {
+  serviceProductInventoryId BigInt    @id @default(autoincrement()) @map("ServiceProductInventoryID")
+  serviceProductId          BigInt    @map("ServiceProductID")
+  serviceProductSupplierId  BigInt?   @map("ServiceProductSupplierID")
+  serviceProductOptionId    BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId   BigInt?   @map("ServiceProductVariantID")
+  serviceProductScheduleId  BigInt?   @map("ServiceProductScheduleID")
+  inventoryTypeId           BigInt    @map("InventoryTypeID")
+  validFrom                 DateTime? @map("ValidFrom") @db.Date
+  validTo                   DateTime? @map("ValidTo") @db.Date
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("ModifiedBy")
+  modifiedDtTm               DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplierLink   ServiceProductSupplier? @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  option         ServiceProductOption?   @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant?  @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  schedule       ServiceProductSchedule? @relation(fields: [serviceProductScheduleId], references: [serviceProductScheduleId], onDelete: Cascade)
+  inventoryType  InventoryType           @relation(fields: [inventoryTypeId], references: [inventoryTypeId], onDelete: Restrict)
+  periods        ServiceProductInventoryPeriod[]
+
+  @@index([serviceProductId], map: "SvcProductInventory_ProductID_idx")
+  @@index([serviceProductSupplierId], map: "SvcProductInventory_SupplierID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductInventory_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductInventory_VariantID_idx")
+  @@index([serviceProductScheduleId], map: "SvcProductInventory_ScheduleID_idx")
+  @@index([inventoryTypeId], map: "SvcProductInventory_TypeID_idx")
+  @@map("ServiceProductInventory")
+}
+
+/// Date-range allotment period for a Service Product inventory header — per-day-of-week quantity + release window.
+model ServiceProductInventoryPeriod {
+  serviceProductInventoryPeriodId BigInt    @id @default(autoincrement()) @map("ServiceProductInventoryPeriodID")
+  serviceProductInventoryId       BigInt    @map("ServiceProductInventoryID")
+  fromDate                        DateTime  @map("FromDate") @db.Date
+  toDate                          DateTime  @map("ToDate") @db.Date
+  isMonday                        Boolean   @default(true) @map("IsMonday")
+  isTuesday                       Boolean   @default(true) @map("IsTuesday")
+  isWednesday                     Boolean   @default(true) @map("IsWednesday")
+  isThursday                      Boolean   @default(true) @map("IsThursday")
+  isFriday                        Boolean   @default(true) @map("IsFriday")
+  isSaturday                      Boolean   @default(true) @map("IsSaturday")
+  isSunday                        Boolean   @default(true) @map("IsSunday")
+  allotmentQty                    Int       @default(0) @map("AllotmentQty")
+  releaseDays                     Int       @default(0) @map("ReleaseDays")
+  isActive                        Boolean   @default(true) @map("IsActive")
+  createdBy                       Int       @map("CreatedBy")
+  createdDtTm                     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                      Int?      @map("ModifiedBy")
+  modifiedDtTm                    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  inventory ServiceProductInventory @relation(fields: [serviceProductInventoryId], references: [serviceProductInventoryId], onDelete: Cascade)
+
+  @@index([serviceProductInventoryId], map: "SvcProductInventoryPeriod_InventoryID_idx")
+  @@map("ServiceProductInventoryPeriod")
+}
+
+/// Market include/exclude rule for a Service Product — restricts or opens sale to a Country, Region, City, or Market Group.
+model ServiceProductMarketRule {
+  serviceProductMarketRuleId BigInt    @id @default(autoincrement()) @map("ServiceProductMarketRuleID")
+  serviceProductId           BigInt    @map("ServiceProductID")
+  serviceProductSupplierId   BigInt?   @map("ServiceProductSupplierID")
+  serviceProductOptionId     BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId    BigInt?   @map("ServiceProductVariantID")
+  marketTypeId               BigInt    @map("MarketTypeID")
+  regionId                   Int?      @map("RegionID")
+  countryId                  Int?      @map("CountryID")
+  cityId                     Int?      @map("CityID")
+  marketGroupId              BigInt?   @map("MarketGroupID")
+  ruleTypeId                 BigInt    @map("RuleTypeID")
+  fromDate                   DateTime? @map("FromDate") @db.Date
+  toDate                     DateTime? @map("ToDate") @db.Date
+  isActive                   Boolean   @default(true) @map("IsActive")
+  createdBy                  Int       @map("CreatedBy")
+  createdDtTm                DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                 Int?      @map("ModifiedBy")
+  modifiedDtTm                DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplierLink   ServiceProductSupplier? @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  option         ServiceProductOption?   @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant        ServiceProductVariant?  @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  marketType     MarketType              @relation(fields: [marketTypeId], references: [marketTypeId], onDelete: Restrict)
+  region         Region?                 @relation(fields: [regionId], references: [regionId], onDelete: Restrict)
+  country        Country?                @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  city           City?                   @relation(fields: [cityId], references: [cityId], onDelete: Restrict)
+  marketGroup    MarketGroup?            @relation(fields: [marketGroupId], references: [marketGroupId], onDelete: Restrict)
+  ruleType       RuleType                @relation(fields: [ruleTypeId], references: [ruleTypeId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductMarketRule_ProductID_idx")
+  @@index([serviceProductSupplierId], map: "SvcProductMarketRule_SupplierID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductMarketRule_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductMarketRule_VariantID_idx")
+  @@index([marketTypeId], map: "SvcProductMarketRule_MarketTypeID_idx")
+  @@index([regionId], map: "SvcProductMarketRule_RegionID_idx")
+  @@index([countryId], map: "SvcProductMarketRule_CountryID_idx")
+  @@index([cityId], map: "SvcProductMarketRule_CityID_idx")
+  @@index([marketGroupId], map: "SvcProductMarketRule_MarketGroupID_idx")
+  @@index([ruleTypeId], map: "SvcProductMarketRule_RuleTypeID_idx")
+  @@map("ServiceProductMarketRule")
+}
+
+/// Tax assignment for a Service Product — the actual rate/amount and calculation behavior applied, optionally scoped to a supplier, option, or variant.
+model ServiceProductTax {
+  serviceProductTaxId      BigInt    @id @default(autoincrement()) @map("ServiceProductTaxID")
+  serviceProductId         BigInt    @map("ServiceProductID")
+  serviceProductSupplierId BigInt?   @map("ServiceProductSupplierID")
+  serviceProductOptionId   BigInt?   @map("ServiceProductOptionID")
+  serviceProductVariantId  BigInt?   @map("ServiceProductVariantID")
+  taxId                    BigInt    @map("TaxID")
+  /// Product-facing display name; defaults to the Tax master's name but can be overridden.
+  taxName                  String    @map("TaxName") @db.VarChar(200)
+  taxCalculationTypeId     BigInt    @map("TaxCalculationTypeID")
+  taxRate                  Decimal?  @map("TaxRate") @db.Decimal(18, 4)
+  taxAmount                Decimal?  @map("TaxAmount") @db.Decimal(18, 4)
+  taxApplicationBasisId    BigInt    @map("TaxApplicationBasisID")
+  isInclusive              Boolean   @default(false) @map("IsInclusive")
+  isCompound               Boolean   @default(false) @map("IsCompound")
+  sequenceNo               Int       @default(0) @map("SequenceNo")
+  fromDate                 DateTime  @map("FromDate") @db.Date
+  toDate                   DateTime? @map("ToDate") @db.Date
+  isActive                 Boolean   @default(true) @map("IsActive")
+  remarks                  String?   @map("Remarks") @db.VarChar(500)
+  createdBy                Int       @map("CreatedBy")
+  createdDtTm              DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy               Int?      @map("ModifiedBy")
+  modifiedDtTm             DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct      ServiceProduct          @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+  supplierLink        ServiceProductSupplier? @relation(fields: [serviceProductSupplierId], references: [serviceProductSupplierId], onDelete: Cascade)
+  option              ServiceProductOption?   @relation(fields: [serviceProductOptionId], references: [serviceProductOptionId], onDelete: Cascade)
+  variant             ServiceProductVariant?  @relation(fields: [serviceProductVariantId], references: [serviceProductVariantId], onDelete: Cascade)
+  tax                 Tax                     @relation(fields: [taxId], references: [taxId], onDelete: Restrict)
+  taxCalculationType  TaxCalculationType      @relation(fields: [taxCalculationTypeId], references: [taxCalculationTypeId], onDelete: Restrict)
+  taxApplicationBasis TaxApplicationBasis     @relation(fields: [taxApplicationBasisId], references: [taxApplicationBasisId], onDelete: Restrict)
+
+  @@index([serviceProductId], map: "SvcProductTax_ProductID_idx")
+  @@index([serviceProductSupplierId], map: "SvcProductTax_SupplierID_idx")
+  @@index([serviceProductOptionId], map: "SvcProductTax_OptionID_idx")
+  @@index([serviceProductVariantId], map: "SvcProductTax_VariantID_idx")
+  @@index([taxId], map: "SvcProductTax_TaxID_idx")
+  @@index([taxCalculationTypeId], map: "SvcProductTax_CalcTypeID_idx")
+  @@index([taxApplicationBasisId], map: "SvcProductTax_BasisID_idx")
+  @@map("ServiceProductTax")
 }
 
 /// Media (photos/videos/PDFs) for a Service Product — Cover, Gallery, Map, Location, …

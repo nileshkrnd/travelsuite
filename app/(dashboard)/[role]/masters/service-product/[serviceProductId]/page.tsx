@@ -21,6 +21,10 @@ import {
   GitBranch,
   Building2,
   DollarSign,
+  ShieldCheck,
+  Warehouse,
+  Globe2,
+  Receipt,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -44,6 +48,10 @@ import { ProductOptionTab } from "@/components/masters/product-tabs/ProductOptio
 import { ProductVariantTab } from "@/components/masters/product-tabs/ProductVariantTab";
 import { ProductSupplierLocationTab } from "@/components/masters/product-tabs/ProductSupplierLocationTab";
 import { ProductRateTab } from "@/components/masters/product-tabs/ProductRateTab";
+import { ProductCancellationPolicyTab } from "@/components/masters/product-tabs/ProductCancellationPolicyTab";
+import { ProductInventoryTab } from "@/components/masters/product-tabs/ProductInventoryTab";
+import { ProductMarketRuleTab } from "@/components/masters/product-tabs/ProductMarketRuleTab";
+import { ProductTaxTab } from "@/components/masters/product-tabs/ProductTaxTab";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -257,6 +265,22 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
               <DollarSign className="h-4 w-4" />
               Rates
             </TabsTrigger>
+            <TabsTrigger value="cancellationPolicy" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <ShieldCheck className="h-4 w-4" />
+              Cancellation Policy
+            </TabsTrigger>
+            <TabsTrigger value="inventory" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Warehouse className="h-4 w-4" />
+              Inventory
+            </TabsTrigger>
+            <TabsTrigger value="marketRule" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Globe2 className="h-4 w-4" />
+              Market Rules
+            </TabsTrigger>
+            <TabsTrigger value="tax" className="gap-1.5 rounded-lg px-3 py-2 text-sm font-medium">
+              <Receipt className="h-4 w-4" />
+              Taxes
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -353,6 +377,18 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
         </TabsContent>
         <TabsContent value="rate" className="mt-4">
           <ProductRateTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="cancellationPolicy" className="mt-4">
+          <ProductCancellationPolicyTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="inventory" className="mt-4">
+          <ProductInventoryTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="marketRule" className="mt-4">
+          <ProductMarketRuleTab product={product} roleDef={roleDef} />
+        </TabsContent>
+        <TabsContent value="tax" className="mt-4">
+          <ProductTaxTab product={product} roleDef={roleDef} />
         </TabsContent>
       </Tabs>
     </div>

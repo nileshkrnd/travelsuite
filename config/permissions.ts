@@ -37,6 +37,10 @@ export type ModuleKey =
   | "serviceProductItemType"
   | "serviceProductInclusionExclusion"
   | "serviceProductItinerary"
+  | "serviceProductCancellationPolicy"
+  | "serviceProductInventory"
+  | "serviceProductMarketRule"
+  | "serviceProductTax"
   | "adminConfiguration"
   | "commonStatusType"
   | "commonStatus"
@@ -973,6 +977,30 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.serviceProductItinerary",
             icon: "Route",
             path: "masters/service-product-itinerary",
+          },
+          {
+            key: "serviceProductCancellationPolicy",
+            labelKey: "sidebar.serviceProductCancellationPolicy",
+            icon: "ShieldCheck",
+            path: "masters/service-product-cancellation-policy",
+          },
+          {
+            key: "serviceProductInventory",
+            labelKey: "sidebar.serviceProductInventory",
+            icon: "Warehouse",
+            path: "masters/service-product-inventory",
+          },
+          {
+            key: "serviceProductMarketRule",
+            labelKey: "sidebar.serviceProductMarketRule",
+            icon: "Globe2",
+            path: "masters/service-product-market-rule",
+          },
+          {
+            key: "serviceProductTax",
+            labelKey: "sidebar.serviceProductTax",
+            icon: "Receipt",
+            path: "masters/service-product-tax",
           },
         ],
       },
