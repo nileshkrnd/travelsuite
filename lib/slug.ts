@@ -20,6 +20,22 @@ export function toCamelSlug(name: string): string {
 }
 
 /**
+ * Converts free text into a lowercase, hyphen-separated URL slug — e.g. for a
+ * product/content page path segment. "Doha Desert Safari!" -> "doha-desert-safari".
+ * Unlike {@link toCamelSlug}, this keeps hyphens between words (the standard, SEO-
+ * friendly slug format), since it is not constrained by the `[role]` route-segment rule.
+ */
+export function toUrlSlug(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
  * Appends a numeric suffix if `base` already exists in `existingSlugs`
  * (case-insensitive). When `maxLength` is set, the stem is truncated so the
  * final value never exceeds that length.

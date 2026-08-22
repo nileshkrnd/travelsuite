@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -21,9 +21,11 @@ import {
   Building2,
   Info,
   ChevronRight,
+  ChevronLeft,
   PackageSearch,
   ExternalLink,
-  Camera,
+  ListChecks,
+  X,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,8 @@ import { listServiceProductOptions } from "@/lib/services/service-product-option
 import { listServiceProductVariants } from "@/lib/services/service-product-variants.service";
 import { listServiceProductCancellationPolicies } from "@/lib/services/service-product-cancellation-policies.service";
 import { listServiceProductRates } from "@/lib/services/service-product-rates.service";
+import { listServiceProductContentSections } from "@/lib/services/service-product-content-sections.service";
+import { listServiceProductAdditionalInfo } from "@/lib/services/service-product-additional-info.service";
 import type {
   ServiceProduct,
   ServiceProductConfiguration,
@@ -51,6 +55,8 @@ import type {
   ServiceProductVariant,
   ServiceProductCancellationPolicy,
   ServiceProductRate,
+  ServiceProductContentSection,
+  ServiceProductAdditionalInfo,
   RoleDef,
 } from "@/types";
 
@@ -65,6 +71,8 @@ interface DetailData {
   variantsByOption: Map<number, ServiceProductVariant[]>;
   cancellationPolicies: ServiceProductCancellationPolicy[];
   rates: ServiceProductRate[];
+  contentSections: ServiceProductContentSection[];
+  additionalInfo: ServiceProductAdditionalInfo[];
 }
 
 function stripHtml(value: string | null | undefined): string {
@@ -111,12 +119,230 @@ function GalleryFallback({ icon: Icon }: { icon: React.ComponentType<{ className
   );
 }
 
+/** Viator-style hero gallery: large photo with prev/next arrows + a thumbnail strip, opening a full slider lightbox on click. */
+function GalleryViewer({ media, productName }: { media: ServiceProductMedia[]; productName: string }) {
+  const [index, setIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const count = media.length;
+
+  const goPrev = useCallback(() => setIndex((i) => (i - 1 + count) % count), [count]);
+  const goNext = useCallback(() => setIndex((i) => (i + 1) % count), [count]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
+      else if (e.key === "Escape") setLightboxOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen, goPrev, goNext]);
+
+  if (count === 0) {
+    return (
+      <div className="aspect-[16/9] w-full overflow-hidden rounded-xl sm:aspect-[2/1]">
+        <GalleryFallback icon={ImageIcon} />
+      </div>
+    );
+  }
+
+  const current = media[index];
+
+  return (
+    <>
+      <div className="space-y-2">
+        <div className="group relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted sm:aspect-[2/1]">
+          <button type="button" onClick={() => setLightboxOpen(true)} className="block h-full w-full">
+            <img src={current.mediaUrl} alt={current.mediaTitle ?? productName} className="h-full w-full object-cover" />
+          </button>
+          {count > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrev();
+                }}
+                aria-label="Previous photo"
+                className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNext();
+                }}
+                aria-label="Next photo"
+                className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                {index + 1} / {count}
+              </span>
+            </>
+          )}
+        </div>
+
+        {count > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {media.map((m, i) => (
+              <button
+                key={m.serviceProductMediaId}
+                type="button"
+                onClick={() => setIndex(i)}
+                className={`h-14 w-20 shrink-0 overflow-hidden rounded-md ring-2 transition ${
+                  i === index ? "ring-primary" : "ring-transparent opacity-70 hover:opacity-100"
+                }`}
+              >
+                <img src={m.thumbnailUrl || m.mediaUrl} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {lightboxOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/90" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-between p-4 text-white">
+            <span className="text-sm">
+              {index + 1} / {count}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              aria-label="Close"
+              className="rounded-full p-1.5 hover:bg-white/10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="relative flex flex-1 items-center justify-center px-4 pb-4">
+            {count > 1 && (
+              <button
+                type="button"
+                onClick={goPrev}
+                aria-label="Previous photo"
+                className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:left-6"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+            <img
+              src={current.mediaUrl}
+              alt={current.mediaTitle ?? productName}
+              className="max-h-full max-w-full rounded-lg object-contain"
+            />
+            {count > 1 && (
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="Next photo"
+                className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:right-6"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+          </div>
+          {count > 1 && (
+            <div className="flex justify-center gap-1.5 overflow-x-auto p-4">
+              {media.map((m, i) => (
+                <button
+                  key={m.serviceProductMediaId}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  className={`h-12 w-16 shrink-0 overflow-hidden rounded-md ring-2 transition ${
+                    i === index ? "ring-white" : "ring-transparent opacity-50 hover:opacity-80"
+                  }`}
+                >
+                  <img src={m.thumbnailUrl || m.mediaUrl} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Renders one typed content section — numbered steps with sub-points for "What to Expect", plain bullet groups otherwise. */
+function ContentSectionBlock({ section }: { section: ServiceProductContentSection }) {
+  return (
+    <div className="space-y-4">
+      {section.sectionDescription && (
+        <p className="text-sm text-muted-foreground">{stripHtml(section.sectionDescription)}</p>
+      )}
+      <ul className="divide-y divide-border">
+        {section.items.map((item) => (
+          <li key={item.serviceProductContentSectionItemId} className="py-3 first:pt-0 last:pb-0">
+            <p className="text-sm font-medium">{item.itemTitle}</p>
+            {item.itemDescription && (
+              <p className="mt-1 text-sm text-muted-foreground">{stripHtml(item.itemDescription)}</p>
+            )}
+            {item.points.length > 0 && (
+              <ul className="mt-2 space-y-1.5 ps-1">
+                {item.points.map((p) => (
+                  <li
+                    key={p.serviceProductContentSectionItemPointId}
+                    className="flex items-start gap-2 text-sm text-foreground/90"
+                  >
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
+                    {p.pointText}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Structured yes/no + value facts (accessibility, group size, …), rendered like Viator's Additional Info checklist. */
+function AdditionalInfoBlock({ info }: { info: ServiceProductAdditionalInfo[] }) {
+  return (
+    <ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+      {info.map((row) => {
+        if (row.valueTypeCode === "BOOLEAN") {
+          const isYes = row.valueBoolean === true;
+          const label = row.infoTypeName ?? "—";
+          return (
+            <li key={row.serviceProductAdditionalInfoId} className="flex items-start gap-2 text-sm">
+              {isYes ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span>{isYes ? label : `Not ${label.charAt(0).toLowerCase()}${label.slice(1)}`}</span>
+            </li>
+          );
+        }
+        const value =
+          row.valueText ??
+          (row.valueNumber != null ? String(row.valueNumber) : row.valueDate ?? row.valueTime ?? row.valueDateTime ?? "—");
+        return (
+          <li key={row.serviceProductAdditionalInfoId} className="flex items-start gap-2 text-sm">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <span>
+              {row.infoTypeName}: <span className="font-medium">{value}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
   const { role, serviceProductId } = useParams<{ role: string; serviceProductId: string }>();
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -135,6 +361,8 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
           options,
           cancellationPolicies,
           rates,
+          contentSections,
+          additionalInfo,
         ] = await Promise.all([
           getServiceProduct(id),
           getServiceProductConfiguration(id),
@@ -145,6 +373,8 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
           listServiceProductOptions({ serviceProductId: id, activeOnly: true }),
           listServiceProductCancellationPolicies({ serviceProductId: id, activeOnly: true }),
           listServiceProductRates({ serviceProductId: id, activeOnly: true }),
+          listServiceProductContentSections({ serviceProductId: id, activeOnly: true }),
+          listServiceProductAdditionalInfo({ serviceProductId: id, activeOnly: true }),
         ]);
 
         const variantEntries = await Promise.all(
@@ -171,6 +401,8 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
           variantsByOption,
           cancellationPolicies,
           rates,
+          contentSections: [...contentSections].sort((a, b) => a.displayOrder - b.displayOrder),
+          additionalInfo,
         });
       } catch (error) {
         setLoadError(error instanceof ServiceProductsApiError ? error.message : "Failed to load product details");
@@ -217,8 +449,20 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
     );
   }
 
-  const { product, configuration, media, inclusionExclusions, itineraries, locations, options, variantsByOption, cancellationPolicies, rates } =
-    data;
+  const {
+    product,
+    configuration,
+    media,
+    inclusionExclusions,
+    itineraries,
+    locations,
+    options,
+    variantsByOption,
+    cancellationPolicies,
+    rates,
+    contentSections,
+    additionalInfo,
+  } = data;
 
   const inclusions = inclusionExclusions.filter((i) => i.inclusionExclusionTypeName === "Inclusion");
   const exclusions = inclusionExclusions.filter((i) => i.inclusionExclusionTypeName === "Exclusion");
@@ -244,26 +488,15 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
     { id: "overview", label: "Overview" },
     inclusionExclusions.length > 0 ? { id: "included", label: "Included / Excluded" } : null,
     locations.length > 0 ? { id: "meeting", label: "Meeting & Pickup" } : null,
-    itineraries.length > 0 ? { id: "itinerary", label: "What to Expect" } : null,
+    itineraries.length > 0 ? { id: "itinerary", label: "Itinerary" } : null,
+    ...contentSections.map((s) => ({ id: `content-${s.serviceProductContentSectionId}`, label: s.sectionTitle })),
+    additionalInfo.length > 0 ? { id: "additional-info", label: "Additional Info" } : null,
     options.length > 0 ? { id: "options", label: "Options & Variants" } : null,
     cancellationPolicies.length > 0 ? { id: "cancellation", label: "Cancellation Policy" } : null,
   ].filter((s): s is { id: string; label: string } => s !== null);
 
-  const galleryCount = media.length;
-  const overflowCount = galleryCount > 5 ? galleryCount - 5 : 0;
-
   return (
     <div className="space-y-6 pb-16">
-      {activeImage && (
-        <button
-          type="button"
-          onClick={() => setActiveImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-        >
-          <img src={activeImage} alt="" className="max-h-full max-w-full rounded-lg object-contain" />
-        </button>
-      )}
-
       <div className="mx-auto max-w-7xl space-y-5 px-4 pt-6 sm:px-6">
         <Button
           variant="ghost"
@@ -276,76 +509,7 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
           Back to catalog
         </Button>
 
-        {/* Photo mosaic — mirrors an OTA product-page gallery: one large hero tile + a grid of supporting shots */}
-        <div className="overflow-hidden rounded-xl">
-          {galleryCount === 0 ? (
-            <div className="aspect-[21/9] w-full sm:aspect-[3/1]">
-              <GalleryFallback icon={ImageIcon} />
-            </div>
-          ) : galleryCount === 1 ? (
-            <button
-              type="button"
-              onClick={() => setActiveImage(media[0].mediaUrl)}
-              className="block aspect-[21/9] w-full sm:aspect-[3/1]"
-            >
-              <img src={media[0].mediaUrl} alt={product.serviceProductName} className="h-full w-full object-cover" />
-            </button>
-          ) : galleryCount === 2 ? (
-            <div className="grid grid-cols-2 gap-1.5" style={{ height: "min(60vh, 360px)" }}>
-              {media.map((m) => (
-                <button key={m.serviceProductMediaId} type="button" onClick={() => setActiveImage(m.mediaUrl)}>
-                  <img src={m.mediaUrl} alt={m.mediaTitle ?? product.serviceProductName} className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          ) : galleryCount === 3 ? (
-            <div className="grid grid-cols-2 grid-rows-2 gap-1.5" style={{ height: "min(70vh, 420px)" }}>
-              <button
-                type="button"
-                onClick={() => setActiveImage(media[0].mediaUrl)}
-                className="row-span-2"
-              >
-                <img src={media[0].mediaUrl} alt={product.serviceProductName} className="h-full w-full object-cover" />
-              </button>
-              {media.slice(1, 3).map((m) => (
-                <button key={m.serviceProductMediaId} type="button" onClick={() => setActiveImage(m.mediaUrl)}>
-                  <img src={m.thumbnailUrl || m.mediaUrl} alt={m.mediaTitle ?? ""} className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-1.5" style={{ height: "min(70vh, 420px)" }}>
-              <button
-                type="button"
-                onClick={() => setActiveImage(media[0].mediaUrl)}
-                className="hidden flex-1 sm:block"
-              >
-                <img src={media[0].mediaUrl} alt={product.serviceProductName} className="h-full w-full object-cover" />
-              </button>
-              <button type="button" onClick={() => setActiveImage(media[0].mediaUrl)} className="block flex-1 sm:hidden">
-                <img src={media[0].mediaUrl} alt={product.serviceProductName} className="h-full w-full object-cover" />
-              </button>
-              <div
-                className="hidden flex-1 gap-1.5 sm:grid"
-                style={{ gridTemplateRows: `repeat(${Math.min(media.length - 1, 4)}, 1fr)` }}
-              >
-                {media.slice(1, 5).map((m, idx) => {
-                  const isLastVisible = idx === Math.min(media.length, 5) - 2;
-                  return (
-                    <button key={m.serviceProductMediaId} type="button" onClick={() => setActiveImage(m.mediaUrl)} className="relative">
-                      <img src={m.thumbnailUrl || m.mediaUrl} alt={m.mediaTitle ?? ""} className="h-full w-full object-cover" />
-                      {isLastVisible && overflowCount > 0 && (
-                        <span className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/55 text-sm font-medium text-white">
-                          <Camera className="h-4 w-4" />+{overflowCount} photos
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <GalleryViewer media={media} productName={product.serviceProductName} />
 
         {/* Title block */}
         <div>
@@ -521,7 +685,7 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
             )}
 
             {itineraries.length > 0 && (
-              <SectionCard id="itinerary" icon={RouteIcon} title="What to Expect" count={itineraries.length}>
+              <SectionCard id="itinerary" icon={RouteIcon} title="Itinerary" count={itineraries.length}>
                 <ol className="space-y-0">
                   {itineraries.map((stop, idx) => (
                     <li key={stop.serviceProductItineraryId} className="relative flex gap-4 pb-6 last:pb-0">
@@ -564,6 +728,24 @@ function ProductDetail({ roleDef: _roleDef }: { roleDef: RoleDef }) {
                     </li>
                   ))}
                 </ol>
+              </SectionCard>
+            )}
+
+            {contentSections.map((section) => (
+              <SectionCard
+                key={section.serviceProductContentSectionId}
+                id={`content-${section.serviceProductContentSectionId}`}
+                icon={RouteIcon}
+                title={section.sectionTitle}
+                count={section.items.length}
+              >
+                <ContentSectionBlock section={section} />
+              </SectionCard>
+            ))}
+
+            {additionalInfo.length > 0 && (
+              <SectionCard id="additional-info" icon={ListChecks} title="Additional Info" count={additionalInfo.length}>
+                <AdditionalInfoBlock info={additionalInfo} />
               </SectionCard>
             )}
 

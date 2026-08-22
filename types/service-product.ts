@@ -3,6 +3,8 @@ export interface ServiceProduct {
   serviceProductId: number;
   serviceProductCode: string;
   serviceProductName: string;
+  /** URL-safe slug for the public catalog page, e.g. "doha-desert-safari". */
+  slug: string | null;
   serviceTypeId: number;
   serviceTypeName?: string;
   serviceProductClassificationId: number;

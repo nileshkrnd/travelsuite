@@ -132,6 +132,7 @@ export * from "./rule-type";
 export * from "./tax-calculation-type";
 export * from "./tax-application-basis";
 export * from "./service-product-tax";
+export * from "./service-product-seo";
 export * from "./content-section-type";
 export * from "./service-product-content-section";
 export * from "./additional-info-type";

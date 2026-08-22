@@ -4,6 +4,7 @@ export interface ServiceProductRow {
   serviceProductId: bigint | number;
   serviceProductCode: string;
   serviceProductName: string;
+  slug: string | null;
   serviceTypeId: bigint | number;
   serviceProductClassificationId: bigint | number;
   serviceProductCategoryId: bigint | number | null;
@@ -45,6 +46,7 @@ export function toAppServiceProduct(row: ServiceProductRow): ServiceProduct {
     serviceProductId: Number(row.serviceProductId),
     serviceProductCode: row.serviceProductCode,
     serviceProductName: row.serviceProductName,
+    slug: row.slug,
     serviceTypeId: Number(row.serviceTypeId),
     serviceTypeName: row.serviceType?.serviceTypeName ?? undefined,
     serviceProductClassificationId: Number(row.serviceProductClassificationId),

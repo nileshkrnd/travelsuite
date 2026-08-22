@@ -29,6 +29,7 @@ import {
   Info,
   ClipboardCheck,
   HelpCircle,
+  Camera,
 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -39,8 +40,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getServiceProduct, ServiceProductsApiError } from "@/lib/services/service-products.service";
 import { listServiceProductStatusHistory } from "@/lib/services/service-product-status-history.service";
+import { listServiceProductMedia } from "@/lib/services/service-product-media.service";
 import { can } from "@/config/permissions";
-import type { RoleDef, ServiceProduct, ServiceProductStatusHistory } from "@/types";
+import type { RoleDef, ServiceProduct, ServiceProductMedia, ServiceProductStatusHistory } from "@/types";
 import { ProductConfigurationTab } from "@/components/masters/product-tabs/ProductConfigurationTab";
 import { ProductAvailabilityTab } from "@/components/masters/product-tabs/ProductAvailabilityTab";
 import { ProductScheduleTab } from "@/components/masters/product-tabs/ProductScheduleTab";
@@ -100,6 +102,7 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<ServiceProductStatusHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [media, setMedia] = useState<ServiceProductMedia[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const canEdit = can(roleDef, "serviceProduct", "edit");
 
@@ -141,6 +144,21 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
       })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!Number.isFinite(id) || id <= 0) return;
+    let cancelled = false;
+    listServiceProductMedia({ serviceProductId: id, activeOnly: true })
+      .then((rows) => {
+        if (!cancelled) setMedia(rows);
+      })
+      .catch(() => {
+        // media is supplementary here (full gallery lives on the Media tab) — a failed fetch shouldn't block the page.
       });
     return () => {
       cancelled = true;
@@ -190,8 +208,21 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
         }
       />
 
-      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] p-6 text-white">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div
+        className={`relative flex flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] p-6 text-white ${media[0] ? "min-h-[220px]" : ""}`}
+      >
+
+        {media[0] && (
+          <>
+            <img
+              src={media[0].mediaUrl}
+              alt={media[0].mediaTitle ?? product.serviceProductName}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
+          </>
+        )}
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-white/70">{product.serviceProductCode}</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">{product.serviceProductName}</h1>
@@ -218,6 +249,16 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
               {product.isOnlineSellable && <span>Online sellable</span>}
               {product.statusName && <span>{product.statusName}</span>}
             </div>
+            {media.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("media")}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/25"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {media.length} photo{media.length === 1 ? "" : "s"}
+              </button>
+            )}
           </div>
         </div>
       </div>

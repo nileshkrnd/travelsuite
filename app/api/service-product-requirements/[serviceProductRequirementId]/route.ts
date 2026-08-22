@@ -22,8 +22,8 @@ type RouteContext = { params: Promise<{ serviceProductRequirementId: string }> }
 
 const rowInclude = {
   serviceProduct: { select: { serviceProductName: true } },
-  option: { select: { optionName: true } },
-  variant: { select: { variantName: true } },
+  serviceProductOption: { select: { optionName: true } },
+  serviceProductVariant: { select: { variantName: true } },
   requirementType: { select: { requirementTypeCode: true, requirementTypeName: true } },
 } as const;
 

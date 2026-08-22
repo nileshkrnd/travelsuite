@@ -54,6 +54,7 @@ export async function getServiceProduct(serviceProductId: number): Promise<Servi
 export interface ServiceProductWriteInput {
   serviceProductCode: string;
   serviceProductName: string;
+  slug?: string | null;
   serviceTypeId: number;
   serviceProductClassificationId: number;
   serviceProductCategoryId?: number | null;

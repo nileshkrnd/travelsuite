@@ -9,6 +9,7 @@ import {
   Star,
   ImageOff,
   LayoutGrid,
+  List as ListIcon,
   SlidersHorizontal,
   X,
   Car,
@@ -88,10 +89,144 @@ function uniqueOptions(items: { id: number | null | undefined; label: string | u
 }
 
 type SortMode = "featured" | "name" | "priceLow" | "priceHigh";
+type ViewMode = "grid" | "list";
 
 interface PriceInfo {
   from: number;
   varies: boolean;
+}
+
+/** One Viator-style tour card — image, service type, title, location, price — shared by grid and list layouts. */
+function ProductCard({
+  product,
+  href,
+  image,
+  price,
+  description,
+  viewMode,
+}: {
+  product: ServiceProduct;
+  href: string;
+  image: string | undefined;
+  price: PriceInfo | undefined;
+  description: string;
+  viewMode: ViewMode;
+}) {
+  const ServiceIcon = iconForServiceType(product.serviceTypeName);
+  const location = [product.cityName, product.countryName].filter(Boolean).join(", ");
+
+  const cover = (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden bg-muted",
+        viewMode === "grid" ? "aspect-[4/3] w-full rounded-t-xl" : "aspect-[4/3] w-full rounded-lg sm:w-64"
+      )}
+    >
+      {image ? (
+        <img
+          src={image}
+          alt={product.serviceProductName}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] text-white/70">
+          <ServiceIcon className="h-10 w-10" />
+        </div>
+      )}
+      {product.isFeatured && (
+        <Badge className="absolute start-2 top-2 gap-1 bg-amber-500 text-white shadow-sm">
+          <Star className="h-3 w-3 fill-current" />
+          Featured
+        </Badge>
+      )}
+      {!image && (
+        <div className="absolute bottom-2 end-2 text-white/50">
+          <ImageOff className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+
+  if (viewMode === "grid") {
+    return (
+      <Link
+        href={href}
+        className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all hover:border-primary/40 hover:shadow-md"
+      >
+        {cover}
+        <div className="flex flex-1 flex-col gap-1 p-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+            <ServiceIcon className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{product.serviceTypeName ?? "—"}</span>
+          </div>
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:text-primary">
+            {product.serviceProductName}
+          </h3>
+          {location && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{location}</span>
+            </div>
+          )}
+          <div className="mt-auto pt-2">
+            {price ? (
+              <>
+                <p className="text-[11px] text-muted-foreground">{price.varies ? "Price varies" : "Starting from"}</p>
+                <p className="text-base font-semibold tabular-nums text-foreground">From {price.from.toLocaleString()}</p>
+              </>
+            ) : (
+              <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                View details →
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-3 shadow-xs transition-all hover:border-primary/40 hover:shadow-md sm:flex-row"
+    >
+      {cover}
+      <div className="flex flex-1 flex-col gap-1.5 py-1">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+          <ServiceIcon className="h-3.5 w-3.5" />
+          {product.serviceTypeName ?? "—"}
+          {product.classificationName && (
+            <span className="font-normal normal-case text-muted-foreground">· {product.classificationName}</span>
+          )}
+        </div>
+        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground group-hover:text-primary">
+          {product.serviceProductName}
+        </h3>
+        {location && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">{location}</span>
+          </div>
+        )}
+        {description && <p className="line-clamp-2 text-sm text-muted-foreground">{description}</p>}
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-2">
+          <span className="font-mono text-[11px] text-muted-foreground">{product.serviceProductCode}</span>
+          <div className="text-right">
+            {price ? (
+              <>
+                <p className="text-[11px] text-muted-foreground">{price.varies ? "Price varies" : "Starting from"}</p>
+                <p className="text-lg font-semibold tabular-nums text-foreground">From {price.from.toLocaleString()}</p>
+              </>
+            ) : (
+              <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                View details →
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 function ProductCatalogGrid({ roleDef }: { roleDef: RoleDef }) {
@@ -114,6 +249,7 @@ function ProductCatalogGrid({ roleDef }: { roleDef: RoleDef }) {
   const [cityId, setCityId] = useState<number | null>(null);
   const [sort, setSort] = useState<SortMode>("featured");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
   const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
@@ -474,99 +610,62 @@ function ProductCatalogGrid({ roleDef }: { roleDef: RoleDef }) {
               <p className="text-sm text-muted-foreground">
                 {filtered.length} {filtered.length === 1 ? "result" : "results"}
               </p>
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
-                  <SelectTrigger className="h-8 w-44 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="featured">Sort by: Featured</SelectItem>
-                    <SelectItem value="name">Sort by: Name</SelectItem>
-                    <SelectItem value="priceLow">Price: Low to high</SelectItem>
-                    <SelectItem value="priceHigh">Price: High to low</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center rounded-md border border-border p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    aria-label="Grid view"
+                    aria-pressed={viewMode === "grid"}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded transition-colors",
+                      viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    aria-label="List view"
+                    aria-pressed={viewMode === "list"}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded transition-colors",
+                      viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <ListIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
+                    <SelectTrigger className="h-8 w-44 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="featured">Sort by: Featured</SelectItem>
+                      <SelectItem value="name">Sort by: Name</SelectItem>
+                      <SelectItem value="priceLow">Price: Low to high</SelectItem>
+                      <SelectItem value="priceHigh">Price: High to low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {filtered.map((product) => {
-                const image = coverImages.get(product.serviceProductId);
-                const ServiceIcon = iconForServiceType(product.serviceTypeName);
-                const location = [product.cityName, product.countryName].filter(Boolean).join(", ");
-                const description = stripHtml(product.shortDescription ?? product.description);
-                const price = prices.get(product.serviceProductId);
-                return (
-                  <Link
-                    key={product.serviceProductId}
-                    href={`/${role}/sales/product-catalog/${product.serviceProductId}`}
-                    className="group flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-3 shadow-xs transition-all hover:border-primary/40 hover:shadow-md sm:flex-row"
-                  >
-                    <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg bg-muted sm:w-64">
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={product.serviceProductName}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#001C35] via-[#0a3558] to-[#1a5a7a] text-white/70">
-                          <ServiceIcon className="h-10 w-10" />
-                        </div>
-                      )}
-                      {product.isFeatured && (
-                        <Badge className="absolute start-2 top-2 gap-1 bg-amber-500 text-white shadow-sm">
-                          <Star className="h-3 w-3 fill-current" />
-                          Featured
-                        </Badge>
-                      )}
-                      {!image && (
-                        <div className="absolute bottom-2 end-2 text-white/50">
-                          <ImageOff className="h-4 w-4" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-1 flex-col gap-1.5 py-1">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                        <ServiceIcon className="h-3.5 w-3.5" />
-                        {product.serviceTypeName ?? "—"}
-                        {product.classificationName && (
-                          <span className="font-normal normal-case text-muted-foreground">· {product.classificationName}</span>
-                        )}
-                      </div>
-                      <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground group-hover:text-primary">
-                        {product.serviceProductName}
-                      </h3>
-                      {location && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{location}</span>
-                        </div>
-                      )}
-                      {description && <p className="line-clamp-2 text-sm text-muted-foreground">{description}</p>}
-                      <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-2">
-                        <span className="font-mono text-[11px] text-muted-foreground">{product.serviceProductCode}</span>
-                        <div className="text-right">
-                          {price ? (
-                            <>
-                              <p className="text-[11px] text-muted-foreground">
-                                {price.varies ? "Price varies" : "Starting from"}
-                              </p>
-                              <p className="text-lg font-semibold tabular-nums text-foreground">From {price.from.toLocaleString()}</p>
-                            </>
-                          ) : (
-                            <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                              View details →
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div className={viewMode === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-4"}>
+              {filtered.map((product) => (
+                <ProductCard
+                  key={product.serviceProductId}
+                  product={product}
+                  href={`/${role}/sales/product-catalog/${product.serviceProductId}`}
+                  image={coverImages.get(product.serviceProductId)}
+                  price={prices.get(product.serviceProductId)}
+                  description={stripHtml(product.shortDescription ?? product.description)}
+                  viewMode={viewMode}
+                />
+              ))}
             </div>
           </>
         )

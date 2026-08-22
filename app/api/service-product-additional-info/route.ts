@@ -24,8 +24,8 @@ const createSchema = z.object({
 
 const rowInclude = {
   serviceProduct: { select: { serviceProductName: true } },
-  option: { select: { optionName: true } },
-  variant: { select: { variantName: true } },
+  serviceProductOption: { select: { optionName: true } },
+  serviceProductVariant: { select: { variantName: true } },
   additionalInfoType: { select: { infoTypeCode: true, infoTypeName: true, valueTypeCode: true } },
 } as const;
 

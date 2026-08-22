@@ -7,10 +7,11 @@ import { z } from "zod";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Package, MapPin, Info, Save, X, Loader2 } from "lucide-react";
+import { Package, MapPin, Info, Save, X, Loader2, Search, Sparkles, Link2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HelpdeskRichComposer } from "@/components/helpdesk/HelpdeskRichComposer";
@@ -20,6 +21,8 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
+import { resolveSessionCompanyKey } from "@/lib/session-company";
+import { toUrlSlug } from "@/lib/slug";
 import { listServiceTypes } from "@/lib/services/service-types.service";
 import { listServiceProductClassifications } from "@/lib/services/service-product-classifications.service";
 import { listServiceProductCategories } from "@/lib/services/service-product-categories.service";
@@ -30,6 +33,7 @@ import { listCountries } from "@/lib/services/countries.service";
 import { listCities } from "@/lib/services/cities.service";
 import { listRegions } from "@/lib/services/regions.service";
 import { listServiceProducts, createServiceProduct, updateServiceProduct, ServiceProductsApiError } from "@/lib/services/service-products.service";
+import { getServiceProductSeo, saveServiceProductSeo, ServiceProductSeoApiError } from "@/lib/services/service-product-seo.service";
 import type {
   City,
   CommonStatus,
@@ -56,6 +60,13 @@ function useProductSchema(rows: ServiceProduct[], currentId?: number) {
     serviceTypeId: z.number().int().positive("Service type is required"),
     serviceProductCode: z.string().trim().min(1, "Code is required").max(50),
     serviceProductName: z.string().trim().min(1, "Name is required").max(250),
+    slug: z
+      .string()
+      .trim()
+      .max(250)
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only")
+      .optional()
+      .or(z.literal("")),
     serviceProductClassificationId: z.number().int().positive("Classification is required"),
     serviceProductCategoryId: z.number().int().positive().nullable(),
     supplierId: z.number().int().positive().nullable(),
@@ -69,6 +80,16 @@ function useProductSchema(rows: ServiceProduct[], currentId?: number) {
     displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
     commonStatusId: z.number().int().positive("Status is required"),
     statusChangeRemarks: z.string().trim().max(1000).optional().or(z.literal("")),
+    metaTitle: z.string().trim().max(70).optional().or(z.literal("")),
+    metaDescription: z.string().trim().max(320).optional().or(z.literal("")),
+    metaKeywords: z.string().trim().max(500).optional().or(z.literal("")),
+    focusKeyword: z.string().trim().max(150).optional().or(z.literal("")),
+    canonicalUrl: z.string().trim().max(500).optional().or(z.literal("")),
+    ogTitle: z.string().trim().max(70).optional().or(z.literal("")),
+    ogDescription: z.string().trim().max(320).optional().or(z.literal("")),
+    ogImageUrl: z.string().trim().max(500).optional().or(z.literal("")),
+    isIndexable: z.boolean(),
+    isFollowable: z.boolean(),
   }).superRefine((values, ctx) => {
     const duplicate = rows.some(
       (r) =>
@@ -77,6 +98,13 @@ function useProductSchema(rows: ServiceProduct[], currentId?: number) {
     );
     if (duplicate) {
       ctx.addIssue({ code: "custom", path: ["serviceProductCode"], message: "This product code already exists" });
+    }
+    const slugValue = values.slug?.trim().toLowerCase();
+    if (slugValue) {
+      const slugTaken = rows.some((r) => r.serviceProductId !== currentId && r.slug?.toLowerCase() === slugValue);
+      if (slugTaken) {
+        ctx.addIssue({ code: "custom", path: ["slug"], message: "This slug is already used by another product" });
+      }
     }
   });
 }
@@ -95,7 +123,7 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
   const isSuperAdmin = roleDef?.id === SUPER_ADMIN_ROLE_ID;
   const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
   const tenantId = platformMode ? (serviceProduct?.tenantId ?? 0) : (user?.tenantKey ?? activeTenant.tenantKey ?? 0);
-  const companyId = serviceProduct?.companyId ?? user?.companyKey ?? 0;
+  const companyId = serviceProduct?.companyId ?? resolveSessionCompanyKey(user) ?? 0;
   const actorKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
 
   const [bootLoading, setBootLoading] = useState(true);
@@ -124,6 +152,7 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
       serviceTypeId: serviceProduct?.serviceTypeId ?? 0,
       serviceProductCode: serviceProduct?.serviceProductCode ?? "",
       serviceProductName: serviceProduct?.serviceProductName ?? "",
+      slug: serviceProduct?.slug ?? "",
       serviceProductClassificationId: serviceProduct?.serviceProductClassificationId ?? 0,
       serviceProductCategoryId: serviceProduct?.serviceProductCategoryId ?? null,
       supplierId: serviceProduct?.supplierId ?? null,
@@ -137,11 +166,58 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
       displayOrder: serviceProduct?.displayOrder ?? 0,
       commonStatusId: serviceProduct?.commonStatusId ?? 0,
       statusChangeRemarks: "",
+      metaTitle: "",
+      metaDescription: "",
+      metaKeywords: "",
+      focusKeyword: "",
+      canonicalUrl: "",
+      ogTitle: "",
+      ogDescription: "",
+      ogImageUrl: "",
+      isIndexable: true,
+      isFollowable: true,
     },
   });
 
   const serviceTypeIdWatch = useWatch({ control, name: "serviceTypeId" });
   const countryIdWatch = useWatch({ control, name: "countryId" });
+  const nameWatch = useWatch({ control, name: "serviceProductName" });
+  const slugWatch = useWatch({ control, name: "slug" });
+  const metaTitleWatch = useWatch({ control, name: "metaTitle" });
+  const metaDescriptionWatch = useWatch({ control, name: "metaDescription" });
+  const [slugTouched, setSlugTouched] = useState(isEdit);
+
+  // Keep the slug in sync with the name until the user edits it directly (classic CMS behavior).
+  useEffect(() => {
+    if (slugTouched) return;
+    setValue("slug", toUrlSlug(nameWatch ?? ""), { shouldValidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameWatch, slugTouched]);
+
+  useEffect(() => {
+    if (!isEdit || !serviceProduct) return;
+    let cancelled = false;
+    getServiceProductSeo(serviceProduct.serviceProductId)
+      .then((seo) => {
+        if (cancelled || !seo) return;
+        setValue("metaTitle", seo.metaTitle ?? "");
+        setValue("metaDescription", seo.metaDescription ?? "");
+        setValue("metaKeywords", seo.metaKeywords ?? "");
+        setValue("focusKeyword", seo.focusKeyword ?? "");
+        setValue("canonicalUrl", seo.canonicalUrl ?? "");
+        setValue("ogTitle", seo.ogTitle ?? "");
+        setValue("ogDescription", seo.ogDescription ?? "");
+        setValue("ogImageUrl", seo.ogImageUrl ?? "");
+        setValue("isIndexable", seo.isIndexable);
+        setValue("isFollowable", seo.isFollowable);
+      })
+      .catch((error) => {
+        if (!cancelled) toast.error(error instanceof ServiceProductSeoApiError ? error.message : "Failed to load SEO settings");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, serviceProduct, setValue]);
 
   useEffect(() => {
     if (tenantId <= 0) {
@@ -232,6 +308,7 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
     const payload = {
       serviceProductCode: values.serviceProductCode.trim(),
       serviceProductName: values.serviceProductName.trim(),
+      slug: values.slug?.trim() || null,
       serviceTypeId: values.serviceTypeId,
       serviceProductClassificationId: values.serviceProductClassificationId,
       serviceProductCategoryId: values.serviceProductCategoryId,
@@ -248,7 +325,20 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
       tenantId,
       companyId,
     };
+    const seoPayload = {
+      metaTitle: values.metaTitle?.trim() || null,
+      metaDescription: values.metaDescription?.trim() || null,
+      metaKeywords: values.metaKeywords?.trim() || null,
+      focusKeyword: values.focusKeyword?.trim() || null,
+      canonicalUrl: values.canonicalUrl?.trim() || null,
+      ogTitle: values.ogTitle?.trim() || null,
+      ogDescription: values.ogDescription?.trim() || null,
+      ogImageUrl: values.ogImageUrl?.trim() || null,
+      isIndexable: values.isIndexable,
+      isFollowable: values.isFollowable,
+    };
     try {
+      let savedProductId: number;
       if (isEdit && serviceProduct) {
         const saved = await updateServiceProduct(serviceProduct.serviceProductId, {
           ...payload,
@@ -256,13 +346,19 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
           isActive: serviceProduct.isActive,
           modifiedBy: actorKey,
         });
+        savedProductId = saved.serviceProductId;
         toast.success("Product updated");
-        router.push(`/${role}/masters/service-product/${saved.serviceProductId}`);
       } else {
         const saved = await createServiceProduct({ ...payload, createdBy: actorKey });
+        savedProductId = saved.serviceProductId;
         toast.success("Product created");
-        router.push(`/${role}/masters/service-product/${saved.serviceProductId}`);
       }
+      try {
+        await saveServiceProductSeo({ ...seoPayload, serviceProductId: savedProductId, actorId: actorKey });
+      } catch (seoError) {
+        toast.error(seoError instanceof ServiceProductSeoApiError ? seoError.message : "Product saved, but SEO settings could not be saved");
+      }
+      router.push(`/${role}/masters/service-product/${savedProductId}`);
     } catch (error) {
       toast.error(error instanceof ServiceProductsApiError ? error.message : "Could not save product");
     }
@@ -362,6 +458,48 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
               {...register("serviceProductName")}
             />
             {errors.serviceProductName && <p className="text-sm text-destructive">{errors.serviceProductName.message}</p>}
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="slug">Slug</Label>
+            <div className="flex items-center gap-2">
+              <Controller
+                control={control}
+                name="slug"
+                render={({ field }) => (
+                  <Input
+                    id="slug"
+                    placeholder="doha-desert-safari"
+                    aria-invalid={!!errors.slug}
+                    value={field.value ?? ""}
+                    onChange={(e) => {
+                      setSlugTouched(true);
+                      field.onChange(e.target.value.toLowerCase());
+                    }}
+                  />
+                )}
+              />
+              {slugTouched && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSlugTouched(false);
+                    setValue("slug", toUrlSlug(nameWatch ?? ""));
+                  }}
+                >
+                  Reset to auto
+                </Button>
+              )}
+            </div>
+            {errors.slug && <p className="text-sm text-destructive">{errors.slug.message}</p>}
+            {slugWatch && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Link2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">/sales/product-catalog/{slugWatch}</span>
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -652,6 +790,108 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section icon={Search} title="SEO & Metadata" description="How this product appears in search results and when shared.">
+        <div className="space-y-5">
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Search preview</p>
+            <div className="max-w-xl space-y-0.5">
+              <p className="truncate text-sm text-[#1a0dab] dark:text-[#8ab4f8]">
+                {(metaTitleWatch?.trim() || nameWatch || "Product title").slice(0, 70)}
+              </p>
+              <p className="truncate text-xs text-[#006621] dark:text-[#8dd1a9]">
+                yoursite.com/sales/product-catalog/{slugWatch?.trim() || "product-slug"}
+              </p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {metaDescriptionWatch?.trim() || "Add a meta description so search engines know what this page is about."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="metaTitle">Meta title</Label>
+                <span className="text-xs text-muted-foreground">{(metaTitleWatch ?? "").length}/70</span>
+              </div>
+              <Input id="metaTitle" placeholder="Defaults to the product name" maxLength={70} {...register("metaTitle")} />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="metaDescription">Meta description</Label>
+                <span className="text-xs text-muted-foreground">{(metaDescriptionWatch ?? "").length}/320</span>
+              </div>
+              <Textarea
+                id="metaDescription"
+                placeholder="A 1-2 sentence summary shown under the title in search results (~160 characters is ideal)."
+                rows={3}
+                maxLength={320}
+                {...register("metaDescription")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="focusKeyword">Focus keyword</Label>
+              <Input id="focusKeyword" placeholder="e.g. Doha desert safari" {...register("focusKeyword")} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="metaKeywords">Meta keywords</Label>
+              <Input id="metaKeywords" placeholder="Comma-separated (legacy, low SEO value)" {...register("metaKeywords")} />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="canonicalUrl">Canonical URL</Label>
+              <Input id="canonicalUrl" placeholder="Only set if this page duplicates another URL" {...register("canonicalUrl")} />
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-border p-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Social sharing (Open Graph)</h3>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ogTitle">OG title</Label>
+                <Input id="ogTitle" placeholder="Defaults to meta title" maxLength={70} {...register("ogTitle")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ogImageUrl">OG image URL</Label>
+                <Input id="ogImageUrl" placeholder="1200×630 recommended" {...register("ogImageUrl")} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="ogDescription">OG description</Label>
+                <Textarea id="ogDescription" placeholder="Defaults to meta description" rows={2} maxLength={320} {...register("ogDescription")} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <Controller
+              control={control}
+              name="isIndexable"
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+                  Allow search engines to index this page
+                </label>
+              )}
+            />
+            <Controller
+              control={control}
+              name="isFollowable"
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+                  Allow search engines to follow links on this page
+                </label>
               )}
             />
           </div>

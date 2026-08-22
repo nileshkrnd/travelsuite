@@ -3297,6 +3297,7 @@ model ServiceProduct {
   companyId                      Int       @map("CompanyID")
   serviceProductCode             String    @map("ServiceProductCode") @db.VarChar(50)
   serviceProductName             String    @map("ServiceProductName") @db.VarChar(250)
+  slug                           String?   @map("Slug") @db.VarChar(250)
   serviceTypeId                  BigInt    @map("ServiceTypeID")
   serviceProductClassificationId BigInt    @map("ServiceProductClassificationID")
   serviceProductCategoryId       BigInt?   @map("ServiceProductCategoryID")
@@ -3326,6 +3327,7 @@ model ServiceProduct {
   commonStatus   CommonStatus                       @relation(fields: [commonStatusId], references: [commonStatusId], onDelete: Restrict)
 
   configuration        ServiceProductConfiguration?
+  seo                  ServiceProductSeo?
   statusHistory        ServiceProductStatusHistory[]
   options              ServiceProductOption[]
   supplierLinks        ServiceProductSupplier[]
@@ -3346,6 +3348,7 @@ model ServiceProduct {
   bookingQuestions     ServiceProductBookingQuestion[]
 
   @@unique([tenantId, companyId, serviceProductCode], map: "ServiceProduct_Tenant_Company_Code_key")
+  @@unique([tenantId, companyId, slug], map: "ServiceProduct_Tenant_Company_Slug_key")
   @@index([tenantId, companyId], map: "ServiceProduct_TenantID_CompanyID_idx")
   @@index([serviceTypeId], map: "ServiceProduct_ServiceTypeID_idx")
   @@index([serviceProductClassificationId], map: "ServiceProduct_ClassificationID_idx")
@@ -3391,6 +3394,30 @@ model ServiceProductConfiguration {
   @@index([bookingModelId], map: "SvcProductConfig_BookingModelID_idx")
   @@index([pricingModelId], map: "SvcProductConfig_PricingModelID_idx")
   @@map("ServiceProductConfiguration")
+}
+
+/// SEO/metadata for a Service Product's public-facing catalog page — one row per product.
+model ServiceProductSeo {
+  serviceProductSeoId BigInt    @id @default(autoincrement()) @map("ServiceProductSeoID")
+  serviceProductId    BigInt    @unique @map("ServiceProductID")
+  metaTitle           String?   @map("MetaTitle") @db.VarChar(70)
+  metaDescription     String?   @map("MetaDescription") @db.VarChar(320)
+  metaKeywords        String?   @map("MetaKeywords") @db.VarChar(500)
+  focusKeyword        String?   @map("FocusKeyword") @db.VarChar(150)
+  canonicalUrl        String?   @map("CanonicalUrl") @db.VarChar(500)
+  ogTitle             String?   @map("OgTitle") @db.VarChar(70)
+  ogDescription       String?   @map("OgDescription") @db.VarChar(320)
+  ogImageUrl          String?   @map("OgImageUrl") @db.VarChar(500)
+  isIndexable         Boolean   @default(true) @map("IsIndexable")
+  isFollowable        Boolean   @default(true) @map("IsFollowable")
+  createdBy           Int       @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("ModifiedBy")
+  modifiedDtTm        DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  serviceProduct ServiceProduct @relation(fields: [serviceProductId], references: [serviceProductId], onDelete: Cascade)
+
+  @@map("ServiceProductSeo")
 }
 
 /// Content section type lookup — What to Expect, Additional Info, Know Before You Go, Important Information, What to Bring. Tenant-scoped (null = global).

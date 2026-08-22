@@ -16,8 +16,8 @@ export interface ServiceProductRequirementRow {
   modifiedBy: number | null;
   modifiedDtTm: Date | string | null;
   serviceProduct?: { serviceProductName: string } | null;
-  option?: { optionName: string } | null;
-  variant?: { variantName: string } | null;
+  serviceProductOption?: { optionName: string } | null;
+  serviceProductVariant?: { variantName: string } | null;
   requirementType?: { requirementTypeCode: string; requirementTypeName: string } | null;
 }
 
@@ -32,9 +32,9 @@ export function toAppServiceProductRequirement(row: ServiceProductRequirementRow
     serviceProductId: Number(row.serviceProductId),
     serviceProductName: row.serviceProduct?.serviceProductName ?? undefined,
     serviceProductOptionId: row.serviceProductOptionId != null ? Number(row.serviceProductOptionId) : null,
-    optionName: row.option?.optionName ?? undefined,
+    optionName: row.serviceProductOption?.optionName ?? undefined,
     serviceProductVariantId: row.serviceProductVariantId != null ? Number(row.serviceProductVariantId) : null,
-    variantName: row.variant?.variantName ?? undefined,
+    variantName: row.serviceProductVariant?.variantName ?? undefined,
     requirementTypeId: Number(row.requirementTypeId),
     requirementTypeCode: row.requirementType?.requirementTypeCode ?? undefined,
     requirementTypeName: row.requirementType?.requirementTypeName ?? undefined,

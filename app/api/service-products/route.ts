@@ -7,6 +7,14 @@ import { dbUnavailable } from "@/lib/api/db-error";
 const createSchema = z.object({
   serviceProductCode: z.string().trim().min(1).max(50),
   serviceProductName: z.string().trim().min(1).max(250),
+  slug: z
+    .string()
+    .trim()
+    .max(250)
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers, and hyphens only")
+    .or(z.literal(""))
+    .nullable()
+    .optional(),
   serviceTypeId: z.number().int().positive(),
   serviceProductClassificationId: z.number().int().positive(),
   serviceProductCategoryId: z.number().int().positive().nullable().optional(),
@@ -148,6 +156,7 @@ export async function POST(request: Request) {
         data: {
           serviceProductCode: data.serviceProductCode.trim().toUpperCase(),
           serviceProductName: data.serviceProductName.trim(),
+          slug: data.slug?.trim() || null,
           serviceTypeId: BigInt(data.serviceTypeId),
           serviceProductClassificationId: BigInt(data.serviceProductClassificationId),
           serviceProductCategoryId: data.serviceProductCategoryId != null ? BigInt(data.serviceProductCategoryId) : null,
@@ -184,7 +193,11 @@ export async function POST(request: Request) {
     return NextResponse.json(withName, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ error: "This product code already exists for this company" }, { status: 409 });
+      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(",") : "";
+      const message = target.includes("Slug")
+        ? "This slug is already used by another product for this company"
+        : "This product code already exists for this company";
+      return NextResponse.json({ error: message }, { status: 409 });
     }
     return dbUnavailable(error);
   }

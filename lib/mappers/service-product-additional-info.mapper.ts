@@ -19,8 +19,8 @@ export interface ServiceProductAdditionalInfoRow {
   modifiedBy: number | null;
   modifiedDtTm: Date | string | null;
   serviceProduct?: { serviceProductName: string } | null;
-  option?: { optionName: string } | null;
-  variant?: { variantName: string } | null;
+  serviceProductOption?: { optionName: string } | null;
+  serviceProductVariant?: { variantName: string } | null;
   additionalInfoType?: { infoTypeCode: string; infoTypeName: string; valueTypeCode: string } | null;
 }
 
@@ -47,9 +47,9 @@ export function toAppServiceProductAdditionalInfo(row: ServiceProductAdditionalI
     serviceProductId: Number(row.serviceProductId),
     serviceProductName: row.serviceProduct?.serviceProductName ?? undefined,
     serviceProductOptionId: row.serviceProductOptionId != null ? Number(row.serviceProductOptionId) : null,
-    optionName: row.option?.optionName ?? undefined,
+    optionName: row.serviceProductOption?.optionName ?? undefined,
     serviceProductVariantId: row.serviceProductVariantId != null ? Number(row.serviceProductVariantId) : null,
-    variantName: row.variant?.variantName ?? undefined,
+    variantName: row.serviceProductVariant?.variantName ?? undefined,
     additionalInfoTypeId: Number(row.additionalInfoTypeId),
     infoTypeCode: row.additionalInfoType?.infoTypeCode ?? undefined,
     infoTypeName: row.additionalInfoType?.infoTypeName ?? undefined,
