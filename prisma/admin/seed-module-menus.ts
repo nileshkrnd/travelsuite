@@ -51,6 +51,7 @@ export const ADMIN_MENU_PRODUCT_LINKS: Record<string, string[]> = {
   "administration/customers/cash": ["Travel"],
   "masters/corporateAccounts": ["Travel"],
   "masters/subAgency": ["Travel"],
+  "masters/b2bCustomer": ["Travel"],
   "administration/suppliers": ["Travel"],
   "masters/supplier": ["Travel"],
   "masters/supplier-user": ["Travel"],
@@ -184,6 +185,7 @@ export const MODULE_MENU_SEEDS: Record<string, SeedMenuNode[]> = {
             { name: "Cash", url: "administration/customers/cash", icon: "Wallet" },
             { name: "Corporate", url: "masters/corporateAccounts", icon: "Landmark" },
             { name: "Sub Agent", url: "masters/subAgency", icon: "GitFork" },
+            { name: "B2B Customer", url: "masters/b2bCustomer", icon: "Landmark" },
           ],
         },
         {

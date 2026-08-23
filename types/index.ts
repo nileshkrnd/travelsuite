@@ -149,3 +149,7 @@ export * from "./ledger";
 export * from "./voucher";
 export * from "./cost-center";
 export * from "./finance-department";
+export * from "./payment-term";
+export * from "./b2b-customer-type";
+export * from "./b2b-customer-category";
+export * from "./b2b-customer";

@@ -101,6 +101,7 @@
     "cashCustomer": "Cash",
     "corporateCustomer": "Corporate",
     "subAgent": "Sub Agent",
+    "b2bCustomer": "B2B Customer",
     "adminSuppliers": "Suppliers",
     "supplierUser": "Supplier User",
     "supplierPropertyAccess": "Supplier Property Access",

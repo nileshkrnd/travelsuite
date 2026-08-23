@@ -66,6 +66,7 @@ export type ModuleKey =
   | "exchangeRate"
   | "adminCustomers"
   | "cashCustomer"
+  | "b2bCustomer"
   | "adminSuppliers"
   | "creditControl"
   | "roles"
@@ -778,6 +779,12 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.subAgent",
             icon: "GitFork",
             path: "masters/subAgency",
+          },
+          {
+            key: "b2bCustomer",
+            labelKey: "sidebar.b2bCustomer",
+            icon: "Landmark",
+            path: "masters/b2bCustomer",
           },
         ],
       },

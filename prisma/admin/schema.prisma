@@ -109,6 +109,7 @@ model Country {
   serviceProductLocations         ServiceProductLocation[]
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
   serviceProductMarketRules       ServiceProductMarketRule[]
+  b2bCustomers                    B2BCustomer[]
 
   @@map("Country")
 }
@@ -318,6 +319,7 @@ model Currency {
   propertyContracts PropertyContract[]
   taxes             Tax[]                 @relation("TaxCurrency")
   contractTaxes     PropertyContractTax[] @relation("PropertyContractTaxCurrency")
+  b2bCustomers      B2BCustomer[]
 
   @@map("Currency")
 }
@@ -2827,6 +2829,7 @@ model Employee {
   user              User                     @relation(fields: [userId], references: [userId], onDelete: Restrict)
   propertyAccess    EmployeePropertyAccess[]
   signedContracts   PropertyContract[]
+  b2bCustomers      B2BCustomer[]
 
   @@unique([tenantId, companyId, employeeNumber], map: "Employee_Tenant_Company_Number_key")
   @@index([tenantId, companyId], map: "Employee_TenantID_CompanyID_idx")
@@ -3223,6 +3226,7 @@ model CommonStatus {
   serviceProductMedia               ServiceProductMedia[]
   serviceProductInclusionExclusions ServiceProductInclusionExclusion[]
   serviceProductItineraries         ServiceProductItinerary[]
+  b2bCustomers                      B2BCustomer[]
 
   @@unique([tenantId, companyId, commonStatusTypeId, statusCode], map: "CommonStatus_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "CommonStatus_TenantID_CompanyID_idx")
@@ -4570,4 +4574,123 @@ model ServiceProductInclusionExclusion {
   @@index([unitId], map: "SvcProductInclExcl_UnitID_idx")
   @@index([commonStatusId], map: "SvcProductInclExcl_CommonStatusID_idx")
   @@map("ServiceProductInclusionExclusion")
+}
+
+/// Payment term lookup (Immediate, Net 15, Net 30, …) — referenced by B2BCustomer.
+model PaymentTermMaster {
+  paymentTermId   BigInt    @id @default(autoincrement()) @map("PaymentTermID")
+  tenantId        Int       @map("TenantID")
+  companyId       Int       @map("CompanyID")
+  paymentTermCode String    @map("PaymentTermCode") @db.VarChar(50)
+  paymentTermName String    @map("PaymentTermName") @db.VarChar(100)
+  numberOfDays    Int       @default(0) @map("NumberOfDays")
+  description     String?   @map("Description") @db.VarChar(250)
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("ModifiedBy")
+  modifiedDtTm    DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  b2bCustomers B2BCustomer[]
+
+  @@unique([tenantId, companyId, paymentTermCode], map: "PaymentTermMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "PaymentTermMaster_TenantID_CompanyID_idx")
+  @@map("PaymentTermMaster")
+}
+
+/// B2B customer type — Corporate, Sub-Agent.
+model B2BCustomerType {
+  b2bCustomerTypeId BigInt    @id @default(autoincrement()) @map("B2BCustomerTypeID")
+  tenantId          Int       @map("TenantID")
+  companyId         Int       @map("CompanyID")
+  customerTypeCode  String    @map("CustomerTypeCode") @db.VarChar(50)
+  customerTypeName  String    @map("CustomerTypeName") @db.VarChar(100)
+  description       String?   @map("Description") @db.VarChar(250)
+  displayOrder      Int       @default(0) @map("DisplayOrder")
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("UpdatedBy")
+  modifiedDtTm      DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  categories   B2BCustomerCategory[]
+  b2bCustomers B2BCustomer[]
+
+  @@unique([tenantId, companyId, customerTypeCode], map: "B2BCustomerType_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "B2BCustomerType_TenantID_CompanyID_idx")
+  @@map("B2BCustomerType")
+}
+
+/// B2B customer category, scoped by type (e.g. Government/Private/SME/MNC under Corporate).
+model B2BCustomerCategory {
+  b2bCustomerCategoryId BigInt    @id @default(autoincrement()) @map("B2BCustomerCategoryID")
+  tenantId              Int       @map("TenantID")
+  companyId             Int       @map("CompanyID")
+  b2bCustomerTypeId     BigInt    @map("B2BCustomerTypeID")
+  categoryCode          String    @map("CategoryCode") @db.VarChar(50)
+  categoryName          String    @map("CategoryName") @db.VarChar(150)
+  description           String?   @map("Description") @db.VarChar(250)
+  displayOrder          Int       @default(0) @map("DisplayOrder")
+  isActive              Boolean   @default(true) @map("IsActive")
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("UpdatedBy")
+  modifiedDtTm          DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  customerType B2BCustomerType @relation(fields: [b2bCustomerTypeId], references: [b2bCustomerTypeId], onDelete: Restrict)
+  b2bCustomers B2BCustomer[]
+
+  @@unique([tenantId, companyId, b2bCustomerTypeId, categoryCode], map: "B2BCustomerCategory_Tenant_Company_Type_Code_key")
+  @@index([tenantId, companyId], map: "B2BCustomerCategory_TenantID_CompanyID_idx")
+  @@index([b2bCustomerTypeId], map: "B2BCustomerCategory_TypeID_idx")
+  @@map("B2BCustomerCategory")
+}
+
+/// B2B customer master — Corporate / Sub-Agent accounts, optionally organized under a parent (head office/branch).
+model B2BCustomer {
+  b2bCustomerId         BigInt    @id @default(autoincrement()) @map("B2BCustomerID")
+  tenantId              Int       @map("TenantID")
+  companyId             Int       @map("CompanyID")
+  b2bCustomerCode       String    @map("B2BCustomerCode") @db.VarChar(50)
+  b2bCustomerName       String    @map("B2BCustomerName") @db.VarChar(250)
+  b2bCustomerTypeId     BigInt    @map("B2BCustomerTypeID")
+  b2bCustomerCategoryId BigInt?   @map("B2BCustomerCategoryID")
+  parentB2bCustomerId   BigInt?   @map("ParentB2BCustomerID")
+  registrationNumber    String?   @map("RegistrationNumber") @db.VarChar(100)
+  taxRegistrationNumber String?   @map("TaxRegistrationNumber") @db.VarChar(100)
+  countryId             Int       @map("CountryID")
+  currencyId            Int       @map("CurrencyID")
+  paymentTermId         BigInt?   @map("PaymentTermID")
+  creditLimit           Decimal?  @map("CreditLimit") @db.Decimal(18, 4)
+  creditDays            Int?      @map("CreditDays")
+  accountManagerId      Int?      @map("AccountManagerID")
+  statusId              BigInt    @map("StatusID")
+  isActive              Boolean   @default(true) @map("IsActive")
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("UpdatedBy")
+  modifiedDtTm          DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  customerType   B2BCustomerType      @relation(fields: [b2bCustomerTypeId], references: [b2bCustomerTypeId], onDelete: Restrict)
+  category       B2BCustomerCategory? @relation(fields: [b2bCustomerCategoryId], references: [b2bCustomerCategoryId], onDelete: Restrict)
+  parent         B2BCustomer?         @relation("B2BCustomerHierarchy", fields: [parentB2bCustomerId], references: [b2bCustomerId], onDelete: Restrict, onUpdate: Restrict)
+  children       B2BCustomer[]        @relation("B2BCustomerHierarchy")
+  country        Country              @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  currency       Currency             @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  paymentTerm    PaymentTermMaster?   @relation(fields: [paymentTermId], references: [paymentTermId], onDelete: SetNull)
+  accountManager Employee?            @relation(fields: [accountManagerId], references: [employeeId], onDelete: SetNull)
+  status         CommonStatus         @relation(fields: [statusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@unique([tenantId, companyId, b2bCustomerCode], map: "B2BCustomer_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "B2BCustomer_TenantID_CompanyID_idx")
+  @@index([b2bCustomerTypeId], map: "B2BCustomer_TypeID_idx")
+  @@index([b2bCustomerCategoryId], map: "B2BCustomer_CategoryID_idx")
+  @@index([parentB2bCustomerId], map: "B2BCustomer_ParentID_idx")
+  @@index([countryId], map: "B2BCustomer_CountryID_idx")
+  @@index([currencyId], map: "B2BCustomer_CurrencyID_idx")
+  @@index([paymentTermId], map: "B2BCustomer_PaymentTermID_idx")
+  @@index([accountManagerId], map: "B2BCustomer_AccountManagerID_idx")
+  @@index([statusId], map: "B2BCustomer_StatusID_idx")
+  @@map("B2BCustomer")
 }
