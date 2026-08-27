@@ -110,6 +110,13 @@ model Country {
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
   serviceProductMarketRules       ServiceProductMarketRule[]
   b2bCustomers                    B2BCustomer[]
+  cashCustomersByCountry          CashCustomer[]                   @relation("CashCustomerCountry")
+  cashCustomersByNationality      CashCustomer[]                   @relation("CashCustomerNationality")
+  identityDocumentCountries       IdentityDocumentCountryMaster[]
+  propertyTenantsByNationality    PropertyTenant[]                 @relation("PropertyTenantNationality")
+  propertyTenantsByResidence      PropertyTenant[]                 @relation("PropertyTenantCountryOfResidence")
+  propertyTenantsByCountry        PropertyTenant[]                 @relation("PropertyTenantCountry")
+  propertyTenantAddresses         PropertyTenantAddress[]
 
   @@map("Country")
 }
@@ -141,6 +148,8 @@ model City {
   serviceProductLocations         ServiceProductLocation[]
   serviceProductSupplierLocations ServiceProductSupplierLocation[]
   serviceProductMarketRules       ServiceProductMarketRule[]
+  propertyTenants                 PropertyTenant[]
+  propertyTenantAddresses         PropertyTenantAddress[]
 
   @@unique([countryId, cityCode], map: "City_Country_Code_key")
   @@index([countryId], map: "City_CountryID_idx")
@@ -183,11 +192,12 @@ model State {
   modifiedDtTm              DateTime? @map("ModifiedDateTime") @db.Timestamptz(6)
   isDeleted                 Boolean   @default(false) @map("IsDeleted")
 
-  country            Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
-  administrativeType StateAdministrativeType? @relation(fields: [stateAdministrativeTypeId], references: [stateAdministrativeTypeId], onDelete: SetNull)
-  capitalCity        City?                    @relation("StateCapitalCity", fields: [capitalCityId], references: [cityId], onDelete: SetNull)
-  locations          Location[]
-  suppliers          Supplier[]
+  country                 Country                  @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  administrativeType      StateAdministrativeType? @relation(fields: [stateAdministrativeTypeId], references: [stateAdministrativeTypeId], onDelete: SetNull)
+  capitalCity             City?                    @relation("StateCapitalCity", fields: [capitalCityId], references: [cityId], onDelete: SetNull)
+  locations               Location[]
+  suppliers               Supplier[]
+  propertyTenantAddresses PropertyTenantAddress[]
 
   @@unique([countryId, stateCode], map: "State_Country_Code_key")
   @@index([countryId], map: "State_CountryID_idx")
@@ -320,6 +330,7 @@ model Currency {
   taxes             Tax[]                 @relation("TaxCurrency")
   contractTaxes     PropertyContractTax[] @relation("PropertyContractTaxCurrency")
   b2bCustomers      B2BCustomer[]
+  cashCustomers     CashCustomer[]
 
   @@map("Currency")
 }
@@ -2319,6 +2330,8 @@ model RoomSizeUnit {
   isDeleted        Boolean   @default(false) @map("IsDeleted")
 
   propertyRooms PropertyRoom[]
+  propertyFloors PropertyFloor[]
+  propertyUnits  PropertyUnit[]
 
   @@map("RoomSizeUnitMaster")
 }
@@ -2379,6 +2392,7 @@ model ViewType {
 
   propertyRooms       PropertyRoom[]
   roomViewAssignments PropertyRoomTypeView[]
+  propertyUnits       PropertyUnit[]
 
   @@map("ViewTypeMaster")
 }
@@ -2575,6 +2589,8 @@ model Property {
   roomTypeMedia    PropertyRoomTypeMedia[]
   roomAvailability PropertyRoomAvailability[]
   setupNotes       PropertySetupNote[]
+  floors           PropertyFloor[]
+  units            PropertyUnit[]
 
   @@unique([tenantId, companyId, propertyCode], map: "Property_Tenant_Company_Code_key")
   @@index([tenantId, companyId], map: "Property_TenantID_CompanyID_idx")
@@ -3227,6 +3243,9 @@ model CommonStatus {
   serviceProductInclusionExclusions ServiceProductInclusionExclusion[]
   serviceProductItineraries         ServiceProductItinerary[]
   b2bCustomers                      B2BCustomer[]
+  cashCustomers                     CashCustomer[]
+  propertyTenants                   PropertyTenant[]
+  propertyTenantDocuments           PropertyTenantDocument[]
 
   @@unique([tenantId, companyId, commonStatusTypeId, statusCode], map: "CommonStatus_Tenant_Company_Type_Code_key")
   @@index([tenantId, companyId], map: "CommonStatus_TenantID_CompanyID_idx")
@@ -4693,4 +4712,446 @@ model B2BCustomer {
   @@index([accountManagerId], map: "B2BCustomer_AccountManagerID_idx")
   @@index([statusId], map: "B2BCustomer_StatusID_idx")
   @@map("B2BCustomer")
+}
+
+/// Cash / walk-in customer type — Retail, Walk-In.
+model CashCustomerTypeMaster {
+  cashCustomerTypeId BigInt    @id @default(autoincrement()) @map("CashCustomerTypeID")
+  tenantId           Int       @map("TenantID")
+  companyId          Int       @map("CompanyID")
+  customerTypeCode   String    @map("CustomerTypeCode") @db.VarChar(50)
+  customerTypeName   String    @map("CustomerTypeName") @db.VarChar(100)
+  description        String?   @map("Description") @db.VarChar(250)
+  displayOrder       Int       @default(0) @map("DisplayOrder")
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("UpdatedBy")
+  modifiedDtTm       DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  cashCustomers CashCustomer[]
+
+  @@unique([tenantId, companyId, customerTypeCode], map: "CashCustomerTypeMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "CashCustomerTypeMaster_TenantID_CompanyID_idx")
+  @@map("CashCustomerTypeMaster")
+}
+
+/// Walk-in / retail cash customer — a person, not an organization.
+model CashCustomer {
+  cashCustomerId     BigInt    @id @default(autoincrement()) @map("CashCustomerID")
+  tenantId           Int       @map("TenantID")
+  companyId          Int       @map("CompanyID")
+  cashCustomerCode   String    @map("CashCustomerCode") @db.VarChar(50)
+  cashCustomerTypeId BigInt    @map("CashCustomerTypeID")
+  customerName       String    @map("CustomerName") @db.VarChar(250)
+  firstName          String?   @map("FirstName") @db.VarChar(100)
+  lastName           String?   @map("LastName") @db.VarChar(100)
+  mobileCountryCode  String?   @map("MobileCountryCode") @db.VarChar(10)
+  mobileNumber       String?   @map("MobileNumber") @db.VarChar(30)
+  email              String?   @map("Email") @db.VarChar(200)
+  countryId          Int?      @map("CountryID")
+  nationalityId      Int?      @map("NationalityID")
+  currencyId         Int       @map("CurrencyID")
+  statusId           BigInt    @map("StatusID")
+  isActive           Boolean   @default(true) @map("IsActive")
+  createdBy          Int       @map("CreatedBy")
+  createdDtTm        DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy         Int?      @map("UpdatedBy")
+  modifiedDtTm       DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  customerType CashCustomerTypeMaster @relation(fields: [cashCustomerTypeId], references: [cashCustomerTypeId], onDelete: Restrict)
+  country      Country?               @relation("CashCustomerCountry", fields: [countryId], references: [countryId], onDelete: SetNull)
+  nationality  Country?               @relation("CashCustomerNationality", fields: [nationalityId], references: [countryId], onDelete: SetNull)
+  currency     Currency               @relation(fields: [currencyId], references: [currencyId], onDelete: Restrict)
+  status       CommonStatus           @relation(fields: [statusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@unique([tenantId, companyId, cashCustomerCode], map: "CashCustomer_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "CashCustomer_TenantID_CompanyID_idx")
+  @@index([cashCustomerTypeId], map: "CashCustomer_TypeID_idx")
+  @@index([countryId], map: "CashCustomer_CountryID_idx")
+  @@index([nationalityId], map: "CashCustomer_NationalityID_idx")
+  @@index([currencyId], map: "CashCustomer_CurrencyID_idx")
+  @@index([statusId], map: "CashCustomer_StatusID_idx")
+  @@map("CashCustomer")
+}
+
+/// Property tenant type — Individual, Company, Government, Other. Global (not tenant/company scoped).
+model PropertyTenantTypeMaster {
+  propertyTenantTypeId BigInt    @id @default(autoincrement()) @map("PropertyTenantTypeID")
+  tenantTypeCode       String    @unique @map("TenantTypeCode") @db.VarChar(50)
+  tenantTypeName       String    @map("TenantTypeName") @db.VarChar(100)
+  description          String?   @map("Description") @db.VarChar(250)
+  displayOrder         Int       @default(0) @map("DisplayOrder")
+  isActive             Boolean   @default(true) @map("IsActive")
+  createdBy            Int       @map("CreatedBy")
+  createdDtTm          DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy           Int?      @map("UpdatedBy")
+  modifiedDtTm         DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  propertyTenants PropertyTenant[]
+
+  @@map("PropertyTenantTypeMaster")
+}
+
+/// Identity document type — National ID, Passport, Residence Permit, Driving License, Other. Global.
+model IdentityDocumentTypeMaster {
+  identityDocumentTypeId BigInt    @id @default(autoincrement()) @map("IdentityDocumentTypeID")
+  documentTypeCode       String    @unique @map("DocumentTypeCode") @db.VarChar(50)
+  documentTypeName       String    @map("DocumentTypeName") @db.VarChar(100)
+  description            String?   @map("Description") @db.VarChar(250)
+  isActive               Boolean   @default(true) @map("IsActive")
+  createdBy              Int       @map("CreatedBy")
+  createdDtTm            DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy             Int?      @map("UpdatedBy")
+  modifiedDtTm           DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  countryVariants IdentityDocumentCountryMaster[]
+
+  @@map("IdentityDocumentTypeMaster")
+}
+
+/// Per-country naming/issuing-authority for an identity document type (e.g. Qatar National ID = "Qatar ID" / QID). Global.
+model IdentityDocumentCountryMaster {
+  identityDocumentCountryId BigInt    @id @default(autoincrement()) @map("IdentityDocumentCountryID")
+  identityDocumentTypeId    BigInt    @map("IdentityDocumentTypeID")
+  countryId                 Int       @map("CountryID")
+  documentDisplayName       String    @map("DocumentDisplayName") @db.VarChar(150)
+  documentShortName         String?   @map("DocumentShortName") @db.VarChar(50)
+  issuingAuthority          String?   @map("IssuingAuthority") @db.VarChar(200)
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("UpdatedBy")
+  modifiedDtTm              DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  documentType            IdentityDocumentTypeMaster @relation(fields: [identityDocumentTypeId], references: [identityDocumentTypeId], onDelete: Restrict)
+  country                 Country                    @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  propertyTenantDocuments PropertyTenantDocument[]
+
+  @@unique([identityDocumentTypeId, countryId], map: "IdentityDocumentCountryMaster_Type_Country_key")
+  @@index([countryId], map: "IdentityDocumentCountryMaster_CountryID_idx")
+  @@map("IdentityDocumentCountryMaster")
+}
+
+/// Address type — Home, Work, Registered Office, Mailing. Global.
+model PropertyTenantAddressTypeMaster {
+  propertyTenantAddressTypeId BigInt    @id @default(autoincrement()) @map("PropertyTenantAddressTypeID")
+  addressTypeCode             String    @unique @map("AddressTypeCode") @db.VarChar(50)
+  addressTypeName             String    @map("AddressTypeName") @db.VarChar(100)
+  isActive                    Boolean   @default(true) @map("IsActive")
+  createdBy                   Int       @map("CreatedBy")
+  createdDtTm                 DateTime  @default(now()) @map("CreatedDtTm") @db.Timestamptz(6)
+  modifiedBy                  Int?      @map("ModifiedBy")
+  modifiedDtTm                DateTime? @map("ModifiedDtTm") @db.Timestamptz(6)
+
+  addresses PropertyTenantAddress[]
+
+  @@map("PropertyTenantAddressTypeMaster")
+}
+
+/// A person or organization occupying/leasing a property — KYC profile (contact, nationality, residency, documents, addresses).
+model PropertyTenant {
+  propertyTenantId      BigInt    @id @default(autoincrement()) @map("PropertyTenantID")
+  tenantId              Int       @map("TenantID")
+  companyId             Int       @map("CompanyID")
+  tenantCode            String    @map("TenantCode") @db.VarChar(50)
+  propertyTenantTypeId  BigInt    @map("PropertyTenantTypeID")
+  tenantName            String    @map("TenantName") @db.VarChar(250)
+  legalName             String?   @map("LegalName") @db.VarChar(250)
+  registrationNumber    String?   @map("RegistrationNumber") @db.VarChar(100)
+  taxRegistrationNumber String?   @map("TaxRegistrationNumber") @db.VarChar(100)
+  nationalityId         Int?      @map("NationalityID")
+  countryOfResidenceId  Int?      @map("CountryOfResidenceID")
+  countryId             Int       @map("CountryID")
+  cityId                Int?      @map("CityID")
+  contactPersonName     String?   @map("ContactPersonName") @db.VarChar(150)
+  email                 String?   @map("Email") @db.VarChar(200)
+  mobileCountryCode     String?   @map("MobileCountryCode") @db.VarChar(10)
+  mobileNumber          String?   @map("MobileNumber") @db.VarChar(30)
+  statusId              BigInt    @map("StatusID")
+  isActive              Boolean   @default(true) @map("IsActive")
+  createdBy             Int       @map("CreatedBy")
+  createdDtTm           DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy            Int?      @map("UpdatedBy")
+  modifiedDtTm          DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  tenantType         PropertyTenantTypeMaster @relation(fields: [propertyTenantTypeId], references: [propertyTenantTypeId], onDelete: Restrict)
+  nationality        Country?                 @relation("PropertyTenantNationality", fields: [nationalityId], references: [countryId], onDelete: SetNull)
+  countryOfResidence Country?                 @relation("PropertyTenantCountryOfResidence", fields: [countryOfResidenceId], references: [countryId], onDelete: SetNull)
+  country            Country                  @relation("PropertyTenantCountry", fields: [countryId], references: [countryId], onDelete: Restrict)
+  city               City?                    @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+  status             CommonStatus             @relation(fields: [statusId], references: [commonStatusId], onDelete: Restrict)
+
+  documents   PropertyTenantDocument[]
+  addresses   PropertyTenantAddress[]
+  allocations UnitTenantAllocation[]
+
+  @@unique([tenantId, companyId, tenantCode], map: "PropertyTenant_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "PropertyTenant_TenantID_CompanyID_idx")
+  @@index([propertyTenantTypeId], map: "PropertyTenant_TypeID_idx")
+  @@index([nationalityId], map: "PropertyTenant_NationalityID_idx")
+  @@index([countryOfResidenceId], map: "PropertyTenant_CountryOfResidenceID_idx")
+  @@index([countryId], map: "PropertyTenant_CountryID_idx")
+  @@index([cityId], map: "PropertyTenant_CityID_idx")
+  @@index([statusId], map: "PropertyTenant_StatusID_idx")
+  @@map("PropertyTenant")
+}
+
+/// An identity document (Passport, National ID, …) attached to a Property Tenant, with verification status.
+model PropertyTenantDocument {
+  propertyTenantDocumentId  BigInt    @id @default(autoincrement()) @map("PropertyTenantDocumentID")
+  propertyTenantId          BigInt    @map("PropertyTenantID")
+  identityDocumentCountryId BigInt    @map("IdentityDocumentCountryID")
+  documentNumber            String    @map("DocumentNumber") @db.VarChar(100)
+  issueDate                 DateTime? @map("IssueDate") @db.Date
+  expiryDate                DateTime? @map("ExpiryDate") @db.Date
+  documentFileUrl           String?   @map("DocumentFileURL") @db.VarChar(500)
+  isPrimary                 Boolean   @default(false) @map("IsPrimary")
+  isVerified                Boolean   @default(false) @map("IsVerified")
+  verifiedDtTm              DateTime? @map("VerifiedDate") @db.Timestamptz(6)
+  verifiedBy                Int?      @map("VerifiedBy")
+  statusId                  BigInt    @map("StatusID")
+  isActive                  Boolean   @default(true) @map("IsActive")
+  createdBy                 Int       @map("CreatedBy")
+  createdDtTm               DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy                Int?      @map("UpdatedBy")
+  modifiedDtTm              DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  propertyTenant          PropertyTenant                @relation(fields: [propertyTenantId], references: [propertyTenantId], onDelete: Cascade)
+  identityDocumentCountry IdentityDocumentCountryMaster @relation(fields: [identityDocumentCountryId], references: [identityDocumentCountryId], onDelete: Restrict)
+  status                  CommonStatus                  @relation(fields: [statusId], references: [commonStatusId], onDelete: Restrict)
+
+  @@index([propertyTenantId], map: "PropertyTenantDocument_PropertyTenantID_idx")
+  @@index([identityDocumentCountryId], map: "PropertyTenantDocument_DocCountryID_idx")
+  @@index([statusId], map: "PropertyTenantDocument_StatusID_idx")
+  @@map("PropertyTenantDocument")
+}
+
+/// A postal/registered address for a Property Tenant (Home, Work, Registered Office, Mailing, …).
+model PropertyTenantAddress {
+  propertyTenantAddressId     BigInt    @id @default(autoincrement()) @map("PropertyTenantAddressID")
+  propertyTenantId            BigInt    @map("PropertyTenantID")
+  propertyTenantAddressTypeId BigInt    @map("AddressTypeID")
+  addressLine1                String    @map("AddressLine1") @db.VarChar(250)
+  addressLine2                String?   @map("AddressLine2") @db.VarChar(250)
+  area                        String?   @map("Area") @db.VarChar(150)
+  countryId                   Int       @map("CountryID")
+  stateId                     Int?      @map("StateID")
+  cityId                      Int?      @map("CityID")
+  postalCode                  String?   @map("PostalCode") @db.VarChar(30)
+  isPrimary                   Boolean   @default(false) @map("IsPrimary")
+  isActive                    Boolean   @default(true) @map("IsActive")
+  createdBy                   Int       @map("CreatedBy")
+  createdDtTm                 DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy                  Int?      @map("UpdatedBy")
+  modifiedDtTm                DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  propertyTenant PropertyTenant                  @relation(fields: [propertyTenantId], references: [propertyTenantId], onDelete: Cascade)
+  addressType    PropertyTenantAddressTypeMaster @relation(fields: [propertyTenantAddressTypeId], references: [propertyTenantAddressTypeId], onDelete: Restrict)
+  country        Country                         @relation(fields: [countryId], references: [countryId], onDelete: Restrict)
+  state          State?                          @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
+  city           City?                           @relation(fields: [cityId], references: [cityId], onDelete: SetNull)
+
+  @@index([propertyTenantId], map: "PropertyTenantAddress_PropertyTenantID_idx")
+  @@index([countryId], map: "PropertyTenantAddress_CountryID_idx")
+  @@index([stateId], map: "PropertyTenantAddress_StateID_idx")
+  @@index([cityId], map: "PropertyTenantAddress_CityID_idx")
+  @@map("PropertyTenantAddress")
+}
+
+/// Floor type — Basement, Parking, Ground, Mezzanine, Normal, Penthouse, Roof, Other. Global.
+model FloorType {
+  floorTypeId   BigInt    @id @default(autoincrement()) @map("FloorTypeID")
+  floorTypeCode String    @unique @map("FloorTypeCode") @db.VarChar(50)
+  floorTypeName String    @map("FloorTypeName") @db.VarChar(100)
+  description   String?   @map("Description") @db.VarChar(250)
+  displayOrder  Int       @default(0) @map("DisplayOrder")
+  isActive      Boolean   @default(true) @map("IsActive")
+  createdBy     Int       @map("CreatedBy")
+  createdDtTm   DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy    Int?      @map("UpdatedBy")
+  modifiedDtTm  DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  floors PropertyFloor[]
+
+  @@map("FloorTypeMaster")
+}
+
+/// A floor within a property/building.
+model PropertyFloor {
+  propertyFloorId BigInt    @id @default(autoincrement()) @map("PropertyFloorID")
+  propertyId      Int       @map("PropertyID")
+  floorCode       String    @map("FloorCode") @db.VarChar(50)
+  floorNumber     Int       @map("FloorNumber")
+  floorName       String    @map("FloorName") @db.VarChar(100)
+  floorTypeId     BigInt    @map("FloorTypeID")
+  displayOrder    Int       @default(0) @map("DisplayOrder")
+  totalUnits      Int?      @map("TotalUnits")
+  occupiedUnits   Int?      @map("OccupiedUnits")
+  availableUnits  Int?      @map("AvailableUnits")
+  floorArea       Decimal?  @map("FloorArea") @db.Decimal(18, 4)
+  areaUnitId      BigInt?   @map("AreaUnitID")
+  description     String?   @map("Description") @db.VarChar(500)
+  isActive        Boolean   @default(true) @map("IsActive")
+  createdBy       Int       @map("CreatedBy")
+  createdDtTm     DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy      Int?      @map("UpdatedBy")
+  modifiedDtTm    DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  property  Property      @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  floorType FloorType     @relation(fields: [floorTypeId], references: [floorTypeId], onDelete: Restrict)
+  areaUnit  RoomSizeUnit? @relation(fields: [areaUnitId], references: [roomSizeUnitId], onDelete: SetNull)
+  units     PropertyUnit[]
+
+  @@unique([propertyId, floorCode], map: "PropertyFloor_Property_Code_key")
+  @@unique([propertyId, floorNumber], map: "PropertyFloor_Property_Number_key")
+  @@index([propertyId], map: "PropertyFloor_PropertyID_idx")
+  @@index([floorTypeId], map: "PropertyFloor_FloorTypeID_idx")
+  @@index([areaUnitId], map: "PropertyFloor_AreaUnitID_idx")
+  @@map("PropertyFloorMaster")
+}
+
+/// Unit type — Apartment, Office, Shop, Villa, Warehouse, Retail Space, Parking, Storage, Other. Global.
+model UnitType {
+  unitTypeId   BigInt    @id @default(autoincrement()) @map("UnitTypeID")
+  unitTypeCode String    @unique @map("UnitTypeCode") @db.VarChar(50)
+  unitTypeName String    @map("UnitTypeName") @db.VarChar(100)
+  description  String?   @map("Description") @db.VarChar(250)
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("UpdatedBy")
+  modifiedDtTm DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  units PropertyUnit[]
+
+  @@map("UnitTypeMaster")
+}
+
+/// Unit category — Studio, 1BR, 2BR, … Global.
+model UnitCategory {
+  unitCategoryId   BigInt    @id @default(autoincrement()) @map("UnitCategoryID")
+  unitCategoryCode String    @unique @map("UnitCategoryCode") @db.VarChar(50)
+  unitCategoryName String    @map("UnitCategoryName") @db.VarChar(100)
+  description      String?   @map("Description") @db.VarChar(250)
+  displayOrder     Int       @default(0) @map("DisplayOrder")
+  isActive         Boolean   @default(true) @map("IsActive")
+  createdBy        Int       @map("CreatedBy")
+  createdDtTm      DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy       Int?      @map("UpdatedBy")
+  modifiedDtTm     DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  units PropertyUnit[]
+
+  @@map("UnitCategoryMaster")
+}
+
+/// Unit occupancy/lifecycle status — Available, Occupied, Reserved, … Global.
+model UnitStatus {
+  unitStatusId BigInt    @id @default(autoincrement()) @map("UnitStatusID")
+  statusCode   String    @unique @map("StatusCode") @db.VarChar(50)
+  statusName   String    @map("StatusName") @db.VarChar(100)
+  description  String?   @map("Description") @db.VarChar(250)
+  displayOrder Int       @default(0) @map("DisplayOrder")
+  isActive     Boolean   @default(true) @map("IsActive")
+  createdBy    Int       @map("CreatedBy")
+  createdDtTm  DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy   Int?      @map("UpdatedBy")
+  modifiedDtTm DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  units PropertyUnit[]
+
+  @@map("UnitStatusMaster")
+}
+
+/// Furnished status — Furnished, Semi Furnished, Unfurnished. Global.
+model FurnishedStatus {
+  furnishedStatusId   BigInt    @id @default(autoincrement()) @map("FurnishedStatusID")
+  furnishedStatusCode String    @unique @map("FurnishedStatusCode") @db.VarChar(50)
+  furnishedStatusName String    @map("FurnishedStatusName") @db.VarChar(100)
+  description         String?   @map("Description") @db.VarChar(250)
+  displayOrder        Int       @default(0) @map("DisplayOrder")
+  isActive            Boolean   @default(true) @map("IsActive")
+  createdBy           Int       @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("UpdatedBy")
+  modifiedDtTm        DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  units PropertyUnit[]
+
+  @@map("FurnishedStatusMaster")
+}
+
+/// A rentable/saleable unit on a property floor.
+model PropertyUnit {
+  unitId              BigInt    @id @default(autoincrement()) @map("UnitID")
+  propertyId          Int       @map("PropertyID")
+  propertyFloorId     BigInt    @map("PropertyFloorID")
+  unitCode            String    @map("UnitCode") @db.VarChar(50)
+  unitNumber          String    @map("UnitNumber") @db.VarChar(50)
+  unitName            String?   @map("UnitName") @db.VarChar(150)
+  unitTypeId          BigInt    @map("UnitTypeID")
+  unitCategoryId      BigInt?   @map("UnitCategoryID")
+  unitStatusId        BigInt    @map("UnitStatusID")
+  area                Decimal   @map("Area") @db.Decimal(18, 4)
+  areaUnitId          BigInt    @map("AreaUnitID")
+  bedroomCount        Int?      @map("BedroomCount")
+  bathroomCount       Int?      @map("BathroomCount")
+  parkingCount        Int?      @map("ParkingCount")
+  balconyCount        Int?      @map("BalconyCount")
+  furnishedStatusId   BigInt?   @map("FurnishedStatusID")
+  viewTypeId          BigInt?   @map("ViewTypeID")
+  unitDescription     String?   @map("UnitDescription") @db.VarChar(1000)
+  blockReason         String?   @map("BlockReason") @db.VarChar(250)
+  isRentable          Boolean   @default(true) @map("IsRentable")
+  isSaleable          Boolean   @default(false) @map("IsSaleable")
+  isActive            Boolean   @default(true) @map("IsActive")
+  createdBy           Int       @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("UpdatedBy")
+  modifiedDtTm        DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  property        Property         @relation(fields: [propertyId], references: [propertyId], onDelete: Cascade)
+  floor           PropertyFloor    @relation(fields: [propertyFloorId], references: [propertyFloorId], onDelete: Restrict)
+  unitType        UnitType         @relation(fields: [unitTypeId], references: [unitTypeId], onDelete: Restrict)
+  unitCategory    UnitCategory?    @relation(fields: [unitCategoryId], references: [unitCategoryId], onDelete: SetNull)
+  unitStatus      UnitStatus       @relation(fields: [unitStatusId], references: [unitStatusId], onDelete: Restrict)
+  areaUnit        RoomSizeUnit     @relation(fields: [areaUnitId], references: [roomSizeUnitId], onDelete: Restrict)
+  furnishedStatus FurnishedStatus? @relation(fields: [furnishedStatusId], references: [furnishedStatusId], onDelete: SetNull)
+  viewType        ViewType?        @relation(fields: [viewTypeId], references: [viewTypeId], onDelete: SetNull)
+  allocations     UnitTenantAllocation[]
+
+  @@unique([propertyId, unitCode], map: "Unit_Property_Code_key")
+  @@index([propertyId], map: "Unit_PropertyID_idx")
+  @@index([propertyFloorId], map: "Unit_PropertyFloorID_idx")
+  @@index([unitTypeId], map: "Unit_UnitTypeID_idx")
+  @@index([unitCategoryId], map: "Unit_UnitCategoryID_idx")
+  @@index([unitStatusId], map: "Unit_UnitStatusID_idx")
+  @@index([areaUnitId], map: "Unit_AreaUnitID_idx")
+  @@index([furnishedStatusId], map: "Unit_FurnishedStatusID_idx")
+  @@index([viewTypeId], map: "Unit_ViewTypeID_idx")
+  @@map("UnitMaster")
+}
+
+/// Current (and historical) assignment of a Property Tenant to a unit.
+model UnitTenantAllocation {
+  unitAllocationId  BigInt    @id @default(autoincrement()) @map("UnitAllocationID")
+  unitId            BigInt    @map("UnitID")
+  propertyTenantId  BigInt    @map("PropertyTenantID")
+  allocatedFrom     DateTime  @map("AllocatedFrom") @db.Date
+  allocatedTo       DateTime? @map("AllocatedTo") @db.Date
+  notes             String?   @map("Notes") @db.VarChar(250)
+  isActive          Boolean   @default(true) @map("IsActive")
+  createdBy         Int       @map("CreatedBy")
+  createdDtTm       DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy        Int?      @map("UpdatedBy")
+  modifiedDtTm      DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+
+  unit           PropertyUnit   @relation(fields: [unitId], references: [unitId], onDelete: Cascade)
+  propertyTenant PropertyTenant @relation(fields: [propertyTenantId], references: [propertyTenantId], onDelete: Restrict)
+
+  @@index([unitId], map: "UnitTenantAllocation_UnitID_idx")
+  @@index([propertyTenantId], map: "UnitTenantAllocation_PropertyTenantID_idx")
+  @@map("UnitTenantAllocation")
 }

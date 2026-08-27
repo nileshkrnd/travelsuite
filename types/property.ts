@@ -25,6 +25,27 @@ export type OwnershipType = GlobalNameLookup;
 /** Property Brand lookup — global (Hilton, Accor, Marriott, …). */
 export type PropertyBrand = GlobalNameLookup;
 
+/** Shape shared by global code+name lookup masters (Floor Type, Unit Type, Unit Status, …). */
+export interface GlobalCodeLookup {
+  id: string;
+  key: number;
+  code: string;
+  name: string;
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdBy: number;
+  createdAt: string;
+  modifiedBy: number | null;
+  modifiedDtTm: string | null;
+}
+
+export type FloorType = GlobalCodeLookup;
+export type UnitType = GlobalCodeLookup;
+export type UnitCategory = GlobalCodeLookup;
+export type UnitStatus = GlobalCodeLookup;
+export type FurnishedStatus = GlobalCodeLookup;
+
 /** Property master — global. TenantID/CompanyID = null means a globally-managed property (Super Admin); a real value means a property a tenant registered for itself. */
 export interface Property {
   propertyId: number;

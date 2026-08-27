@@ -1985,6 +1985,148 @@ async function seedNamedPropertyMasters() {
   }
 }
 
+const FLOOR_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "BASEMENT", name: "Basement" },
+  { code: "PARKING", name: "Parking" },
+  { code: "GROUND", name: "Ground" },
+  { code: "MEZZANINE", name: "Mezzanine" },
+  { code: "NORMAL", name: "Normal" },
+  { code: "PENTHOUSE", name: "Penthouse" },
+  { code: "ROOF", name: "Roof" },
+  { code: "OTHER", name: "Other" },
+];
+
+const UNIT_TYPE_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "APARTMENT", name: "Apartment" },
+  { code: "OFFICE", name: "Office" },
+  { code: "SHOP", name: "Shop" },
+  { code: "VILLA", name: "Villa" },
+  { code: "WAREHOUSE", name: "Warehouse" },
+  { code: "RETAIL_SPACE", name: "Retail Space" },
+  { code: "PARKING", name: "Parking" },
+  { code: "STORAGE", name: "Storage" },
+  { code: "OTHER", name: "Other" },
+];
+
+const UNIT_CATEGORY_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "STUDIO", name: "Studio" },
+  { code: "1BR", name: "1 Bedroom" },
+  { code: "2BR", name: "2 Bedroom" },
+  { code: "3BR", name: "3 Bedroom" },
+  { code: "4BR", name: "4 Bedroom" },
+  { code: "PENTHOUSE", name: "Penthouse" },
+  { code: "DUPLEX", name: "Duplex" },
+  { code: "OTHER", name: "Other" },
+];
+
+const UNIT_STATUS_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "AVAILABLE", name: "Available" },
+  { code: "OCCUPIED", name: "Occupied" },
+  { code: "RESERVED", name: "Reserved" },
+  { code: "MAINTENANCE", name: "Maintenance" },
+  { code: "BLOCKED", name: "Blocked" },
+  { code: "UNDER_RENOVATION", name: "Under Renovation" },
+  { code: "SOLD", name: "Sold" },
+  { code: "INACTIVE", name: "Inactive" },
+];
+
+const FURNISHED_STATUS_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "FURNISHED", name: "Furnished" },
+  { code: "SEMI_FURNISHED", name: "Semi Furnished" },
+  { code: "UNFURNISHED", name: "Unfurnished" },
+];
+
+const AREA_UNIT_SEEDS: Array<{ code: string; name: string }> = [
+  { code: "SQM", name: "Square Metre" },
+  { code: "SQFT", name: "Square Foot" },
+];
+
+async function seedPropertyFloorUnitLookups() {
+  for (const [index, seed] of AREA_UNIT_SEEDS.entries()) {
+    await prisma.roomSizeUnit.upsert({
+      where: { roomSizeUnitCode: seed.code },
+      create: {
+        roomSizeUnitCode: seed.code,
+        roomSizeUnitName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { roomSizeUnitName: seed.name, isActive: true },
+    });
+  }
+
+  for (const [index, seed] of FLOOR_TYPE_SEEDS.entries()) {
+    await prisma.floorType.upsert({
+      where: { floorTypeCode: seed.code },
+      create: {
+        floorTypeCode: seed.code,
+        floorTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { floorTypeName: seed.name, displayOrder: index + 1, isActive: true },
+    });
+  }
+
+  for (const [index, seed] of UNIT_TYPE_SEEDS.entries()) {
+    await prisma.unitType.upsert({
+      where: { unitTypeCode: seed.code },
+      create: {
+        unitTypeCode: seed.code,
+        unitTypeName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { unitTypeName: seed.name, displayOrder: index + 1, isActive: true },
+    });
+  }
+
+  for (const [index, seed] of UNIT_CATEGORY_SEEDS.entries()) {
+    await prisma.unitCategory.upsert({
+      where: { unitCategoryCode: seed.code },
+      create: {
+        unitCategoryCode: seed.code,
+        unitCategoryName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { unitCategoryName: seed.name, displayOrder: index + 1, isActive: true },
+    });
+  }
+
+  for (const [index, seed] of UNIT_STATUS_SEEDS.entries()) {
+    await prisma.unitStatus.upsert({
+      where: { statusCode: seed.code },
+      create: {
+        statusCode: seed.code,
+        statusName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { statusName: seed.name, displayOrder: index + 1, isActive: true },
+    });
+  }
+
+  for (const [index, seed] of FURNISHED_STATUS_SEEDS.entries()) {
+    await prisma.furnishedStatus.upsert({
+      where: { furnishedStatusCode: seed.code },
+      create: {
+        furnishedStatusCode: seed.code,
+        furnishedStatusName: seed.name,
+        displayOrder: index + 1,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
+      update: { furnishedStatusName: seed.name, displayOrder: index + 1, isActive: true },
+    });
+  }
+}
+
 async function seedProperties() {
   const leisure = await prisma.company.findUnique({ where: { companyUid: "company_leisure" } });
   if (!leisure) return;
@@ -2497,6 +2639,7 @@ async function main() {
   await seedBranchTypes();
   await seedPropertyTypes();
   await seedNamedPropertyMasters();
+  await seedPropertyFloorUnitLookups();
   await seedProperties();
   await seedBranches();
   await seedEmployees();

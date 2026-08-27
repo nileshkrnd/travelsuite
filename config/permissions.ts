@@ -100,6 +100,14 @@ export type ModuleKey =
   | "propertyUsage"
   | "ownershipType"
   | "propertyBrand"
+  | "floorType"
+  | "propertyFloor"
+  | "unitType"
+  | "unitCategory"
+  | "unitStatus"
+  | "furnishedStatus"
+  | "propertyUnit"
+  | "unitAvailability"
   | "supplierType"
   | "amenityMasters"
   | "amenityFacilityCategory"
@@ -227,6 +235,7 @@ export type ModuleKey =
   | "extranet"
   | "extranetDashboard"
   | "extranetSelectProperty"
+  | "propertyTenant"
   | "contracts"
   | "seasons"
   | "propertyRooms"
@@ -455,6 +464,14 @@ const PLATFORM_MODE_MENU_KEYS = new Set<ModuleKey>([
   ...GLOBAL_TENANT_SETTING_KEYS,
   "accessRole",
   "property",
+  "floorType",
+  "propertyFloor",
+  "unitType",
+  "unitCategory",
+  "unitStatus",
+  "furnishedStatus",
+  "propertyUnit",
+  "unitAvailability",
 ]);
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -578,6 +595,12 @@ export const MENU_ITEMS: MenuItem[] = [
         path: "masters/property-masters",
         children: [
           {
+            key: "unitAvailability",
+            labelKey: "sidebar.unitAvailability",
+            icon: "LayoutDashboard",
+            path: "property/unit-availability",
+          },
+          {
             key: "property",
             labelKey: "sidebar.property",
             icon: "Building",
@@ -612,6 +635,48 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.propertyBrand",
             icon: "Award",
             path: "masters/property-brand",
+          },
+          {
+            key: "floorType",
+            labelKey: "sidebar.floorType",
+            icon: "Layers",
+            path: "masters/floor-type",
+          },
+          {
+            key: "propertyFloor",
+            labelKey: "sidebar.propertyFloor",
+            icon: "Layers",
+            path: "masters/property-floor",
+          },
+          {
+            key: "unitType",
+            labelKey: "sidebar.unitType",
+            icon: "Building2",
+            path: "masters/unit-type",
+          },
+          {
+            key: "unitCategory",
+            labelKey: "sidebar.unitCategory",
+            icon: "Tags",
+            path: "masters/unit-category",
+          },
+          {
+            key: "unitStatus",
+            labelKey: "sidebar.unitStatus",
+            icon: "CircleDot",
+            path: "masters/unit-status",
+          },
+          {
+            key: "furnishedStatus",
+            labelKey: "sidebar.furnishedStatus",
+            icon: "Sofa",
+            path: "masters/furnished-status",
+          },
+          {
+            key: "propertyUnit",
+            labelKey: "sidebar.propertyUnit",
+            icon: "LayoutGrid",
+            path: "masters/unit",
           },
         ],
       },
@@ -1341,6 +1406,7 @@ export const MENU_ITEMS: MenuItem[] = [
     children: [
       { key: "extranetDashboard", labelKey: "sidebar.extranetDashboard", icon: "LayoutDashboard", path: "extranet/dashboard" },
       { key: "extranetSelectProperty", labelKey: "sidebar.extranetSelectProperty", icon: "Building2", path: "extranet/select-property" },
+      { key: "propertyTenant", labelKey: "sidebar.propertyTenant", icon: "UserSquare2", path: "masters/propertyTenant" },
       { key: "extranetAvailability", labelKey: "sidebar.extranetAvailability", icon: "CalendarCheck", path: "extranet/availability" },
       { key: "seasons", labelKey: "sidebar.seasons", icon: "CalendarRange", path: "extranet/seasons" },
       { key: "propertyRooms", labelKey: "sidebar.propertyRooms", icon: "BedDouble", path: "extranet/rooms" },
