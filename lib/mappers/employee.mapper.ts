@@ -16,7 +16,7 @@ export interface EmployeeRow {
   employeeNumber: string;
   designationId: number;
   joiningDate: Date | string;
-  accessRoleId: number;
+  accessRoleId: bigint | number;
   departmentId: number | null;
   reportingEmployeeId: number | null;
   companyId: number;
@@ -61,7 +61,7 @@ export function toAppEmployee(row: EmployeeRow): Employee {
     employeeNumber: row.employeeNumber,
     designationId: row.designationId,
     joiningDate: toIso(row.joiningDate) ?? new Date().toISOString(),
-    accessRoleId: row.accessRoleId,
+    accessRoleId: Number(row.accessRoleId),
     departmentId: row.departmentId,
     reportingEmployeeId: row.reportingEmployeeId,
     companyId: row.companyId,

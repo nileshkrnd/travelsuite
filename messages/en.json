@@ -314,6 +314,8 @@
 
     "extranet": "Extranet",
     "extranetDashboard": "Dashboard",
+    "extranetProperties": "Properties",
+    "extranetProducts": "Products",
     "extranetSelectProperty": "Select Property",
     "propertyTenant": "Property Tenants",
     "contracts": "Contracts",

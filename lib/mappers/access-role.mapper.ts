@@ -1,7 +1,7 @@
 import type { AccessRole } from "@/types";
 
 export interface AccessRoleRow {
-  accessRoleId: number;
+  accessRoleId: bigint | number;
   accessRoleName: string;
   isActive: boolean;
   createdBy: number;
@@ -12,6 +12,10 @@ export interface AccessRoleRow {
   companyId: number;
 }
 
+export function serializeAccessRoleRow<T extends { accessRoleId: bigint | number }>(row: T) {
+  return { ...row, accessRoleId: Number(row.accessRoleId) };
+}
+
 function toIso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   return typeof value === "string" ? value : value.toISOString();
@@ -19,7 +23,7 @@ function toIso(value: Date | string | null | undefined): string | null {
 
 export function toAppAccessRole(row: AccessRoleRow): AccessRole {
   return {
-    accessRoleId: row.accessRoleId,
+    accessRoleId: Number(row.accessRoleId),
     accessRoleName: row.accessRoleName,
     isActive: row.isActive,
     createdBy: row.createdBy,

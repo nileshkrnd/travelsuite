@@ -8,7 +8,7 @@ export interface SupplierUserRow {
   email: string;
   dialCountryCode: string | null;
   mobileNumber: string | null;
-  accessRoleId: number;
+  accessRoleId: bigint | number;
   userId: number;
   isActive: boolean;
   createdDate: Date | string;
@@ -34,7 +34,7 @@ export function toAppSupplierUser(row: SupplierUserRow): SupplierUser {
     email: row.email,
     dialCountryCode: row.dialCountryCode,
     mobileNumber: row.mobileNumber,
-    accessRoleId: row.accessRoleId,
+    accessRoleId: Number(row.accessRoleId),
     accessRoleName: row.accessRole?.accessRoleName,
     userKey: row.userId,
     isActive: row.isActive,

@@ -50,6 +50,7 @@ function flatten(
   const report = row.reportingEmployee;
   return {
     ...row,
+    accessRoleId: Number(row.accessRoleId),
     companyName: row.company.companyName,
     branchName: row.branch.branchName,
     designationName: row.designation.designationName,
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
           employeeNumber: data.employeeNumber.trim(),
           designationId: data.designationId,
           joiningDate,
-          accessRoleId: data.accessRoleId,
+          accessRoleId: BigInt(data.accessRoleId),
           departmentId: data.departmentId ?? null,
           reportingEmployeeId: data.reportingEmployeeId ?? null,
           companyId: data.companyId,

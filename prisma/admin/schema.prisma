@@ -389,7 +389,7 @@ model User {
 /// Access Role master — scoped by TenantID / CompanyID (same rules as User).
 /// Platform Super Admin manages T0C0 roles; tenants manage roles under their TenantID.
 model AccessRole {
-  accessRoleId   Int       @id @default(autoincrement()) @map("AccessRoleID")
+  accessRoleId   BigInt    @id @default(autoincrement()) @map("AccessRoleID")
   accessRoleName String    @map("AccessRoleName") @db.VarChar(50)
   isActive       Boolean   @default(true) @map("IsActive")
   createdBy      Int       @map("CreatedBy")
@@ -594,7 +594,7 @@ model SupplierUser {
   email           String    @map("Email") @db.VarChar(200)
   dialCountryCode String?   @map("DialCountryCode") @db.VarChar(10)
   mobileNumber    String?   @map("MobileNumber") @db.VarChar(30)
-  accessRoleId    Int       @map("AccessRoleID")
+  accessRoleId    BigInt    @map("AccessRoleID")
   userId          Int       @unique @map("UserID")
   isActive        Boolean   @default(true) @map("IsActive")
   createdDate     DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
@@ -2819,7 +2819,7 @@ model Employee {
   employeeNumber      String    @map("EmployeeNumber") @db.VarChar(50)
   designationId       Int       @map("DesignationId")
   joiningDate         DateTime  @map("JoiningDate") @db.Timestamptz(6)
-  accessRoleId        Int       @map("AccessRoleID")
+  accessRoleId        BigInt    @map("AccessRoleID")
   departmentId        Int?      @map("DepartmentID")
   reportingEmployeeId Int?      @map("ReportingEmployeeID")
   companyId           Int       @map("CompanyID")
@@ -2983,7 +2983,7 @@ model TenantAccessRoleMenuPermission {
   tenantAccessRoleMenuPermissionId Int       @id @default(autoincrement()) @map("TenantAccessRoleMenuPermissionID")
   tenantId                         Int       @map("TenantID")
   companyId                        Int       @map("CompanyID")
-  accessRoleId                     Int       @map("AccessRoleID")
+  accessRoleId                     BigInt    @map("AccessRoleID")
   subscriptionModuleMenuId         Int       @map("SubscriptionModuleMenuID")
   canView                          Boolean   @default(false) @map("CanView")
   canCreate                        Boolean   @default(false) @map("CanCreate")

@@ -6,10 +6,20 @@ export const supplierUserInclude = {
   accessRole: { select: { accessRoleName: true } },
 } as const;
 
-type SerializableRow = { supplierUserId: bigint; supplierId: bigint; [key: string]: unknown };
+type SerializableRow = {
+  supplierUserId: bigint;
+  supplierId: bigint;
+  accessRoleId: bigint | number;
+  [key: string]: unknown;
+};
 
 export function serializeSupplierUserRow<T extends SerializableRow>(row: T) {
-  return { ...row, supplierUserId: Number(row.supplierUserId), supplierId: Number(row.supplierId) };
+  return {
+    ...row,
+    supplierUserId: Number(row.supplierUserId),
+    supplierId: Number(row.supplierId),
+    accessRoleId: Number(row.accessRoleId),
+  };
 }
 
 /** Validates the AccessRole belongs to the same tenant/company as the Supplier. */
@@ -26,7 +36,7 @@ export async function validateSupplierUserLookups(data: {
   // CompanyID = 0 is a tenant-wide sentinel (matches User.companyId's convention) — such roles apply to every company.
   const accessRole = await prisma.accessRole.findFirst({
     where: {
-      accessRoleId: data.accessRoleId,
+      accessRoleId: BigInt(data.accessRoleId),
       tenantId: supplier.tenantId,
       companyId: { in: [0, supplier.companyId] },
     },

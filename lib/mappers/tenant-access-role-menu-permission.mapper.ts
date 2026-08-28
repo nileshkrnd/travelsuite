@@ -4,7 +4,7 @@ export interface TenantAccessRoleMenuPermissionRow {
   tenantAccessRoleMenuPermissionId: number;
   tenantId: number;
   companyId: number;
-  accessRoleId: number;
+  accessRoleId: bigint | number;
   subscriptionModuleMenuId: number;
   canView: boolean;
   canCreate: boolean;
@@ -35,7 +35,7 @@ export function toAppTenantAccessRoleMenuPermission(
     tenantAccessRoleMenuPermissionId: row.tenantAccessRoleMenuPermissionId,
     tenantId: row.tenantId,
     companyId: row.companyId,
-    accessRoleId: row.accessRoleId,
+    accessRoleId: Number(row.accessRoleId),
     subscriptionModuleMenuId: row.subscriptionModuleMenuId,
     canView: row.canView,
     canCreate: row.canCreate,

@@ -88,7 +88,7 @@ export async function POST(request: Request) {
           email: username,
           dialCountryCode: data.dialCountryCode?.trim() || null,
           mobileNumber: data.mobileNumber?.trim() || null,
-          accessRoleId: data.accessRoleId,
+          accessRoleId: BigInt(data.accessRoleId),
           userId: user.userId,
           isActive: data.isActive ?? true,
           createdBy: data.createdBy,

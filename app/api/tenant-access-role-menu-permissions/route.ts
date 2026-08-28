@@ -39,6 +39,10 @@ const batchSchema = z.object({
   rows: z.array(flagsSchema),
 });
 
+function serializePermission<T extends { accessRoleId: bigint | number }>(row: T) {
+  return { ...row, accessRoleId: Number(row.accessRoleId) };
+}
+
 /** List permissions for a tenant + company + access role matrix. */
 export async function GET(request: Request) {
   try {
@@ -58,11 +62,11 @@ export async function GET(request: Request) {
     }
 
     const rows = await prisma.tenantAccessRoleMenuPermission.findMany({
-      where: { tenantId, companyId, accessRoleId },
+      where: { tenantId, companyId, accessRoleId: BigInt(accessRoleId) },
       include: INCLUDE,
       orderBy: { subscriptionModuleMenuId: "asc" },
     });
-    return NextResponse.json(rows);
+    return NextResponse.json(rows.map(serializePermission));
   } catch (error) {
     return dbUnavailable(error);
   }
@@ -82,8 +86,9 @@ export async function PUT(request: Request) {
 
     const data = parsed.data;
 
+    const roleId = BigInt(data.accessRoleId);
     const role = await prisma.accessRole.findUnique({
-      where: { accessRoleId: data.accessRoleId },
+      where: { accessRoleId: roleId },
     });
     if (!role || role.tenantId !== data.tenantId) {
       return NextResponse.json({ error: "Access role not found for this tenant" }, { status: 400 });
@@ -108,14 +113,14 @@ export async function PUT(request: Request) {
             tenantId_companyId_accessRoleId_subscriptionModuleMenuId: {
               tenantId: data.tenantId,
               companyId: data.companyId,
-              accessRoleId: data.accessRoleId,
+              accessRoleId: roleId,
               subscriptionModuleMenuId: row.subscriptionModuleMenuId,
             },
           },
           create: {
             tenantId: data.tenantId,
             companyId: data.companyId,
-            accessRoleId: data.accessRoleId,
+            accessRoleId: roleId,
             subscriptionModuleMenuId: row.subscriptionModuleMenuId,
             canView: row.canView,
             canCreate: row.canCreate,
@@ -149,12 +154,12 @@ export async function PUT(request: Request) {
       where: {
         tenantId: data.tenantId,
         companyId: data.companyId,
-        accessRoleId: data.accessRoleId,
+        accessRoleId: roleId,
       },
       include: INCLUDE,
       orderBy: { subscriptionModuleMenuId: "asc" },
     });
-    return NextResponse.json(rows);
+    return NextResponse.json(rows.map(serializePermission));
   } catch (error) {
     return dbUnavailable(error);
   }

@@ -4,14 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Building2, Layers, LayoutGrid, Loader2 } from "lucide-react";
+import { Building2, Layers, Loader2 } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,17 +72,14 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_TILE: Record<string, string> = {
   AVAILABLE:
-    "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
-  OCCUPIED: "border-primary/25 bg-primary/10 text-primary",
-  RESERVED:
-    "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
-  MAINTENANCE:
-    "border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-200",
-  BLOCKED: "border-destructive/30 bg-destructive/10 text-destructive",
-  UNDER_RENOVATION:
-    "border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-200",
-  SOLD: "border-border bg-muted text-muted-foreground",
-  INACTIVE: "border-border bg-muted/40 text-muted-foreground/80 opacity-70",
+    "bg-emerald-400 text-emerald-950 dark:bg-emerald-500/85 dark:text-emerald-50",
+  OCCUPIED: "bg-sky-400 text-sky-950 dark:bg-sky-500/85 dark:text-sky-50",
+  RESERVED: "bg-amber-400 text-amber-950 dark:bg-amber-500/85 dark:text-amber-50",
+  MAINTENANCE: "bg-orange-400 text-orange-950 dark:bg-orange-500/85 dark:text-orange-50",
+  BLOCKED: "bg-rose-400 text-rose-950 dark:bg-rose-600/85 dark:text-rose-50",
+  UNDER_RENOVATION: "bg-orange-300 text-orange-950 dark:bg-orange-400/80 dark:text-orange-50",
+  SOLD: "bg-zinc-300 text-zinc-800 dark:bg-zinc-600 dark:text-zinc-100",
+  INACTIVE: "bg-zinc-200/80 text-zinc-500 dark:bg-zinc-700/60 dark:text-zinc-400",
 };
 
 const STATUS_SWATCH: Record<string, string> = {
@@ -120,7 +115,7 @@ function titleCase(code: string): string {
 }
 
 function tileClass(code: string): string {
-  return STATUS_TILE[code] ?? "border-border bg-card text-foreground";
+  return STATUS_TILE[code] ?? "bg-background text-foreground";
 }
 
 function swatchClass(code: string): string {
@@ -135,6 +130,20 @@ function todayIso(): string {
 function compareUnits(a: PropertyUnit, b: PropertyUnit): number {
   return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true, sensitivity: "base" });
 }
+
+function floorIndexLabel(floorNumber: number): string {
+  if (floorNumber === 0) return "G";
+  if (floorNumber < 0) return `B${Math.abs(floorNumber)}`;
+  return String(floorNumber);
+}
+
+type OccupancyProps = {
+  tenants: PropertyTenant[];
+  tenantsHref: string;
+  actorKey: number;
+  canWrite: boolean;
+  onUnitUpdated: (unit: PropertyUnit) => void;
+};
 
 function UnitAvailabilityBoard({ roleDef }: { roleDef: RoleDef }) {
   const { role } = useParams<{ role: string }>();
@@ -301,10 +310,12 @@ function UnitAvailabilityBoard({ roleDef }: { roleDef: RoleDef }) {
     return names;
   }, [units]);
 
-  function filterUnits(list: PropertyUnit[]): PropertyUnit[] {
-    if (statusFilter === "ALL") return list;
-    return list.filter((unit) => statusCodeOf(unit) === statusFilter);
-  }
+  const selectedProperty = properties.find((p) => p.propertyId === propertyId);
+  const propertyLabel =
+    selectedProperty?.propertyDisplayName ||
+    selectedProperty?.propertyName ||
+    selectedProperty?.propertyCode ||
+    "Property";
 
   function handleUnitUpdated(updated: PropertyUnit) {
     const unitId = Number(updated.unitId);
@@ -328,7 +339,7 @@ function UnitAvailabilityBoard({ roleDef }: { roleDef: RoleDef }) {
     <div className="flex min-w-0 flex-col gap-4 p-6">
       <PageHeader
         title="Unit Availability"
-        description="Building stack of every unit by floor and status. Allocate a tenant or block a unit from the tile."
+        description="Pick a property to see the building elevation. Click a window to allocate, vacate, or block."
       />
 
       {loadError && <p className="text-sm text-destructive">{loadError}</p>}
@@ -358,7 +369,7 @@ function UnitAvailabilityBoard({ roleDef }: { roleDef: RoleDef }) {
           icon={Building2}
           tone="muted"
           heading="Select a property"
-          description="Choose a building to see floors stacked from the top down, with units color-coded by status."
+          description="Choose a building to open its floor-by-floor elevation and unit windows."
           size="compact"
         />
       ) : loadingBoard ? (
@@ -379,118 +390,116 @@ function UnitAvailabilityBoard({ roleDef }: { roleDef: RoleDef }) {
             </Button>
           }
         />
-      ) : units.length === 0 ? (
-        <EmptyState
-          icon={LayoutGrid}
-          tone="muted"
-          heading="No units yet"
-          description="Floors are ready. Add units to see availability tiles on each floor."
-          size="compact"
-          action={
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={unitsHref} />}>
-              Go to Units
-            </Button>
-          }
-        />
       ) : (
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card size="sm">
-            <CardContent className="flex flex-wrap gap-x-6 gap-y-3">
-              <SummaryStat label="Total units" value={units.length} />
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_17.5rem] xl:items-start">
+          <div className="order-2 flex min-w-0 flex-col gap-3 xl:order-1">
+            {units.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-sm">
+                <p className="text-muted-foreground">Floors are in place. Add units to light up the windows.</p>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href={unitsHref} />}>
+                  Go to Units
+                </Button>
+              </div>
+            ) : null}
+            <BuildingFacade
+              propertyName={propertyLabel}
+              propertyCode={selectedProperty?.propertyCode}
+              bands={stackedFloors.bands}
+              orphans={stackedFloors.orphans}
+              statusFilter={statusFilter}
+              unitsHref={unitsHref}
+              occupancy={occupancyProps}
+            />
+          </div>
+
+          <aside className="order-1 flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:order-2">
+            <OccupancyStrip
+              total={units.length}
+              statusOrder={statusOrder}
+              statusCounts={statusCounts}
+              names={unitsByStatusName}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
+                active={statusFilter === "ALL"}
+                label="All"
+                count={units.length}
+                onClick={() => setStatusFilter("ALL")}
+              />
               {statusOrder.map((code) => {
                 const count = statusCounts.get(code) ?? 0;
-                if (count === 0 && !CANONICAL_STATUSES.includes(code as (typeof CANONICAL_STATUSES)[number])) return null;
+                if (count === 0) return null;
                 return (
-                  <SummaryStat
+                  <FilterChip
                     key={code}
+                    active={statusFilter === code}
                     label={unitsByStatusName.get(code) ?? statusLabel(code)}
-                    value={count}
+                    count={count}
                     swatch={swatchClass(code)}
+                    onClick={() => setStatusFilter(code)}
                   />
                 );
               })}
-            </CardContent>
-          </Card>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Legend</p>
-            {statusOrder.map((code) => {
-              const count = statusCounts.get(code) ?? 0;
-              if (count === 0 && !CANONICAL_STATUSES.includes(code as (typeof CANONICAL_STATUSES)[number])) return null;
-              return (
-                <span key={code} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className={cn("h-2.5 w-2.5 rounded-sm", swatchClass(code))} />
-                  {unitsByStatusName.get(code) ?? statusLabel(code)}
-                </span>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            <FilterChip
-              active={statusFilter === "ALL"}
-              label="All"
-              count={units.length}
-              onClick={() => setStatusFilter("ALL")}
-            />
-            {statusOrder.map((code) => {
-              const count = statusCounts.get(code) ?? 0;
-              if (count === 0) return null;
-              return (
-                <FilterChip
-                  key={code}
-                  active={statusFilter === code}
-                  label={unitsByStatusName.get(code) ?? statusLabel(code)}
-                  count={count}
-                  onClick={() => setStatusFilter(code)}
-                />
-              );
-            })}
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-3">
-            {stackedFloors.bands.map(({ floor, units: floorUnits }) => {
-              const visible = filterUnits(floorUnits);
-              if (statusFilter !== "ALL" && visible.length === 0) return null;
-              return (
-                <FloorBand
-                  key={floor.propertyFloorId}
-                  floor={floor}
-                  allUnits={floorUnits}
-                  units={visible}
-                  unitsHref={unitsHref}
-                  {...occupancyProps}
-                />
-              );
-            })}
-            {stackedFloors.orphans.length > 0 && filterUnits(stackedFloors.orphans).length > 0 && (
-              <FloorBand
-                floor={{
-                  floorName: "Unassigned",
-                  floorCode: "—",
-                  floorTypeName: "No floor",
-                }}
-                allUnits={stackedFloors.orphans}
-                units={filterUnits(stackedFloors.orphans)}
-                unitsHref={unitsHref}
-                {...occupancyProps}
-              />
-            )}
-          </div>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Filter dims other windows so the building shape stays intact. Click a window to allocate a tenant or block the unit.
+            </p>
+          </aside>
         </div>
       )}
     </div>
   );
 }
 
-function SummaryStat({ label, value, swatch }: { label: string; value: number; swatch?: string }) {
+function OccupancyStrip({
+  total,
+  statusOrder,
+  statusCounts,
+  names,
+}: {
+  total: number;
+  statusOrder: string[];
+  statusCounts: Map<string, number>;
+  names: Map<string, string>;
+}) {
+  const occupied = statusCounts.get("OCCUPIED") ?? 0;
+  const available = statusCounts.get("AVAILABLE") ?? 0;
+  const blocked = statusCounts.get("BLOCKED") ?? 0;
+  const denom = total || 1;
+
   return (
-    <div className="min-w-[5.5rem]">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="flex items-center gap-1.5 text-xl font-semibold tabular-nums tracking-tight">
-        {swatch ? <span className={cn("h-2 w-2 rounded-sm", swatch)} /> : null}
-        {value}
-      </p>
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Occupancy</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{total}</p>
+      <p className="text-xs text-muted-foreground">units in this building</p>
+      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-muted ring-1 ring-foreground/10">
+        {statusOrder.map((code) => {
+          const count = statusCounts.get(code) ?? 0;
+          if (count === 0) return null;
+          return (
+            <div
+              key={code}
+              className={cn("h-full min-w-0", swatchClass(code))}
+              style={{ width: `${(count / denom) * 100}%` }}
+              title={`${names.get(code) ?? statusLabel(code)} ${count}`}
+            />
+          );
+        })}
+      </div>
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Free</dt>
+          <dd className="text-sm font-semibold tabular-nums">{available}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">In use</dt>
+          <dd className="text-sm font-semibold tabular-nums">{occupied}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Blocked</dt>
+          <dd className="text-sm font-semibold tabular-nums">{blocked}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -499,25 +508,117 @@ function FilterChip({
   active,
   label,
   count,
+  swatch,
   onClick,
 }: {
   active: boolean;
   label: string;
   count: number;
+  swatch?: string;
   onClick: () => void;
 }) {
   return (
-    <Button type="button" size="sm" variant={active ? "default" : "outline"} onClick={onClick}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-foreground/15 bg-foreground text-background"
+          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      {swatch ? <span className={cn("h-2 w-2 rounded-full", swatch)} /> : null}
       {label}
-      <span className="tabular-nums opacity-80">{count}</span>
-    </Button>
+      <span className="tabular-nums opacity-70">{count}</span>
+    </button>
   );
 }
 
-function FloorBand({
+function BuildingFacade({
+  propertyName,
+  propertyCode,
+  bands,
+  orphans,
+  statusFilter,
+  unitsHref,
+  occupancy,
+}: {
+  propertyName: string;
+  propertyCode?: string | null;
+  bands: { floor: PropertyFloor; units: PropertyUnit[] }[];
+  orphans: PropertyUnit[];
+  statusFilter: string;
+  unitsHref: string;
+  occupancy: OccupancyProps;
+}) {
+  const cols = Math.max(4, ...bands.map((band) => band.units.length), orphans.length);
+  const minWidth = `${Math.max(22, 4.75 + cols * 5.35)}rem`;
+
+  return (
+    <div className="min-w-0">
+      <div className="overflow-x-auto pb-4">
+        <div className="mx-auto w-full max-w-3xl" style={{ minWidth }}>
+          <div className="relative mx-[10%] h-5">
+            <div className="absolute inset-x-[18%] bottom-2 h-2 rounded-t-sm bg-foreground/25" />
+            <div className="absolute inset-x-0 bottom-0 h-3 rounded-t-md bg-foreground/20" />
+          </div>
+          <div className="overflow-hidden rounded-t-xl border border-b-0 border-foreground/15 bg-[oklch(0.93_0.012_80)] shadow-[0_28px_60px_-18px_rgba(0,0,0,0.35)] dark:bg-zinc-800">
+            <div className="border-b border-foreground/10 bg-foreground/[0.07] px-4 py-2.5 text-center">
+              <p className="truncate text-sm font-semibold tracking-[0.12em] uppercase">{propertyName}</p>
+              {propertyCode ? (
+                <p className="truncate font-mono text-[10px] text-muted-foreground">{propertyCode}</p>
+              ) : null}
+            </div>
+            <div className="divide-y divide-foreground/10">
+              {bands.map(({ floor, units: floorUnits }) => (
+                <BuildingStory
+                  key={floor.propertyFloorId}
+                  floor={floor}
+                  units={floorUnits}
+                  cols={cols}
+                  statusFilter={statusFilter}
+                  unitsHref={unitsHref}
+                  {...occupancy}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="mx-[-1.5%] h-3 rounded-b-md bg-foreground/25" />
+          <div className="mx-[-5%] h-2.5 rounded-b-sm bg-foreground/40" />
+        </div>
+      </div>
+
+      {orphans.length > 0 ? (
+        <div className="mx-auto mt-2 w-full max-w-3xl rounded-lg border border-dashed bg-muted/30 p-3">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Unassigned units
+          </p>
+          <div
+            className="grid gap-1.5"
+            style={{ gridTemplateColumns: `repeat(${Math.min(cols, orphans.length)}, minmax(4.5rem, 1fr))` }}
+          >
+            {orphans.map((unit) => (
+              <UnitTile
+                key={unit.unitId}
+                unit={unit}
+                dimmed={statusFilter !== "ALL" && statusCodeOf(unit) !== statusFilter}
+                unitsHref={unitsHref}
+                {...occupancy}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BuildingStory({
   floor,
-  allUnits,
   units,
+  cols,
+  statusFilter,
   unitsHref,
   tenants,
   tenantsHref,
@@ -525,58 +626,58 @@ function FloorBand({
   canWrite,
   onUnitUpdated,
 }: {
-  floor: Pick<PropertyFloor, "floorName" | "floorCode"> & { floorTypeName?: string | null };
-  allUnits: PropertyUnit[];
+  floor: PropertyFloor;
   units: PropertyUnit[];
+  cols: number;
+  statusFilter: string;
   unitsHref: string;
-  tenants: PropertyTenant[];
-  tenantsHref: string;
-  actorKey: number;
-  canWrite: boolean;
-  onUnitUpdated: (unit: PropertyUnit) => void;
-}) {
-  const totalOnFloor = allUnits.length;
-  const available = allUnits.filter((u) => statusCodeOf(u) === "AVAILABLE").length;
-  const occupied = allUnits.filter((u) => statusCodeOf(u) === "OCCUPIED").length;
-  const counts = `${totalOnFloor} unit${totalOnFloor === 1 ? "" : "s"} · ${available} available · ${occupied} occupied`;
+} & OccupancyProps) {
+  const empties = Math.max(0, cols - units.length);
+  const available = units.filter((unit) => statusCodeOf(unit) === "AVAILABLE").length;
+  const occupied = units.filter((unit) => statusCodeOf(unit) === "OCCUPIED").length;
 
   return (
-    <Card size="sm" className="min-w-0">
-      <CardHeader className="border-b pb-3">
-        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <CardTitle className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="truncate">{floor.floorName}</span>
-            <span className="font-normal text-muted-foreground">{floor.floorCode}</span>
-            {floor.floorTypeName ? (
-              <Badge variant="outline" className="font-normal">
-                {floor.floorTypeName}
-              </Badge>
-            ) : null}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">{counts}</p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {units.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No units on this floor.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {units.map((unit) => (
-              <UnitTile
-                key={unit.unitId}
-                unit={unit}
-                unitsHref={unitsHref}
-                tenants={tenants}
-                tenantsHref={tenantsHref}
-                actorKey={actorKey}
-                canWrite={canWrite}
-                onUnitUpdated={onUnitUpdated}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div
+      className="flex min-h-[5.75rem]"
+      title={`${floor.floorName} · ${units.length} unit${units.length === 1 ? "" : "s"} · ${available} free · ${occupied} occupied`}
+    >
+      <div className="flex w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5 border-r border-foreground/10 bg-foreground/[0.05] px-1">
+        <span className="text-lg font-bold tabular-nums leading-none">{floorIndexLabel(floor.floorNumber)}</span>
+        <span className="w-full truncate text-center text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+          {floor.floorCode}
+        </span>
+      </div>
+      <div
+        className="grid min-w-0 flex-1 gap-1.5 p-2"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
+        {units.map((unit) => (
+          <UnitTile
+            key={unit.unitId}
+            unit={unit}
+            dimmed={statusFilter !== "ALL" && statusCodeOf(unit) !== statusFilter}
+            unitsHref={unitsHref}
+            tenants={tenants}
+            tenantsHref={tenantsHref}
+            actorKey={actorKey}
+            canWrite={canWrite}
+            onUnitUpdated={onUnitUpdated}
+          />
+        ))}
+        {Array.from({ length: empties }, (_, index) => (
+          <EmptyWindow key={`${floor.propertyFloorId}-empty-${index}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyWindow() {
+  return (
+    <div
+      className="min-h-[4.75rem] rounded-sm border border-dashed border-foreground/20 bg-foreground/[0.03]"
+      aria-hidden
+    />
   );
 }
 
@@ -588,6 +689,7 @@ function UnitTile({
   actorKey,
   canWrite,
   onUnitUpdated,
+  dimmed = false,
 }: {
   unit: PropertyUnit;
   unitsHref: string;
@@ -596,6 +698,7 @@ function UnitTile({
   actorKey: number;
   canWrite: boolean;
   onUnitUpdated: (unit: PropertyUnit) => void;
+  dimmed?: boolean;
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [dialog, setDialog] = useState<"allocate" | "block" | "vacate" | null>(null);
@@ -651,17 +754,28 @@ function UnitTile({
       <Popover open={popoverOpen} onOpenChange={(open) => { if (!dialog) setPopoverOpen(open); }}>
         <PopoverTrigger
           className={cn(
-            "flex h-[4.25rem] w-[6.5rem] min-w-0 flex-col items-start justify-center rounded-md border px-1.5 py-1 text-left transition-colors hover:ring-2 hover:ring-ring/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-            tileClass(code)
+            "group relative flex h-full min-h-[4.75rem] w-full flex-col rounded-sm bg-foreground/20 p-[3px] shadow-inner transition-[filter,opacity] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+            dimmed && "opacity-25 saturate-50"
           )}
         >
-          <span className="w-full truncate text-xs font-semibold leading-tight">{unit.unitNumber || unit.unitCode}</span>
-          <span className="w-full truncate text-[10px] leading-tight opacity-90">{unit.unitName || unit.unitCode}</span>
-          {tenantName ? (
-            <span className="w-full truncate text-[10px] font-medium leading-tight">{tenantName}</span>
-          ) : typeLine ? (
-            <span className="w-full truncate text-[10px] leading-tight opacity-70">{typeLine}</span>
-          ) : null}
+          <span
+            className={cn(
+              "relative flex h-full min-h-[4.5rem] flex-1 flex-col items-start justify-center overflow-hidden rounded-[3px] px-1.5 py-1 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]",
+              "after:pointer-events-none after:absolute after:inset-0 after:bg-gradient-to-br after:from-white/35 after:to-transparent after:opacity-70",
+              tileClass(code)
+            )}
+          >
+            <span className="relative z-10 w-full truncate text-xs font-semibold leading-tight">
+              {unit.unitNumber || unit.unitCode}
+            </span>
+            {tenantName ? (
+              <span className="relative z-10 w-full truncate text-[10px] font-medium leading-tight">{tenantName}</span>
+            ) : (
+              <span className="relative z-10 w-full truncate text-[10px] leading-tight opacity-80">
+                {unit.unitName || typeLine || label}
+              </span>
+            )}
+          </span>
         </PopoverTrigger>
         <PopoverContent className="w-72" align="start">
           <PopoverHeader>

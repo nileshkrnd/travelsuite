@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { serializeAccessRoleRow } from "@/lib/mappers/access-role.mapper";
 
 const idSchema = z.coerce.number().int().positive();
 
@@ -34,9 +35,9 @@ export async function GET(_request: Request, context: RouteContext) {
     const id = idSchema.safeParse(raw);
     if (!id.success) return NextResponse.json({ error: "Invalid access role id" }, { status: 400 });
 
-    const row = await prisma.accessRole.findUnique({ where: { accessRoleId: id.data } });
+    const row = await prisma.accessRole.findUnique({ where: { accessRoleId: BigInt(id.data) } });
     if (!row) return NextResponse.json({ error: "Access role not found" }, { status: 404 });
-    return NextResponse.json(row);
+    return NextResponse.json(serializeAccessRoleRow(row));
   } catch (error) {
     return dbUnavailable(error);
   }
@@ -66,7 +67,7 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const updated = await prisma.accessRole.update({
-      where: { accessRoleId: id.data },
+      where: { accessRoleId: BigInt(id.data) },
       data: {
         accessRoleName: data.accessRoleName.trim(),
         tenantId: data.tenantId,
@@ -76,7 +77,7 @@ export async function PUT(request: Request, context: RouteContext) {
         modifiedDtTm: new Date(),
       },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json(serializeAccessRoleRow(updated));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025") {
@@ -109,14 +110,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const updated = await prisma.accessRole.update({
-      where: { accessRoleId: id.data },
+      where: { accessRoleId: BigInt(id.data) },
       data: {
         isActive: parsed.data.isActive,
         modifiedBy: parsed.data.modifiedBy,
         modifiedDtTm: new Date(),
       },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json(serializeAccessRoleRow(updated));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ error: "Access role not found" }, { status: 404 });
@@ -131,7 +132,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     const id = idSchema.safeParse(raw);
     if (!id.success) return NextResponse.json({ error: "Invalid access role id" }, { status: 400 });
 
-    await prisma.accessRole.delete({ where: { accessRoleId: id.data } });
+    await prisma.accessRole.delete({ where: { accessRoleId: BigInt(id.data) } });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

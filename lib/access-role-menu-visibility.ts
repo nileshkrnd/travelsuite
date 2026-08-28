@@ -51,7 +51,7 @@ export async function resolveUserAccessRoleScope(
 
   if (user.employee?.isActive) {
     return {
-      accessRoleId: user.employee.accessRoleId,
+      accessRoleId: Number(user.employee.accessRoleId),
       companyId: user.employee.companyId,
     };
   }
@@ -61,7 +61,7 @@ export async function resolveUserAccessRoleScope(
     const role = user.supplierUser.accessRole;
     if (role.tenantId !== tenantId) return null;
     return {
-      accessRoleId: user.supplierUser.accessRoleId,
+      accessRoleId: Number(user.supplierUser.accessRoleId),
       // Prefer the role's company scope; fall back to the user/supplier company.
       companyId: role.companyId > 0 ? role.companyId : user.companyId,
     };
@@ -85,7 +85,7 @@ export async function allowedMenuIdsForAccessRole(
   const rows = await db.tenantAccessRoleMenuPermission.findMany({
     where: {
       tenantId,
-      accessRoleId,
+      accessRoleId: BigInt(accessRoleId),
       companyId: companyId > 0 ? { in: [companyId, 0] } : 0,
     },
     select: {

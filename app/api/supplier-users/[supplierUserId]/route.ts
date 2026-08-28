@@ -88,7 +88,7 @@ export async function PUT(request: Request, context: RouteContext) {
           email: username,
           dialCountryCode: data.dialCountryCode?.trim() || null,
           mobileNumber: data.mobileNumber?.trim() || null,
-          accessRoleId: data.accessRoleId,
+          accessRoleId: BigInt(data.accessRoleId),
           isActive: data.isActive ?? existing.isActive,
           updatedBy: data.updatedBy,
           updatedDate: new Date(),

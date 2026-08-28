@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { serializeAccessRoleRow } from "@/lib/mappers/access-role.mapper";
 
 function dbUnavailable(error: unknown) {
   const message = error instanceof Error ? error.message : "Database error";
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       where,
       orderBy: { accessRoleName: "asc" },
     });
-    return NextResponse.json(rows);
+    return NextResponse.json(rows.map(serializeAccessRoleRow));
   } catch (error) {
     return dbUnavailable(error);
   }
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
         createdBy: data.createdBy,
       },
     });
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json(serializeAccessRoleRow(created), { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
