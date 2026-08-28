@@ -34,6 +34,7 @@ import { listCities } from "@/lib/services/cities.service";
 import { listRegions } from "@/lib/services/regions.service";
 import { listServiceProducts, createServiceProduct, updateServiceProduct, ServiceProductsApiError } from "@/lib/services/service-products.service";
 import { getServiceProductSeo, saveServiceProductSeo, ServiceProductSeoApiError } from "@/lib/services/service-product-seo.service";
+import { createServiceProductSupplier } from "@/lib/services/service-product-suppliers.service";
 import type {
   City,
   CommonStatus,
@@ -125,6 +126,8 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
   const tenantId = platformMode ? (serviceProduct?.tenantId ?? 0) : (user?.tenantKey ?? activeTenant.tenantKey ?? 0);
   const companyId = serviceProduct?.companyId ?? resolveSessionCompanyKey(user) ?? 0;
   const actorKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
+  /** A supplier-portal session (Extranet) may only ever own products as themselves — never pick another supplier. */
+  const sessionSupplierId = user?.supplierId ? Number(user.supplierId) : null;
 
   const [bootLoading, setBootLoading] = useState(true);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
@@ -155,7 +158,7 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
       slug: serviceProduct?.slug ?? "",
       serviceProductClassificationId: serviceProduct?.serviceProductClassificationId ?? 0,
       serviceProductCategoryId: serviceProduct?.serviceProductCategoryId ?? null,
-      supplierId: serviceProduct?.supplierId ?? null,
+      supplierId: serviceProduct?.supplierId ?? sessionSupplierId,
       countryId: serviceProduct?.countryId ?? null,
       regionId: serviceProduct?.regionId ?? null,
       cityId: serviceProduct?.cityId ?? null,
@@ -352,6 +355,21 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
         const saved = await createServiceProduct({ ...payload, createdBy: actorKey });
         savedProductId = saved.serviceProductId;
         toast.success("Product created");
+
+        if (sessionSupplierId != null) {
+          try {
+            await createServiceProductSupplier({
+              serviceProductId: savedProductId,
+              supplierId: sessionSupplierId,
+              isPrimary: true,
+              createdBy: actorKey,
+            });
+          } catch (linkError) {
+            toast.error(
+              linkError instanceof Error ? linkError.message : "Product created, but could not be linked to your supplier account"
+            );
+          }
+        }
       }
       try {
         await saveServiceProductSeo({ ...seoPayload, serviceProductId: savedProductId, actorId: actorKey });
@@ -574,6 +592,7 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
                 <Select
                   value={field.value == null ? NONE_OPTION : String(field.value)}
                   onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))}
+                  disabled={sessionSupplierId != null}
                 >
                   <SelectTrigger className="h-10 w-full min-w-0">
                     <SelectValue>
@@ -594,6 +613,9 @@ export function ServiceProductForm({ serviceProduct, roleDef }: { serviceProduct
                 </Select>
               )}
             />
+            {sessionSupplierId != null && (
+              <p className="text-xs text-muted-foreground">Locked to your supplier account.</p>
+            )}
           </div>
 
           <div className="space-y-2">

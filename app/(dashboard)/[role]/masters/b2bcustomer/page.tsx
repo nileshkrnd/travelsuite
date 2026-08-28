@@ -38,6 +38,13 @@ import {
   deleteB2BCustomer,
   B2BCustomersApiError,
 } from "@/lib/services/b2b-customers.service";
+import {
+  addressTypesService,
+  b2bCustomerContactTypesService,
+  b2bCustomerCreditStatusesService,
+  b2bCustomerDocumentTypesService,
+} from "@/lib/services/global-code-lookup.service";
+import { B2BCustomerRelatedSections } from "@/components/masters/B2BCustomerRelatedSections";
 import { can } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type {
@@ -50,6 +57,7 @@ import type {
   PaymentTerm,
   Employee,
   CommonStatus,
+  GlobalCodeLookup,
 } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
@@ -118,6 +126,11 @@ function CustomerPanel({
   paymentTerms,
   employees,
   statuses,
+  contactTypes,
+  addressTypes,
+  documentTypes,
+  creditStatuses,
+  documentStatuses,
   userKey,
   tenantId,
   companyId,
@@ -134,6 +147,11 @@ function CustomerPanel({
   paymentTerms: PaymentTerm[];
   employees: Employee[];
   statuses: CommonStatus[];
+  contactTypes: GlobalCodeLookup[];
+  addressTypes: GlobalCodeLookup[];
+  documentTypes: GlobalCodeLookup[];
+  creditStatuses: GlobalCodeLookup[];
+  documentStatuses: CommonStatus[];
   userKey: number;
   tenantId: number;
   companyId: number;
@@ -242,6 +260,7 @@ function CustomerPanel({
   }
 
   return (
+    <div className="space-y-4">
     <Card className="p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <h2 className="text-base font-semibold">
@@ -591,6 +610,21 @@ function CustomerPanel({
         )}
       </form>
     </Card>
+
+      {row && (mode === "view" || mode === "edit") && (
+        <B2BCustomerRelatedSections
+          b2bCustomerId={row.b2bCustomerId}
+          contactTypes={contactTypes}
+          addressTypes={addressTypes}
+          documentTypes={documentTypes}
+          creditStatuses={creditStatuses}
+          documentStatuses={documentStatuses}
+          countries={countries}
+          userKey={userKey}
+          canEdit={mode === "edit"}
+        />
+      )}
+    </div>
   );
 }
 
@@ -607,6 +641,11 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statuses, setStatuses] = useState<CommonStatus[]>([]);
+  const [documentStatuses, setDocumentStatuses] = useState<CommonStatus[]>([]);
+  const [contactTypes, setContactTypes] = useState<GlobalCodeLookup[]>([]);
+  const [addressTypes, setAddressTypes] = useState<GlobalCodeLookup[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<GlobalCodeLookup[]>([]);
+  const [creditStatuses, setCreditStatuses] = useState<GlobalCodeLookup[]>([]);
   const [rows, setRows] = useState<B2BCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -638,8 +677,20 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [typeRows, categoryRows, countryRows, currencyRows, paymentTermRows, employeeRows, statusTypeRows, customerRows] =
-        await Promise.all([
+      const [
+        typeRows,
+        categoryRows,
+        countryRows,
+        currencyRows,
+        paymentTermRows,
+        employeeRows,
+        statusTypeRows,
+        customerRows,
+        contactTypeRows,
+        addressTypeRows,
+        documentTypeRows,
+        creditStatusRows,
+      ] = await Promise.all([
           listB2BCustomerTypes({ tenantId: scopeTenantId, activeOnly: true }),
           listB2BCustomerCategories({ tenantId: scopeTenantId, activeOnly: true }),
           listCountries({ activeOnly: true }),
@@ -648,6 +699,10 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
           listEmployees({ tenantId: scopeTenantId, activeOnly: true }),
           listCommonStatusTypes({ tenantId: scopeTenantId, activeOnly: true }),
           listB2BCustomers({ tenantId: scopeTenantId }),
+          b2bCustomerContactTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
+          addressTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
+          b2bCustomerDocumentTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
+          b2bCustomerCreditStatusesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
         ]);
       setTypes(typeRows);
       setCategories(categoryRows);
@@ -656,6 +711,10 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
       setPaymentTerms(paymentTermRows);
       setEmployees(employeeRows);
       setRows(customerRows);
+      setContactTypes(contactTypeRows);
+      setAddressTypes(addressTypeRows);
+      setDocumentTypes(documentTypeRows);
+      setCreditStatuses(creditStatusRows);
 
       const statusType = statusTypeRows.find((t) => t.statusTypeCode === STATUS_TYPE_CODE);
       if (statusType) {
@@ -663,6 +722,12 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
       } else {
         setStatuses([]);
       }
+      const docStatusType = statusTypeRows.find((t) => t.statusTypeCode === "B2B_CUSTOMER_DOCUMENT");
+      setDocumentStatuses(
+        docStatusType
+          ? await listCommonStatuses({ tenantId: scopeTenantId, commonStatusTypeId: docStatusType.commonStatusTypeId, activeOnly: true })
+          : []
+      );
     } catch (error) {
       setLoadError(
         error instanceof B2BCustomerTypesApiError ||
@@ -806,6 +871,11 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
           paymentTerms={paymentTerms}
           employees={employees}
           statuses={statuses}
+          contactTypes={contactTypes}
+          addressTypes={addressTypes}
+          documentTypes={documentTypes}
+          creditStatuses={creditStatuses}
+          documentStatuses={documentStatuses}
           userKey={userKey}
           tenantId={scopeTenantId}
           companyId={target?.companyId ?? scopeCompanyId}

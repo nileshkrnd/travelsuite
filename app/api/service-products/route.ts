@@ -82,6 +82,7 @@ export async function GET(request: Request) {
     const serviceTypeIdParam = searchParams.get("serviceTypeId");
     const classificationIdParam = searchParams.get("serviceProductClassificationId");
     const categoryIdParam = searchParams.get("serviceProductCategoryId");
+    const supplierScopeIdParam = searchParams.get("supplierScopeId");
     const activeOnly = searchParams.get("activeOnly") === "true";
 
     const where: Prisma.ServiceProductWhereInput = {};
@@ -92,6 +93,10 @@ export async function GET(request: Request) {
       where.serviceProductClassificationId = BigInt(classificationIdParam);
     }
     if (categoryIdParam != null && categoryIdParam !== "") where.serviceProductCategoryId = BigInt(categoryIdParam);
+    // Supplier-portal scoping — only products this supplier is linked to via ServiceProductSupplier.
+    if (supplierScopeIdParam != null && supplierScopeIdParam !== "") {
+      where.supplierLinks = { some: { supplierId: BigInt(supplierScopeIdParam), isActive: true } };
+    }
     if (activeOnly) where.isActive = true;
 
     const rows = await prisma.serviceProduct.findMany({

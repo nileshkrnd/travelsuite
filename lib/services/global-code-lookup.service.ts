@@ -46,9 +46,15 @@ function toPayload(config: GlobalCodeLookupServiceConfig, input: GlobalCodeLooku
 }
 
 export function createGlobalCodeLookupService(config: GlobalCodeLookupServiceConfig) {
-  async function list(options?: { activeOnly?: boolean }): Promise<GlobalCodeLookup[]> {
+  async function list(options?: {
+    activeOnly?: boolean;
+    tenantId?: number;
+    companyId?: number;
+  }): Promise<GlobalCodeLookup[]> {
     const params = new URLSearchParams();
     if (options?.activeOnly) params.set("activeOnly", "true");
+    if (options?.tenantId !== undefined) params.set("tenantId", String(options.tenantId));
+    if (options?.companyId !== undefined) params.set("companyId", String(options.companyId));
     const qs = params.toString();
     const res = await fetch(`${config.path}${qs ? `?${qs}` : ""}`, { cache: "no-store" });
     if (!res.ok) throw new GlobalCodeLookupApiError(await parseError(res), res.status);
@@ -57,11 +63,18 @@ export function createGlobalCodeLookupService(config: GlobalCodeLookupServiceCon
     );
   }
 
-  async function create(input: GlobalCodeLookupWriteInput & { createdBy: number }): Promise<GlobalCodeLookup> {
+  async function create(
+    input: GlobalCodeLookupWriteInput & { createdBy: number; tenantId?: number; companyId?: number }
+  ): Promise<GlobalCodeLookup> {
     const res = await fetch(config.path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...toPayload(config, input), createdBy: input.createdBy }),
+      body: JSON.stringify({
+        ...toPayload(config, input),
+        createdBy: input.createdBy,
+        tenantId: input.tenantId,
+        companyId: input.companyId,
+      }),
     });
     if (!res.ok) throw new GlobalCodeLookupApiError(await parseError(res), res.status);
     return toAppGlobalCodeLookup(await res.json(), config.idField, config.codeField, config.nameField);
@@ -131,4 +144,32 @@ export const furnishedStatusesService = createGlobalCodeLookupService({
   idField: "furnishedStatusId",
   codeField: "furnishedStatusCode",
   nameField: "furnishedStatusName",
+});
+
+export const b2bCustomerContactTypesService = createGlobalCodeLookupService({
+  path: "/api/b2b-customer-contact-types",
+  idField: "b2bCustomerContactTypeId",
+  codeField: "contactTypeCode",
+  nameField: "contactTypeName",
+});
+
+export const addressTypesService = createGlobalCodeLookupService({
+  path: "/api/address-types",
+  idField: "addressTypeId",
+  codeField: "addressTypeCode",
+  nameField: "addressTypeName",
+});
+
+export const b2bCustomerDocumentTypesService = createGlobalCodeLookupService({
+  path: "/api/b2b-customer-document-types",
+  idField: "documentTypeId",
+  codeField: "documentTypeCode",
+  nameField: "documentTypeName",
+});
+
+export const b2bCustomerCreditStatusesService = createGlobalCodeLookupService({
+  path: "/api/b2b-customer-credit-statuses",
+  idField: "b2bCustomerCreditStatusId",
+  codeField: "creditStatusCode",
+  nameField: "creditStatusName",
 });

@@ -153,6 +153,7 @@ export * from "./payment-term";
 export * from "./b2b-customer-type";
 export * from "./b2b-customer-category";
 export * from "./b2b-customer";
+export * from "./b2b-customer-related";
 export * from "./cash-customer-type";
 export * from "./cash-customer";
 export * from "./property-tenant-type";

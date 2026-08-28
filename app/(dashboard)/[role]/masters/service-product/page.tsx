@@ -104,6 +104,8 @@ function ProductList({ roleDef }: { roleDef: RoleDef }) {
   const canCreate = can(roleDef, "serviceProduct", "create");
   const canDelete = can(roleDef, "serviceProduct", "delete");
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
+  /** A supplier-portal session only ever sees products linked to them via ServiceProductSupplier. */
+  const sessionSupplierId = user?.supplierId ? Number(user.supplierId) : undefined;
 
   const selectedServiceType = serviceTypes.find((t) => t.serviceTypeId === serviceTypeFilter);
 
@@ -119,7 +121,7 @@ function ProductList({ roleDef }: { roleDef: RoleDef }) {
     try {
       const [typeRows, allProducts] = await Promise.all([
         listServiceTypes({ tenantId: scopeTenantId, activeOnly: true }),
-        listServiceProducts({ tenantId: scopeTenantId }),
+        listServiceProducts({ tenantId: scopeTenantId, supplierScopeId: sessionSupplierId }),
       ]);
       setServiceTypes(typeRows);
       const counts = new Map<number, number>();
@@ -152,7 +154,11 @@ function ProductList({ roleDef }: { roleDef: RoleDef }) {
     }
     setLoadingRows(true);
     try {
-      const productRows = await listServiceProducts({ tenantId: scopeTenantId, serviceTypeId: serviceTypeFilter });
+      const productRows = await listServiceProducts({
+        tenantId: scopeTenantId,
+        serviceTypeId: serviceTypeFilter,
+        supplierScopeId: sessionSupplierId,
+      });
       setRows(productRows);
       setTypeCounts((prev) => {
         const next = new Map(prev);

@@ -26,6 +26,8 @@ export async function listServiceProducts(options?: {
   serviceTypeId?: number;
   serviceProductClassificationId?: number;
   serviceProductCategoryId?: number;
+  /** Supplier-portal scoping — only products linked to this supplier via ServiceProductSupplier. */
+  supplierScopeId?: number;
   activeOnly?: boolean;
 }): Promise<ServiceProduct[]> {
   const params = new URLSearchParams();
@@ -38,6 +40,7 @@ export async function listServiceProducts(options?: {
   if (options?.serviceProductCategoryId !== undefined) {
     params.set("serviceProductCategoryId", String(options.serviceProductCategoryId));
   }
+  if (options?.supplierScopeId !== undefined) params.set("supplierScopeId", String(options.supplierScopeId));
   if (options?.activeOnly) params.set("activeOnly", "true");
   const qs = params.toString();
   const res = await fetch(`/api/service-products${qs ? `?${qs}` : ""}`, { cache: "no-store" });

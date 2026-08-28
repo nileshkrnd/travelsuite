@@ -27,7 +27,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
+import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
+import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { can, type ModuleKey } from "@/config/permissions";
+import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import type { GlobalCodeLookup, RoleDef } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
@@ -35,7 +38,7 @@ type StatusFilter = "all" | "active" | "inactive";
 type SortKey = "code" | "name" | "displayOrder";
 
 export type GlobalCodeMasterService<T extends GlobalCodeLookup> = {
-  list: (options?: { activeOnly?: boolean }) => Promise<T[]>;
+  list: (options?: { activeOnly?: boolean; tenantId?: number; companyId?: number }) => Promise<T[]>;
   create: (input: {
     code: string;
     name: string;
@@ -43,6 +46,8 @@ export type GlobalCodeMasterService<T extends GlobalCodeLookup> = {
     displayOrder?: number;
     isActive?: boolean;
     createdBy: number;
+    tenantId?: number;
+    companyId?: number;
   }) => Promise<T>;
   update: (
     key: number,
@@ -72,6 +77,9 @@ export type GlobalCodeMasterConfig<T extends GlobalCodeLookup> = {
   icon: LucideIcon;
   addButtonLabel: string;
   service: GlobalCodeMasterService<T>;
+  /** When true, list/create are scoped to the signed-in tenant + company. */
+  scoped?: boolean;
+  nameMax?: number;
 };
 
 export function GlobalCodeMasterPage<T extends GlobalCodeLookup>({
@@ -86,7 +94,12 @@ export function GlobalCodeMasterPage<T extends GlobalCodeLookup>({
   );
 }
 
-function useCodeSchema<T extends GlobalCodeLookup>(rows: T[], entityLabel: string, currentKey?: number) {
+function useCodeSchema<T extends GlobalCodeLookup>(
+  rows: T[],
+  entityLabel: string,
+  nameMax: number,
+  currentKey?: number
+) {
   return z.object({
     code: z
       .string()
@@ -102,7 +115,7 @@ function useCodeSchema<T extends GlobalCodeLookup>(rows: T[], entityLabel: strin
       .string()
       .trim()
       .min(1, `${entityLabel} name is required`)
-      .max(100, "Must be 100 characters or fewer"),
+      .max(nameMax, `Must be ${nameMax} characters or fewer`),
     description: z.string().trim().max(250).optional().or(z.literal("")),
     displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
   });
@@ -117,6 +130,7 @@ function MasterList<T extends GlobalCodeLookup>({
 }) {
   const user = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
+  const activeTenantId = useTenantStore((s) => s.tenantId);
   const [rows, setRows] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -132,12 +146,24 @@ function MasterList<T extends GlobalCodeLookup>({
   const canDelete = can(roleDef, config.moduleKey, "delete");
   const actorKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
   const Icon = config.icon;
+  const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
+  const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
+  const scopeTenantId = config.scoped ? (platformMode ? 0 : (user?.tenantKey ?? 0)) : 0;
+  const scopeCompanyId = config.scoped ? (resolveSessionCompanyKey(user) ?? 0) : 0;
+  const scopeReady = !config.scoped || (scopeTenantId > 0 && scopeCompanyId > 0);
 
   useEffect(() => {
     let cancelled = false;
+    if (config.scoped && !scopeReady) {
+      setRows([]);
+      setLoading(false);
+      setLoadError(platformMode ? "Select a tenant workspace to manage this master." : "Missing tenant or company scope.");
+      return;
+    }
     setLoading(true);
+    setLoadError(null);
     config.service
-      .list()
+      .list(config.scoped ? { tenantId: scopeTenantId, companyId: scopeCompanyId } : undefined)
       .then((data) => {
         if (cancelled) return;
         setRows(data);
@@ -152,7 +178,7 @@ function MasterList<T extends GlobalCodeLookup>({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scopeTenantId, scopeCompanyId, scopeReady]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -252,6 +278,8 @@ function MasterList<T extends GlobalCodeLookup>({
           row={target}
           rows={rows}
           actorKey={actorKey}
+          scopeTenantId={scopeTenantId}
+          scopeCompanyId={scopeCompanyId}
           config={config}
           onSaved={upsertLocal}
           onClose={() => {
@@ -387,6 +415,8 @@ function MasterPanel<T extends GlobalCodeLookup>({
   row,
   rows,
   actorKey,
+  scopeTenantId,
+  scopeCompanyId,
   config,
   onSaved,
   onClose,
@@ -395,12 +425,14 @@ function MasterPanel<T extends GlobalCodeLookup>({
   row?: T;
   rows: T[];
   actorKey: number;
+  scopeTenantId: number;
+  scopeCompanyId: number;
   config: GlobalCodeMasterConfig<T>;
   onSaved: (row: T) => void;
   onClose: () => void;
 }) {
   const isReadOnly = mode === "view";
-  const schema = useCodeSchema(rows, config.entityLabel, row?.key);
+  const schema = useCodeSchema(rows, config.entityLabel, config.nameMax ?? 100, row?.key);
   type FormValues = z.infer<typeof schema>;
 
   const {
@@ -441,6 +473,8 @@ function MasterPanel<T extends GlobalCodeLookup>({
         const created = await config.service.create({
           ...payload,
           createdBy: actorKey,
+          tenantId: config.scoped ? scopeTenantId : undefined,
+          companyId: config.scoped ? scopeCompanyId : undefined,
         });
         onSaved(created);
         toast.success(`${config.entityLabel} created`);

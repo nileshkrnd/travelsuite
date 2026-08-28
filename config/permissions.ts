@@ -67,6 +67,10 @@ export type ModuleKey =
   | "adminCustomers"
   | "cashCustomer"
   | "b2bCustomer"
+  | "b2bCustomerContactType"
+  | "addressType"
+  | "b2bCustomerDocumentType"
+  | "b2bCustomerCreditStatus"
   | "adminSuppliers"
   | "creditControl"
   | "roles"
@@ -852,6 +856,30 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.b2bCustomer",
             icon: "Landmark",
             path: "masters/b2bCustomer",
+          },
+          {
+            key: "b2bCustomerContactType",
+            labelKey: "sidebar.b2bCustomerContactType",
+            icon: "Users",
+            path: "masters/b2b-customer-contact-type",
+          },
+          {
+            key: "addressType",
+            labelKey: "sidebar.addressType",
+            icon: "MapPin",
+            path: "masters/address-type",
+          },
+          {
+            key: "b2bCustomerDocumentType",
+            labelKey: "sidebar.b2bCustomerDocumentType",
+            icon: "FileBadge",
+            path: "masters/b2b-customer-document-type",
+          },
+          {
+            key: "b2bCustomerCreditStatus",
+            labelKey: "sidebar.b2bCustomerCreditStatus",
+            icon: "CreditCard",
+            path: "masters/b2b-customer-credit-status",
           },
         ],
       },

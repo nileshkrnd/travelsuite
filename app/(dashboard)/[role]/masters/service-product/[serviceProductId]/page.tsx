@@ -41,6 +41,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getServiceProduct, ServiceProductsApiError } from "@/lib/services/service-products.service";
 import { listServiceProductStatusHistory } from "@/lib/services/service-product-status-history.service";
 import { listServiceProductMedia } from "@/lib/services/service-product-media.service";
+import { listServiceProductSuppliers } from "@/lib/services/service-product-suppliers.service";
+import { useSessionStore } from "@/lib/store/session.store";
 import { can } from "@/config/permissions";
 import type { RoleDef, ServiceProduct, ServiceProductMedia, ServiceProductStatusHistory } from "@/types";
 import { ProductConfigurationTab } from "@/components/masters/product-tabs/ProductConfigurationTab";
@@ -105,6 +107,9 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
   const [media, setMedia] = useState<ServiceProductMedia[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const canEdit = can(roleDef, "serviceProduct", "edit");
+  const user = useSessionStore((s) => s.user);
+  /** A supplier-portal session may only ever open a product it's linked to via ServiceProductSupplier. */
+  const sessionSupplierId = user?.supplierId ? Number(user.supplierId) : undefined;
 
   useEffect(() => {
     if (!Number.isFinite(id) || id <= 0) {
@@ -114,22 +119,30 @@ function ProductView({ roleDef }: { roleDef: RoleDef }) {
     }
     let cancelled = false;
     setLoading(true);
-    getServiceProduct(id)
-      .then((row) => {
+    (async () => {
+      try {
+        if (sessionSupplierId != null) {
+          const links = await listServiceProductSuppliers({ serviceProductId: id, supplierId: sessionSupplierId, activeOnly: true });
+          if (links.length === 0) {
+            if (!cancelled) setError("You don't have access to this product.");
+            return;
+          }
+        }
+        const row = await getServiceProduct(id);
         if (!cancelled) setProduct(row);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           setError(err instanceof ServiceProductsApiError ? err.message : "Failed to load product");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, sessionSupplierId]);
 
   useEffect(() => {
     if (!Number.isFinite(id) || id <= 0) return;
