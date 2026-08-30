@@ -4725,26 +4725,28 @@ model B2BCustomer {
   @@map("B2BCustomer")
 }
 
-/// Contact kind for a B2B customer (Management, Sales, Reservations, …). Tenant + company scoped.
-model B2BCustomerContactType {
-  b2bCustomerContactTypeId BigInt    @id @default(autoincrement()) @map("B2BCustomerContactTypeID")
-  tenantId                 Int       @map("TenantID")
-  companyId                Int       @map("CompanyID")
-  contactTypeCode          String    @map("ContactTypeCode") @db.VarChar(50)
-  contactTypeName          String    @map("ContactTypeName") @db.VarChar(100)
-  description              String?   @map("Description") @db.VarChar(250)
-  displayOrder             Int       @default(0) @map("DisplayOrder")
-  isActive                 Boolean   @default(true) @map("IsActive")
-  createdBy                Int       @map("CreatedBy")
-  createdDtTm              DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
-  modifiedBy               Int?      @map("UpdatedBy")
-  modifiedDtTm             DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+/// Contact kind (Management, Sales, Reservations, …). Tenant + company scoped.
+model ContactTypeMaster {
+  contactTypeId       BigInt    @id @default(autoincrement()) @map("ContactTypeID")
+  tenantId            Int       @map("TenantID")
+  companyId           Int       @map("CompanyID")
+  contactTypeCode     String    @map("ContactTypeCode") @db.VarChar(50)
+  contactTypeName     String    @map("ContactTypeName") @db.VarChar(100)
+  /// CUSTOMER | SUPPLIER | BOTH — who this contact kind applies to.
+  contactTypeCategory String    @default("BOTH") @map("ContactTypeCategory") @db.VarChar(20)
+  description         String?   @map("Description") @db.VarChar(250)
+  displayOrder        Int       @default(0) @map("DisplayOrder")
+  isActive            Boolean   @default(true) @map("IsActive")
+  createdBy           Int       @map("CreatedBy")
+  createdDtTm         DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy          Int?      @map("UpdatedBy")
+  modifiedDtTm        DateTime? @map("UpdatedDate") @db.Timestamptz(6)
 
-  contacts B2BCustomerContact[]
+  b2bCustomerContacts B2BCustomerContact[]
 
-  @@unique([tenantId, companyId, contactTypeCode], map: "B2BCustomerContactType_Tenant_Company_Code_key")
-  @@index([tenantId, companyId], map: "B2BCustomerContactType_TenantID_CompanyID_idx")
-  @@map("B2BCustomerContactType")
+  @@unique([tenantId, companyId, contactTypeCode], map: "ContactTypeMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "ContactTypeMaster_TenantID_CompanyID_idx")
+  @@map("ContactTypeMaster")
 }
 
 /// Address kind (Registered, Office, Billing, …). Tenant + company scoped.
@@ -4769,8 +4771,8 @@ model AddressTypeMaster {
   @@map("AddressTypeMaster")
 }
 
-/// Commercial document kind for a B2B customer (trade license, tax certificate, …). Tenant + company scoped.
-model B2BCustomerDocumentType {
+/// Commercial document kind (trade license, tax certificate, …). Tenant + company scoped.
+model DocumentTypeMaster {
   documentTypeId   BigInt    @id @default(autoincrement()) @map("DocumentTypeID")
   tenantId         Int       @map("TenantID")
   companyId        Int       @map("CompanyID")
@@ -4784,11 +4786,11 @@ model B2BCustomerDocumentType {
   modifiedBy       Int?      @map("UpdatedBy")
   modifiedDtTm     DateTime? @map("UpdatedDate") @db.Timestamptz(6)
 
-  documents B2BCustomerDocument[]
+  b2bCustomerDocuments B2BCustomerDocument[]
 
-  @@unique([tenantId, companyId, documentTypeCode], map: "B2BCustomerDocumentType_Tenant_Company_Code_key")
-  @@index([tenantId, companyId], map: "B2BCustomerDocumentType_TenantID_CompanyID_idx")
-  @@map("B2BCustomerDocumentType")
+  @@unique([tenantId, companyId, documentTypeCode], map: "DocumentTypeMaster_Tenant_Company_Code_key")
+  @@index([tenantId, companyId], map: "DocumentTypeMaster_TenantID_CompanyID_idx")
+  @@map("DocumentTypeMaster")
 }
 
 /// Credit facility status (Pending, Approved, Suspended, …). Tenant + company scoped.
@@ -4815,29 +4817,29 @@ model B2BCustomerCreditStatus {
 
 /// A named contact at a B2B customer.
 model B2BCustomerContact {
-  b2bCustomerContactId     BigInt    @id @default(autoincrement()) @map("B2BCustomerContactID")
-  b2bCustomerId            BigInt    @map("B2BCustomerID")
-  b2bCustomerContactTypeId BigInt    @map("B2BCustomerContactTypeID")
-  firstName                String    @map("FirstName") @db.VarChar(100)
-  lastName                 String    @map("LastName") @db.VarChar(100)
-  designation              String?   @map("Designation") @db.VarChar(150)
-  email                    String?   @map("Email") @db.VarChar(200)
-  mobileCountryCode        String?   @map("MobileCountryCode") @db.VarChar(10)
-  mobileNumber             String?   @map("MobileNumber") @db.VarChar(30)
-  phoneCountryCode         String?   @map("PhoneCountryCode") @db.VarChar(10)
-  phoneNumber              String?   @map("PhoneNumber") @db.VarChar(30)
-  isPrimary                Boolean   @default(false) @map("IsPrimary")
-  isActive                 Boolean   @default(true) @map("IsActive")
-  createdBy                Int       @map("CreatedBy")
-  createdDtTm              DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
-  modifiedBy               Int?      @map("UpdatedBy")
-  modifiedDtTm             DateTime? @map("UpdatedDate") @db.Timestamptz(6)
+  b2bCustomerContactId BigInt    @id @default(autoincrement()) @map("B2BCustomerContactID")
+  b2bCustomerId        BigInt    @map("B2BCustomerID")
+  contactTypeId        BigInt    @map("ContactTypeID")
+  firstName            String    @map("FirstName") @db.VarChar(100)
+  lastName             String    @map("LastName") @db.VarChar(100)
+  designation          String?   @map("Designation") @db.VarChar(150)
+  email                String?   @map("Email") @db.VarChar(200)
+  mobileCountryCode    String?   @map("MobileCountryCode") @db.VarChar(10)
+  mobileNumber         String?   @map("MobileNumber") @db.VarChar(30)
+  phoneCountryCode     String?   @map("PhoneCountryCode") @db.VarChar(10)
+  phoneNumber          String?   @map("PhoneNumber") @db.VarChar(30)
+  isPrimary            Boolean   @default(false) @map("IsPrimary")
+  isActive             Boolean   @default(true) @map("IsActive")
+  createdBy            Int       @map("CreatedBy")
+  createdDtTm          DateTime  @default(now()) @map("CreatedDate") @db.Timestamptz(6)
+  modifiedBy           Int?      @map("UpdatedBy")
+  modifiedDtTm         DateTime? @map("UpdatedDate") @db.Timestamptz(6)
 
-  b2bCustomer B2BCustomer             @relation(fields: [b2bCustomerId], references: [b2bCustomerId], onDelete: Cascade)
-  contactType B2BCustomerContactType  @relation(fields: [b2bCustomerContactTypeId], references: [b2bCustomerContactTypeId], onDelete: Restrict)
+  b2bCustomer B2BCustomer       @relation(fields: [b2bCustomerId], references: [b2bCustomerId], onDelete: Cascade)
+  contactType ContactTypeMaster @relation(fields: [contactTypeId], references: [contactTypeId], onDelete: Restrict)
 
   @@index([b2bCustomerId], map: "B2BCustomerContact_CustomerID_idx")
-  @@index([b2bCustomerContactTypeId], map: "B2BCustomerContact_TypeID_idx")
+  @@index([contactTypeId], map: "B2BCustomerContact_TypeID_idx")
   @@map("B2BCustomerContact")
 }
 
@@ -4899,7 +4901,7 @@ model B2BCustomerDocument {
   modifiedDtTm          DateTime? @map("UpdatedDate") @db.Timestamptz(6)
 
   b2bCustomer    B2BCustomer               @relation(fields: [b2bCustomerId], references: [b2bCustomerId], onDelete: Cascade)
-  documentType   B2BCustomerDocumentType   @relation(fields: [documentTypeId], references: [documentTypeId], onDelete: Restrict)
+  documentType   DocumentTypeMaster        @relation(fields: [documentTypeId], references: [documentTypeId], onDelete: Restrict)
   issuingCountry Country?                  @relation("B2BCustomerDocumentIssuingCountry", fields: [issuingCountryId], references: [countryId], onDelete: SetNull)
   status         CommonStatus              @relation(fields: [statusId], references: [commonStatusId], onDelete: Restrict)
 

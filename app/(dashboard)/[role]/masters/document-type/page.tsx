@@ -2,18 +2,18 @@
 
 import { FileCheck2 } from "lucide-react";
 import { GlobalCodeMasterPage, type GlobalCodeMasterService } from "@/components/masters/GlobalCodeMasterPage";
-import { b2bCustomerDocumentTypesService } from "@/lib/services/global-code-lookup.service";
+import { documentTypesService } from "@/lib/services/global-code-lookup.service";
 import type { GlobalCodeLookup } from "@/types";
 
-const service: GlobalCodeMasterService<GlobalCodeLookup> = b2bCustomerDocumentTypesService;
+const service: GlobalCodeMasterService<GlobalCodeLookup> = documentTypesService;
 
-export default function B2BCustomerDocumentTypePage() {
+export default function DocumentTypeMasterPage() {
   return (
     <GlobalCodeMasterPage
       config={{
-        moduleKey: "b2bCustomerDocumentType",
-        title: "B2B Document Type",
-        description: "Trade license, tax certificate, IATA and other commercial documents for B2B customers.",
+        moduleKey: "documentType",
+        title: "Document Type",
+        description: "Trade license, tax certificate, IATA and other commercial document kinds.",
         entityLabel: "Document type",
         codeLabel: "Document type code",
         nameLabel: "Document type name",

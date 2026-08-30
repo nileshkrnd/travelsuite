@@ -16,11 +16,40 @@ import { TenantLogo } from "@/components/layout/TenantLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { contrastForeground } from "@/lib/color";
-import { cn, initials } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
 import { useHydrateTenants } from "@/lib/hooks/useHydrateTenants";
 import { DEFAULT_BRANDING } from "@/mock/data/tenants";
-import type { Tenant } from "@/types";
+import type { Tenant, TenantBranding } from "@/types";
+
+function TenantCardLogo({ branding }: { branding: TenantBranding }) {
+  const [failed, setFailed] = useState(false);
+  const src = branding.logoUrl?.trim() || "";
+  const showImage = Boolean(src) && !failed;
+  const foreground = contrastForeground(branding.primaryColor);
+
+  return (
+    <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded-lg bg-background ring-1 ring-border">
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- tenant-uploaded public paths
+        <img
+          src={src}
+          alt=""
+          className="max-h-24 w-auto max-w-[calc(100%-1.25rem)] object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-xl font-semibold"
+          style={{ backgroundColor: branding.primaryColor, color: foreground }}
+          aria-hidden
+        >
+          {initials(branding.name)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Super Admin workspace picker — select a tenant, or skip into platform settings.
@@ -87,7 +116,7 @@ export function TenantSelection() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col px-6 py-10">
         <div className="flex items-center justify-between">
-          <TenantLogo branding={DEFAULT_BRANDING} size="md" linkHome />
+          <TenantLogo branding={DEFAULT_BRANDING} size="lg" linkHome />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
             <LogOut className="h-4 w-4" />
             {t("logout")}
@@ -160,7 +189,6 @@ export function TenantSelection() {
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-3 pb-10 sm:grid-cols-2 lg:grid-cols-3">
             {visibleTenants.map((tenant) => {
-              const foreground = contrastForeground(tenant.branding.primaryColor);
               const count = companyCount(tenant.id);
               return (
                 <button
@@ -174,25 +202,12 @@ export function TenantSelection() {
                     style={{ backgroundColor: tenant.branding.primaryColor }}
                     aria-hidden
                   />
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-semibold"
-                      )}
-                      style={{
-                        backgroundColor: tenant.branding.primaryColor,
-                        color: foreground,
-                      }}
-                      aria-hidden
-                    >
-                      {initials(tenant.branding.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-foreground">{tenant.branding.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {tenant.address.city}, {tenant.address.country}
-                      </p>
-                    </div>
+                  <TenantCardLogo branding={tenant.branding} />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-foreground">{tenant.branding.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {tenant.address.city}, {tenant.address.country}
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">

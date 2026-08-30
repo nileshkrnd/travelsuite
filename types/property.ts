@@ -38,6 +38,8 @@ export interface GlobalCodeLookup {
   createdAt: string;
   modifiedBy: number | null;
   modifiedDtTm: string | null;
+  /** Present on Contact Type. CUSTOMER | SUPPLIER | BOTH */
+  contactTypeCategory?: string;
 }
 
 export type FloorType = GlobalCodeLookup;

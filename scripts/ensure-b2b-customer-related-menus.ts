@@ -1,21 +1,33 @@
 /**
- * Upsert B2B customer lookup menus under Administration → Customers and copy
- * permissions from the existing B2B Customer item.
+ * Upsert Administration menus from seed and copy permissions onto General lookup
+ * items (Contact Type, Address Type, Document Type) plus B2B Credit Status.
  *
  * Run: npx tsx scripts/ensure-b2b-customer-related-menus.ts
  */
 import { PrismaClient } from "@prisma/client";
-import { MODULE_MENU_SEEDS, type SeedMenuNode } from "../prisma/admin/seed-module-menus";
+import {
+  ADMIN_MENU_PRODUCT_LINKS,
+  MODULE_MENU_SEEDS,
+  type SeedMenuNode,
+} from "../prisma/admin/seed-module-menus";
 
 const prisma = new PrismaClient();
 const CREATED_BY = 1;
 
+const MENU_RENAMES = [
+  { from: "masters/b2b-customer-contact-type", to: "masters/contact-type", name: "Contact Type" },
+  { from: "masters/b2b-customer-document-type", to: "masters/document-type", name: "Document Type" },
+] as const;
 const NEW_MENU_URLS = [
-  "masters/b2b-customer-contact-type",
+  "administration/masters/general",
+  "masters/contact-type",
   "masters/address-type",
-  "masters/b2b-customer-document-type",
+  "masters/document-type",
+  "administration/masters/property-product",
+  "masters/additional-info-type",
   "masters/b2b-customer-credit-status",
 ] as const;
+const DEACTIVATE_MENU_URLS = ["masters/corporateAccounts", "masters/subAgency"] as const;
 const PERM_SOURCE_URL = "masters/b2bCustomer";
 
 async function upsertMenuTree(
@@ -78,7 +90,81 @@ async function main() {
 
   for (const mod of modules) {
     console.log("Updating menus for", mod.subscriptionModuleName, mod.subscriptionModuleId);
+
+    for (const rename of MENU_RENAMES) {
+      const existingTo = await prisma.subscriptionModuleMenu.findFirst({
+        where: { subscriptionModuleId: mod.subscriptionModuleId, menuUrl: rename.to },
+      });
+      const existingFrom = await prisma.subscriptionModuleMenu.findFirst({
+        where: { subscriptionModuleId: mod.subscriptionModuleId, menuUrl: rename.from },
+      });
+      if (existingFrom && !existingTo) {
+        await prisma.subscriptionModuleMenu.update({
+          where: { subscriptionModuleMenuId: existingFrom.subscriptionModuleMenuId },
+          data: { menuUrl: rename.to, menuName: rename.name, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
+        });
+        console.log("Renamed menu", rename.from, "→", rename.to);
+      } else if (existingFrom && existingTo) {
+        await prisma.subscriptionModuleMenu.update({
+          where: { subscriptionModuleMenuId: existingFrom.subscriptionModuleMenuId },
+          data: { isActive: false, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
+        });
+        console.log("Deactivated duplicate menu", rename.from);
+      }
+    }
+
     await upsertMenuTree(mod.subscriptionModuleId, tree, null);
+
+    const deactivated = await prisma.subscriptionModuleMenu.updateMany({
+      where: {
+        subscriptionModuleId: mod.subscriptionModuleId,
+        menuUrl: { in: [...DEACTIVATE_MENU_URLS] },
+        isActive: true,
+      },
+      data: { isActive: false, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
+    });
+    if (deactivated.count > 0) {
+      console.log("Deactivated Corporate/Sub Agent menus:", deactivated.count);
+    }
+
+    const targetMenus = await prisma.subscriptionModuleMenu.findMany({
+      where: {
+        subscriptionModuleId: mod.subscriptionModuleId,
+        menuUrl: { in: [...NEW_MENU_URLS] },
+        isActive: true,
+      },
+      select: { subscriptionModuleMenuId: true, menuUrl: true },
+    });
+
+    for (const menu of targetMenus) {
+      const productNames = ADMIN_MENU_PRODUCT_LINKS[menu.menuUrl] ?? [];
+      if (productNames.length === 0) continue;
+      const products = await prisma.subscriptionProduct.findMany({
+        where: { isActive: true, subscriptionProductName: { in: productNames } },
+        select: { subscriptionProductId: true, subscriptionProductName: true },
+      });
+      for (const product of products) {
+        await prisma.subscriptionModuleMenuProduct.upsert({
+          where: {
+            subscriptionModuleMenuId_subscriptionProductId: {
+              subscriptionModuleMenuId: menu.subscriptionModuleMenuId,
+              subscriptionProductId: product.subscriptionProductId,
+            },
+          },
+          create: {
+            subscriptionModuleMenuId: menu.subscriptionModuleMenuId,
+            subscriptionProductId: product.subscriptionProductId,
+            createdBy: CREATED_BY,
+          },
+          update: {},
+        });
+      }
+      console.log(
+        "Linked products for",
+        menu.menuUrl,
+        products.map((p) => p.subscriptionProductName).join(", ") || "(none)"
+      );
+    }
 
     const source = await prisma.subscriptionModuleMenu.findFirst({
       where: { subscriptionModuleId: mod.subscriptionModuleId, menuUrl: PERM_SOURCE_URL, isActive: true },
@@ -94,15 +180,6 @@ async function main() {
       where: { subscriptionModuleMenuId: source.subscriptionModuleMenuId, isActive: true },
     });
     console.log("Using permission source", source.menuUrl, "roles:", sourcePerms.length);
-
-    const targetMenus = await prisma.subscriptionModuleMenu.findMany({
-      where: {
-        subscriptionModuleId: mod.subscriptionModuleId,
-        menuUrl: { in: [...NEW_MENU_URLS] },
-        isActive: true,
-      },
-      select: { subscriptionModuleMenuId: true, menuUrl: true },
-    });
 
     for (const menu of targetMenus) {
       for (const p of sourcePerms) {
@@ -150,7 +227,7 @@ async function main() {
     }
   }
 
-  console.log("B2B customer lookup menus synced.");
+  console.log("Masters → General lookup menus synced.");
 }
 
 main()

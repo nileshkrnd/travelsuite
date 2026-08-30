@@ -1,7 +1,7 @@
 import { createTenantCodeListHandlers } from "@/lib/api/tenant-code-crud";
 
 const handlers = createTenantCodeListHandlers({
-  model: "b2BCustomerDocumentType",
+  model: "documentTypeMaster",
   idField: "documentTypeId",
   codeField: "documentTypeCode",
   nameField: "documentTypeName",

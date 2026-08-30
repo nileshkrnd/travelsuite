@@ -23,7 +23,7 @@ function toNum(value: { toString(): string } | number | string | null | undefine
 export function toAppB2BCustomerContact(row: {
   b2bCustomerContactId: bigint | number;
   b2bCustomerId: bigint | number;
-  b2bCustomerContactTypeId: bigint | number;
+  contactTypeId: bigint | number;
   firstName: string;
   lastName: string;
   designation: string | null;
@@ -39,7 +39,7 @@ export function toAppB2BCustomerContact(row: {
   return {
     b2bCustomerContactId: Number(row.b2bCustomerContactId),
     b2bCustomerId: Number(row.b2bCustomerId),
-    b2bCustomerContactTypeId: Number(row.b2bCustomerContactTypeId),
+    contactTypeId: Number(row.contactTypeId),
     contactTypeName: row.contactType?.contactTypeName,
     firstName: row.firstName,
     lastName: row.lastName,

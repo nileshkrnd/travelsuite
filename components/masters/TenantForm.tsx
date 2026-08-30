@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TenantLogo } from "@/components/layout/TenantLogo";
+import { ImageUploadField } from "@/components/masters/ImageUploadField";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
@@ -73,6 +74,7 @@ function useTenantSchema(tenants: Tenant[], currentId?: string) {
       email: z.string().min(1, "Email is required").email("Enter a valid email address"),
       dialCode: z.string().min(1, "Country dial code is required"),
       phone: z.string().min(1, "Phone number is required"),
+      logoUrl: z.string().trim().max(500).optional().or(z.literal("")),
     })
     .refine((v) => v.supportedCultureIds.includes(v.defaultCultureId), {
       message: "Default culture must be one of the supported cultures",
@@ -149,11 +151,13 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       email: tenant?.contact.email ?? "",
       dialCode: tenant?.contact.dialCode ?? "",
       phone: tenant?.contact.phone ?? "",
+      logoUrl: tenant?.branding.logoUrl ?? "",
     },
   });
 
   const nameValue = useWatch({ control, name: "name" });
   const slugValue = useWatch({ control, name: "slug" });
+  const logoUrlValue = useWatch({ control, name: "logoUrl" }) ?? "";
   const countryValue = useWatch({ control, name: "country" });
   const supportedCultureIds = useWatch({ control, name: "supportedCultureIds" }) ?? [];
   const defaultCultureId = useWatch({ control, name: "defaultCultureId" });
@@ -219,7 +223,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       defaultCultureId: values.defaultCultureId,
       supportedCultureIds: values.supportedCultureIds,
       primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
-      logoUrl: tenant?.branding.logoUrl ?? "",
+      logoUrl: values.logoUrl?.trim() ?? "",
       address: {
         line1: values.addressLine1.trim(),
         line2: values.addressLine2?.trim() || undefined,
@@ -258,7 +262,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
 
   const previewBranding = {
     name: nameValue?.trim() || "Your organization",
-    logoUrl: "",
+    logoUrl: logoUrlValue.trim(),
     primaryColor: tenant?.branding.primaryColor ?? "#2563EB",
   };
 
@@ -307,6 +311,22 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
                 </div>
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
+
+              <Controller
+                control={control}
+                name="logoUrl"
+                render={({ field }) => (
+                  <ImageUploadField
+                    id="logoUrl"
+                    label="Tenant logo"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.logoUrl?.message}
+                    folder="tenants"
+                    hint="Optional · PNG, JPG, WEBP, SVG, or ICO · max 512 KB"
+                  />
+                )}
+              />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

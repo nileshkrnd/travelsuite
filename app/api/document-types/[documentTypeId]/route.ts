@@ -1,11 +1,12 @@
 import { createTenantCodeItemHandlers } from "@/lib/api/tenant-code-crud";
 
 const handlers = createTenantCodeItemHandlers({
-  model: "b2BCustomerContactType",
-  idField: "b2bCustomerContactTypeId",
-  codeField: "contactTypeCode",
-  nameField: "contactTypeName",
-  label: "contact type",
+  model: "documentTypeMaster",
+  idField: "documentTypeId",
+  codeField: "documentTypeCode",
+  nameField: "documentTypeName",
+  label: "document type",
+  nameMax: 150,
 });
 
 export const GET = handlers.GET;

@@ -3,7 +3,7 @@ import path from "path";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
-const KNOWN_FOLDERS = new Set(["companies", "employees", "contracts", "room-media", "service-product-media"]);
+const KNOWN_FOLDERS = new Set(["companies", "employees", "tenants", "contracts", "room-media", "service-product-media"]);
 
 const IMAGE_TYPES = new Map<string, string>([
   ["image/png", ".png"],
@@ -19,6 +19,7 @@ const VIDEO_TYPES = new Map<string, string>([["video/mp4", ".mp4"]]);
 const FOLDER_TYPES: Record<string, Map<string, string>> = {
   companies: IMAGE_TYPES,
   employees: IMAGE_TYPES,
+  tenants: IMAGE_TYPES,
   contracts: DOCUMENT_TYPES,
   "room-media": new Map([...IMAGE_TYPES, ...VIDEO_TYPES]),
   "service-product-media": new Map([...IMAGE_TYPES, ...VIDEO_TYPES]),
@@ -27,6 +28,7 @@ const FOLDER_TYPES: Record<string, Map<string, string>> = {
 const FOLDER_MAX_BYTES: Record<string, number> = {
   companies: 512 * 1024,
   employees: 512 * 1024,
+  tenants: 512 * 1024,
   contracts: 10 * 1024 * 1024,
   "room-media": 20 * 1024 * 1024,
   "service-product-media": 50 * 1024 * 1024,

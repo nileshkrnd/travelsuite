@@ -57,6 +57,9 @@ export type ModuleKey =
   | "rateBasis"
   | "tax"
   | "adminMasters"
+  | "adminMastersGeneral"
+  | "adminMastersPropertyProduct"
+  | "additionalInfoType"
   | "department"
   | "designation"
   | "employee"
@@ -67,9 +70,9 @@ export type ModuleKey =
   | "adminCustomers"
   | "cashCustomer"
   | "b2bCustomer"
-  | "b2bCustomerContactType"
+  | "contactType"
   | "addressType"
-  | "b2bCustomerDocumentType"
+  | "documentType"
   | "b2bCustomerCreditStatus"
   | "adminSuppliers"
   | "creditControl"
@@ -745,6 +748,46 @@ export const MENU_ITEMS: MenuItem[] = [
         icon: "Layers",
         path: "administration/masters",
         children: [
+          {
+            key: "adminMastersGeneral",
+            labelKey: "sidebar.adminMastersGeneral",
+            icon: "ListTree",
+            path: "administration/masters/general",
+            children: [
+              {
+                key: "contactType",
+                labelKey: "sidebar.contactType",
+                icon: "Users",
+                path: "masters/contact-type",
+              },
+              {
+                key: "addressType",
+                labelKey: "sidebar.addressType",
+                icon: "MapPin",
+                path: "masters/address-type",
+              },
+              {
+                key: "documentType",
+                labelKey: "sidebar.documentType",
+                icon: "FileBadge",
+                path: "masters/document-type",
+              },
+            ],
+          },
+          {
+            key: "adminMastersPropertyProduct",
+            labelKey: "sidebar.adminMastersPropertyProduct",
+            icon: "Package",
+            path: "administration/masters/property-product",
+            children: [
+              {
+                key: "additionalInfoType",
+                labelKey: "sidebar.additionalInfoType",
+                icon: "FileText",
+                path: "masters/additional-info-type",
+              },
+            ],
+          },
           { key: "department", labelKey: "sidebar.department", icon: "Network", path: "masters/department" },
           { key: "designation", labelKey: "sidebar.designation", icon: "Briefcase", path: "masters/designation" },
           { key: "accessRole", labelKey: "sidebar.accessRole", icon: "KeyRound", path: "masters/access-role" },
@@ -840,40 +883,10 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "administration/customers/cash",
           },
           {
-            key: "corporateAccounts",
-            labelKey: "sidebar.corporateCustomer",
-            icon: "Landmark",
-            path: "masters/corporateAccounts",
-          },
-          {
-            key: "subAgency",
-            labelKey: "sidebar.subAgent",
-            icon: "GitFork",
-            path: "masters/subAgency",
-          },
-          {
             key: "b2bCustomer",
             labelKey: "sidebar.b2bCustomer",
             icon: "Landmark",
             path: "masters/b2bCustomer",
-          },
-          {
-            key: "b2bCustomerContactType",
-            labelKey: "sidebar.b2bCustomerContactType",
-            icon: "Users",
-            path: "masters/b2b-customer-contact-type",
-          },
-          {
-            key: "addressType",
-            labelKey: "sidebar.addressType",
-            icon: "MapPin",
-            path: "masters/address-type",
-          },
-          {
-            key: "b2bCustomerDocumentType",
-            labelKey: "sidebar.b2bCustomerDocumentType",
-            icon: "FileBadge",
-            path: "masters/b2b-customer-document-type",
           },
           {
             key: "b2bCustomerCreditStatus",
@@ -951,6 +964,63 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.tax",
             icon: "Landmark",
             path: "masters/tax",
+          },
+        ],
+      },
+      {
+        key: "adminServiceProduct",
+        labelKey: "sidebar.adminServiceProduct",
+        icon: "Package",
+        path: "administration/service-product",
+        children: [
+          { key: "serviceType", labelKey: "sidebar.serviceType", icon: "Tags", path: "masters/service-type" },
+          {
+            key: "serviceProductClassification",
+            labelKey: "sidebar.serviceProductClassification",
+            icon: "ListTree",
+            path: "masters/service-product-classification",
+          },
+          {
+            key: "serviceProductCategory",
+            labelKey: "sidebar.serviceProductCategory",
+            icon: "LayoutGrid",
+            path: "masters/service-product-category",
+          },
+          {
+            key: "serviceTypeConfiguration",
+            labelKey: "sidebar.serviceTypeConfiguration",
+            icon: "Settings",
+            path: "masters/service-type-configuration",
+          },
+          {
+            key: "serviceProductClassificationConfiguration",
+            labelKey: "sidebar.serviceProductClassificationConfiguration",
+            icon: "Settings",
+            path: "masters/service-product-classification-configuration",
+          },
+          {
+            key: "serviceProductSupplier",
+            labelKey: "sidebar.serviceProductSupplier",
+            icon: "Truck",
+            path: "masters/service-product-supplier",
+          },
+          {
+            key: "serviceProductLocationType",
+            labelKey: "sidebar.serviceProductLocationType",
+            icon: "Tags",
+            path: "masters/service-product-location-type",
+          },
+          {
+            key: "inclusionExclusionType",
+            labelKey: "sidebar.inclusionExclusionType",
+            icon: "ListChecks",
+            path: "masters/inclusion-exclusion-type",
+          },
+          {
+            key: "serviceProductItemType",
+            labelKey: "sidebar.serviceProductItemType",
+            icon: "Tag",
+            path: "masters/service-product-item-type",
           },
         ],
       },
@@ -1285,31 +1355,6 @@ export const MENU_ITEMS: MenuItem[] = [
         icon: "Package",
         path: "extranet/products",
         children: [
-          { key: "serviceType", labelKey: "sidebar.serviceType", icon: "Tags", path: "masters/service-type" },
-          {
-            key: "serviceProductClassification",
-            labelKey: "sidebar.serviceProductClassification",
-            icon: "ListTree",
-            path: "masters/service-product-classification",
-          },
-          {
-            key: "serviceProductCategory",
-            labelKey: "sidebar.serviceProductCategory",
-            icon: "LayoutGrid",
-            path: "masters/service-product-category",
-          },
-          {
-            key: "serviceTypeConfiguration",
-            labelKey: "sidebar.serviceTypeConfiguration",
-            icon: "Settings",
-            path: "masters/service-type-configuration",
-          },
-          {
-            key: "serviceProductClassificationConfiguration",
-            labelKey: "sidebar.serviceProductClassificationConfiguration",
-            icon: "Settings",
-            path: "masters/service-product-classification-configuration",
-          },
           { key: "serviceProduct", labelKey: "sidebar.serviceProduct", icon: "Package", path: "masters/service-product" },
           {
             key: "serviceProductConfiguration",
@@ -1330,12 +1375,6 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "masters/service-product-variant",
           },
           {
-            key: "serviceProductSupplier",
-            labelKey: "sidebar.serviceProductSupplier",
-            icon: "Truck",
-            path: "masters/service-product-supplier",
-          },
-          {
             key: "serviceProductAvailability",
             labelKey: "sidebar.serviceProductAvailability",
             icon: "CalendarRange",
@@ -1354,12 +1393,6 @@ export const MENU_ITEMS: MenuItem[] = [
             path: "masters/service-product-rate",
           },
           {
-            key: "serviceProductLocationType",
-            labelKey: "sidebar.serviceProductLocationType",
-            icon: "Tags",
-            path: "masters/service-product-location-type",
-          },
-          {
             key: "serviceProductLocation",
             labelKey: "sidebar.serviceProductLocation",
             icon: "MapPin",
@@ -1376,18 +1409,6 @@ export const MENU_ITEMS: MenuItem[] = [
             labelKey: "sidebar.serviceProductMedia",
             icon: "Image",
             path: "masters/service-product-media",
-          },
-          {
-            key: "inclusionExclusionType",
-            labelKey: "sidebar.inclusionExclusionType",
-            icon: "ListChecks",
-            path: "masters/inclusion-exclusion-type",
-          },
-          {
-            key: "serviceProductItemType",
-            labelKey: "sidebar.serviceProductItemType",
-            icon: "Tag",
-            path: "masters/service-product-item-type",
           },
           {
             key: "serviceProductInclusionExclusion",

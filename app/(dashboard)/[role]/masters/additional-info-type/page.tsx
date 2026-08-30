@@ -5,8 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import type { LucideIcon } from "lucide-react";
-import { Plus, MoreHorizontal, X, Search } from "lucide-react";
+import { FileText, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -29,155 +28,93 @@ import { useSessionStore } from "@/lib/store/session.store";
 import { useUsersStore } from "@/lib/store/users.store";
 import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { resolveSessionCompanyKey } from "@/lib/session-company";
-import { can, type ModuleKey } from "@/config/permissions";
+import {
+  listAdditionalInfoTypes,
+  createAdditionalInfoType,
+  updateAdditionalInfoType,
+  setAdditionalInfoTypeActive,
+  deleteAdditionalInfoType,
+  AdditionalInfoTypesApiError,
+} from "@/lib/services/additional-info-types.service";
+import { can } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type { GlobalCodeLookup, RoleDef } from "@/types";
+import type { AdditionalInfoType, AdditionalInfoValueTypeCode, RoleDef } from "@/types";
 
 type PanelMode = "closed" | "create" | "edit" | "view";
 type StatusFilter = "all" | "active" | "inactive";
-type SortKey = "code" | "name" | "displayOrder" | "enumField";
+type SortKey = "infoTypeCode" | "infoTypeName" | "valueTypeCode" | "displayOrder";
 
-export type GlobalCodeEnumField = {
-  key: string;
-  label: string;
-  options: { value: string; label: string }[];
-  defaultValue: string;
-};
+const VALUE_TYPE_OPTIONS: { value: AdditionalInfoValueTypeCode; label: string }[] = [
+  { value: "BOOLEAN", label: "Boolean" },
+  { value: "TEXT", label: "Text" },
+  { value: "NUMBER", label: "Number" },
+  { value: "DATE", label: "Date" },
+  { value: "TIME", label: "Time" },
+  { value: "DATETIME", label: "Date & time" },
+];
 
-export type GlobalCodeMasterService<T extends GlobalCodeLookup> = {
-  list: (options?: { activeOnly?: boolean; tenantId?: number; companyId?: number }) => Promise<T[]>;
-  create: (input: {
-    code: string;
-    name: string;
-    description?: string | null;
-    displayOrder?: number;
-    isActive?: boolean;
-    createdBy: number;
-    tenantId?: number;
-    companyId?: number;
-    extras?: Record<string, string | number | boolean | null>;
-  }) => Promise<T>;
-  update: (
-    key: number,
-    input: {
-      code: string;
-      name: string;
-      description?: string | null;
-      displayOrder?: number;
-      isActive?: boolean;
-      modifiedBy: number;
-      extras?: Record<string, string | number | boolean | null>;
-    }
-  ) => Promise<T>;
-  setActive: (key: number, isActive: boolean, modifiedBy: number) => Promise<T>;
-  remove: (key: number) => Promise<void>;
-  ApiError: new (message: string, status: number) => Error;
-};
+function valueTypeLabel(code: string) {
+  return VALUE_TYPE_OPTIONS.find((o) => o.value === code)?.label ?? code;
+}
 
-export type GlobalCodeMasterConfig<T extends GlobalCodeLookup> = {
-  moduleKey: ModuleKey;
-  title: string;
-  description: string;
-  entityLabel: string;
-  codeLabel: string;
-  nameLabel: string;
-  codePlaceholder?: string;
-  namePlaceholder?: string;
-  icon: LucideIcon;
-  addButtonLabel: string;
-  service: GlobalCodeMasterService<T>;
-  /** When true, list/create are scoped to the signed-in tenant + company. */
-  scoped?: boolean;
-  nameMax?: number;
-  enumField?: GlobalCodeEnumField;
-};
+function useSchema(rows: AdditionalInfoType[], currentId?: number) {
+  return z.object({
+    infoTypeCode: z
+      .string()
+      .trim()
+      .min(1, "Info type code is required")
+      .max(50, "Must be 50 characters or fewer")
+      .refine(
+        (value) =>
+          !rows.some(
+            (r) =>
+              r.additionalInfoTypeId !== currentId &&
+              r.infoTypeCode.toLowerCase() === value.trim().toLowerCase()
+          ),
+        "This additional info type code already exists"
+      ),
+    infoTypeName: z.string().trim().min(1, "Info type name is required").max(200, "Must be 200 characters or fewer"),
+    description: z.string().trim().max(500).optional().or(z.literal("")),
+    valueTypeCode: z.enum(["BOOLEAN", "TEXT", "NUMBER", "DATE", "TIME", "DATETIME"]),
+    displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
+  });
+}
 
-export function GlobalCodeMasterPage<T extends GlobalCodeLookup>({
-  config,
-}: {
-  config: GlobalCodeMasterConfig<T>;
-}) {
+export default function AdditionalInfoTypeMasterPage() {
   return (
-    <AccessGate module={config.moduleKey}>
-      {(roleDef) => <MasterList roleDef={roleDef} config={config} />}
+    <AccessGate module="additionalInfoType">
+      {(roleDef) => <MasterList roleDef={roleDef} />}
     </AccessGate>
   );
 }
 
-function useCodeSchema<T extends GlobalCodeLookup>(
-  rows: T[],
-  entityLabel: string,
-  nameMax: number,
-  currentKey?: number,
-  enumField?: GlobalCodeEnumField
-) {
-  const enumValues = (enumField?.options.map((o) => o.value) ?? ["_"]) as [string, ...string[]];
-  return z.object({
-    code: z
-      .string()
-      .trim()
-      .min(1, `${entityLabel} code is required`)
-      .max(50, "Must be 50 characters or fewer")
-      .refine(
-        (value) =>
-          !rows.some((r) => r.key !== currentKey && r.code.toLowerCase() === value.trim().toLowerCase()),
-        `This ${entityLabel.toLowerCase()} code already exists`
-      ),
-    name: z
-      .string()
-      .trim()
-      .min(1, `${entityLabel} name is required`)
-      .max(nameMax, `Must be ${nameMax} characters or fewer`),
-    description: z.string().trim().max(250).optional().or(z.literal("")),
-    displayOrder: z.preprocess((v) => (v === "" || v == null ? 0 : Number(v)), z.number().int().min(0)),
-    enumValue: enumField ? z.enum(enumValues) : z.string().optional(),
-  });
-}
-
-function readEnumValue(row: GlobalCodeLookup, key: string | undefined): string {
-  if (!key) return "";
-  return String((row as Record<string, unknown>)[key] ?? "");
-}
-
-function enumLabel(enumField: GlobalCodeEnumField | undefined, value: string) {
-  return enumField?.options.find((o) => o.value === value)?.label ?? value;
-}
-
-function MasterList<T extends GlobalCodeLookup>({
-  roleDef,
-  config,
-}: {
-  roleDef: RoleDef;
-  config: GlobalCodeMasterConfig<T>;
-}) {
+function MasterList({ roleDef }: { roleDef: RoleDef }) {
   const user = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
   const activeTenantId = useTenantStore((s) => s.tenantId);
-  const [rows, setRows] = useState<T[]>([]);
+  const [rows, setRows] = useState<AdditionalInfoType[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("closed");
-  const [target, setTarget] = useState<T | undefined>();
+  const [target, setTarget] = useState<AdditionalInfoType | undefined>();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [enumFilter, setEnumFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey | null>("displayOrder");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const canEdit = can(roleDef, config.moduleKey, "edit");
-  const canCreate = can(roleDef, config.moduleKey, "create");
-  const canDelete = can(roleDef, config.moduleKey, "delete");
+  const canEdit = can(roleDef, "additionalInfoType", "edit");
+  const canCreate = can(roleDef, "additionalInfoType", "create");
+  const canDelete = can(roleDef, "additionalInfoType", "delete");
   const actorKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
-  const Icon = config.icon;
   const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
   const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
-  const scopeTenantId = config.scoped ? (platformMode ? 0 : (user?.tenantKey ?? 0)) : 0;
-  const scopeCompanyId = config.scoped ? (resolveSessionCompanyKey(user) ?? 0) : 0;
-  const scopeReady = !config.scoped || (scopeTenantId > 0 && scopeCompanyId > 0);
+  const scopeTenantId = platformMode ? 0 : (user?.tenantKey ?? 0);
+  const scopeCompanyId = resolveSessionCompanyKey(user) ?? 0;
+  const scopeReady = scopeTenantId > 0 && scopeCompanyId > 0;
 
   useEffect(() => {
     let cancelled = false;
-    if (config.scoped && !scopeReady) {
+    if (!scopeReady) {
       setRows([]);
       setLoading(false);
       setLoadError(platformMode ? "Select a tenant workspace to manage this master." : "Missing tenant or company scope.");
@@ -185,8 +122,7 @@ function MasterList<T extends GlobalCodeLookup>({
     }
     setLoading(true);
     setLoadError(null);
-    config.service
-      .list(config.scoped ? { tenantId: scopeTenantId, companyId: scopeCompanyId } : undefined)
+    listAdditionalInfoTypes({ tenantId: scopeTenantId, companyId: scopeCompanyId })
       .then((data) => {
         if (cancelled) return;
         setRows(data);
@@ -194,14 +130,13 @@ function MasterList<T extends GlobalCodeLookup>({
       })
       .catch((err) => {
         if (cancelled) return;
-        setLoadError(err instanceof config.service.ApiError ? err.message : "Failed to load");
+        setLoadError(err instanceof AdditionalInfoTypesApiError ? err.message : "Failed to load");
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeTenantId, scopeCompanyId, scopeReady]);
+  }, [scopeTenantId, scopeCompanyId, scopeReady, platformMode]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -216,85 +151,64 @@ function MasterList<T extends GlobalCodeLookup>({
     const term = search.trim().toLowerCase();
     let result = rows;
     if (term) {
-      result = result.filter((r) => {
-        const enumValue = readEnumValue(r, config.enumField?.key);
-        const enumText = enumLabel(config.enumField, enumValue);
-        return (
-          r.name.toLowerCase().includes(term) ||
-          r.code.toLowerCase().includes(term) ||
+      result = result.filter(
+        (r) =>
+          r.infoTypeName.toLowerCase().includes(term) ||
+          r.infoTypeCode.toLowerCase().includes(term) ||
           (r.description ?? "").toLowerCase().includes(term) ||
-          enumValue.toLowerCase().includes(term) ||
-          enumText.toLowerCase().includes(term)
-        );
-      });
+          r.valueTypeCode.toLowerCase().includes(term)
+      );
     }
     if (statusFilter !== "all") {
       result = result.filter((r) => (statusFilter === "active" ? r.isActive : !r.isActive));
     }
-    if (config.enumField && enumFilter !== "all") {
-      result = result.filter((r) => readEnumValue(r, config.enumField?.key) === enumFilter);
-    }
     if (sortKey) {
       result = [...result].sort((a, b) => {
-        const av =
-          sortKey === "displayOrder"
-            ? a.displayOrder
-            : sortKey === "enumField"
-              ? readEnumValue(a, config.enumField?.key)
-              : a[sortKey];
-        const bv =
-          sortKey === "displayOrder"
-            ? b.displayOrder
-            : sortKey === "enumField"
-              ? readEnumValue(b, config.enumField?.key)
-              : b[sortKey];
+        const av = a[sortKey];
+        const bv = b[sortKey];
         const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
         return sortDirection === "asc" ? cmp : -cmp;
       });
     }
     return result;
-  }, [rows, search, statusFilter, enumFilter, sortKey, sortDirection, config.enumField]);
+  }, [rows, search, statusFilter, sortKey, sortDirection]);
 
-  function upsertLocal(row: T) {
+  function upsertLocal(row: AdditionalInfoType) {
     setRows((prev) => {
-      const idx = prev.findIndex((r) => r.id === row.id);
+      const idx = prev.findIndex((r) => r.additionalInfoTypeId === row.additionalInfoTypeId);
       return idx === -1 ? [...prev, row] : prev.map((r, i) => (i === idx ? row : r));
     });
   }
 
-  async function toggleActive(row: T) {
+  async function toggleActive(row: AdditionalInfoType) {
     if (!actorKey) {
       toast.error("Missing user key — sign in again.");
       return;
     }
     try {
-      const saved = await config.service.setActive(row.key, !row.isActive, actorKey);
+      const saved = await setAdditionalInfoTypeActive(row.additionalInfoTypeId, !row.isActive, actorKey);
       upsertLocal(saved);
       toast.success(saved.isActive ? "Activated" : "Deactivated");
     } catch (error) {
-      toast.error(error instanceof config.service.ApiError ? error.message : "Could not update status");
+      toast.error(error instanceof AdditionalInfoTypesApiError ? error.message : "Could not update status");
     }
   }
 
-  async function removeRow(row: T) {
+  async function removeRow(row: AdditionalInfoType) {
     try {
-      await config.service.remove(row.key);
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
-      toast.success(`${config.entityLabel} deleted`);
+      await deleteAdditionalInfoType(row.additionalInfoTypeId);
+      setRows((prev) => prev.filter((r) => r.additionalInfoTypeId !== row.additionalInfoTypeId));
+      toast.success("Additional info type deleted");
     } catch (error) {
-      toast.error(
-        error instanceof config.service.ApiError
-          ? error.message
-          : `Could not delete ${config.entityLabel.toLowerCase()}`
-      );
+      toast.error(error instanceof AdditionalInfoTypesApiError ? error.message : "Could not delete additional info type");
     }
   }
 
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title={config.title}
-        description={config.description}
+        title="Additional Info Type"
+        description="Wheelchair access, confirmation at booking, minimum age and other typed product facts."
         actions={
           canCreate && panelMode === "closed" ? (
             <Button
@@ -304,14 +218,14 @@ function MasterList<T extends GlobalCodeLookup>({
               }}
             >
               <Plus className="h-4 w-4" />
-              {config.addButtonLabel}
+              Add additional info type
             </Button>
           ) : undefined
         }
       />
 
       {loadError && <p className="text-sm text-destructive">{loadError}</p>}
-      {loading && <p className="text-sm text-muted-foreground">Loading {config.title.toLowerCase()}…</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading additional info type…</p>}
 
       {panelMode !== "closed" && (
         <MasterPanel
@@ -321,7 +235,6 @@ function MasterList<T extends GlobalCodeLookup>({
           actorKey={actorKey}
           scopeTenantId={scopeTenantId}
           scopeCompanyId={scopeCompanyId}
-          config={config}
           onSaved={upsertLocal}
           onClose={() => {
             setPanelMode("closed");
@@ -351,38 +264,23 @@ function MasterList<T extends GlobalCodeLookup>({
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
-          {config.enumField && (
-            <Select value={enumFilter} onValueChange={(value) => setEnumFilter(value ?? "all")}>
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {config.enumField.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </div>
       )}
 
       <Card>
         {!loading && rows.length === 0 ? (
           <EmptyState
-            icon={Icon}
+            icon={FileText}
             tone="primary"
-            heading={`No ${config.title.toLowerCase()} yet`}
-            description={`Add your first ${config.entityLabel.toLowerCase()}.`}
+            heading="No additional info types yet"
+            description="Add your first additional info type."
             size="compact"
           />
         ) : visible.length === 0 && !loading ? (
           <EmptyState
             icon={Search}
             tone="muted"
-            heading={`No matching ${config.title.toLowerCase()}`}
+            heading="No matching additional info types"
             description="Try a different search term or status filter."
             size="compact"
           />
@@ -391,22 +289,15 @@ function MasterList<T extends GlobalCodeLookup>({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14">Sr. No</TableHead>
-                <SortableTableHead sortKey="code" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                <SortableTableHead sortKey="infoTypeCode" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Code
                 </SortableTableHead>
-                <SortableTableHead sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                <SortableTableHead sortKey="infoTypeName" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
                   Name
                 </SortableTableHead>
-                {config.enumField && (
-                  <SortableTableHead
-                    sortKey="enumField"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={toggleSort}
-                  >
-                    {config.enumField.label}
-                  </SortableTableHead>
-                )}
+                <SortableTableHead sortKey="valueTypeCode" activeKey={sortKey} direction={sortDirection} onSort={toggleSort}>
+                  Value type
+                </SortableTableHead>
                 <SortableTableHead
                   sortKey="displayOrder"
                   activeKey={sortKey}
@@ -421,13 +312,11 @@ function MasterList<T extends GlobalCodeLookup>({
             </TableHeader>
             <TableBody>
               {visible.map((row, index) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.additionalInfoTypeId}>
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell className="font-mono text-sm">{row.code}</TableCell>
-                  <TableCell className="font-medium">{row.name}</TableCell>
-                  {config.enumField && (
-                    <TableCell>{enumLabel(config.enumField, readEnumValue(row, config.enumField.key))}</TableCell>
-                  )}
+                  <TableCell className="font-mono text-sm">{row.infoTypeCode}</TableCell>
+                  <TableCell className="font-medium">{row.infoTypeName}</TableCell>
+                  <TableCell>{valueTypeLabel(row.valueTypeCode)}</TableCell>
                   <TableCell className="tabular-nums text-muted-foreground">{row.displayOrder}</TableCell>
                   <TableCell>
                     <Badge variant={row.isActive ? "default" : "secondary"}>
@@ -479,29 +368,27 @@ function MasterList<T extends GlobalCodeLookup>({
   );
 }
 
-function MasterPanel<T extends GlobalCodeLookup>({
+function MasterPanel({
   mode,
   row,
   rows,
   actorKey,
   scopeTenantId,
   scopeCompanyId,
-  config,
   onSaved,
   onClose,
 }: {
   mode: Exclude<PanelMode, "closed">;
-  row?: T;
-  rows: T[];
+  row?: AdditionalInfoType;
+  rows: AdditionalInfoType[];
   actorKey: number;
   scopeTenantId: number;
   scopeCompanyId: number;
-  config: GlobalCodeMasterConfig<T>;
-  onSaved: (row: T) => void;
+  onSaved: (row: AdditionalInfoType) => void;
   onClose: () => void;
 }) {
   const isReadOnly = mode === "view";
-  const schema = useCodeSchema(rows, config.entityLabel, config.nameMax ?? 100, row?.key, config.enumField);
+  const schema = useSchema(rows, row?.additionalInfoTypeId);
   type FormValues = z.infer<typeof schema>;
 
   const {
@@ -512,11 +399,11 @@ function MasterPanel<T extends GlobalCodeLookup>({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     values: {
-      code: row?.code ?? "",
-      name: row?.name ?? "",
+      infoTypeCode: row?.infoTypeCode ?? "",
+      infoTypeName: row?.infoTypeName ?? "",
       description: row?.description ?? "",
+      valueTypeCode: row?.valueTypeCode ?? "TEXT",
       displayOrder: row?.displayOrder ?? 0,
-      enumValue: (row && config.enumField ? readEnumValue(row, config.enumField.key) : undefined) || config.enumField?.defaultValue,
     },
   });
 
@@ -525,43 +412,35 @@ function MasterPanel<T extends GlobalCodeLookup>({
       toast.error("Missing user key — sign in again before saving.");
       return;
     }
-    const extras =
-      config.enumField && values.enumValue
-        ? { [config.enumField.key]: values.enumValue }
-        : undefined;
     const payload = {
-      code: values.code.trim().toUpperCase(),
-      name: values.name.trim(),
+      infoTypeCode: values.infoTypeCode.trim().toUpperCase(),
+      infoTypeName: values.infoTypeName.trim(),
       description: values.description?.trim() || null,
+      valueTypeCode: values.valueTypeCode,
       displayOrder: values.displayOrder,
-      extras,
     };
     try {
       if (mode === "edit" && row) {
-        const saved = await config.service.update(row.key, {
+        const saved = await updateAdditionalInfoType(row.additionalInfoTypeId, {
           ...payload,
           isActive: row.isActive,
           modifiedBy: actorKey,
         });
         onSaved(saved);
-        toast.success(`${config.entityLabel} updated`);
+        toast.success("Additional info type updated");
       } else if (mode === "create") {
-        const created = await config.service.create({
+        const created = await createAdditionalInfoType({
           ...payload,
+          tenantId: scopeTenantId,
+          companyId: scopeCompanyId,
           createdBy: actorKey,
-          tenantId: config.scoped ? scopeTenantId : undefined,
-          companyId: config.scoped ? scopeCompanyId : undefined,
         });
         onSaved(created);
-        toast.success(`${config.entityLabel} created`);
+        toast.success("Additional info type created");
       }
       onClose();
     } catch (error) {
-      toast.error(
-        error instanceof config.service.ApiError
-          ? error.message
-          : `Could not save ${config.entityLabel.toLowerCase()}`
-      );
+      toast.error(error instanceof AdditionalInfoTypesApiError ? error.message : "Could not save additional info type");
     }
   }
 
@@ -570,10 +449,10 @@ function MasterPanel<T extends GlobalCodeLookup>({
       <div className="mb-4 flex items-start justify-between gap-4">
         <h2 className="text-base font-semibold">
           {mode === "create"
-            ? `Add ${config.entityLabel.toLowerCase()}`
+            ? "Add additional info type"
             : mode === "edit"
-              ? `Edit ${config.entityLabel.toLowerCase()}`
-              : `${config.entityLabel} details`}
+              ? "Edit additional info type"
+              : "Additional info type details"}
         </h2>
         <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" />
@@ -582,57 +461,55 @@ function MasterPanel<T extends GlobalCodeLookup>({
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
         <div className="space-y-2">
-          <Label htmlFor="code" required>
-            {config.codeLabel}
+          <Label htmlFor="infoTypeCode" required>
+            Info type code
           </Label>
           <Input
-            id="code"
+            id="infoTypeCode"
             autoFocus={!isReadOnly}
             disabled={isReadOnly}
             className="uppercase"
-            placeholder={config.codePlaceholder}
-            aria-invalid={!!errors.code}
-            {...register("code")}
+            placeholder="e.g. MIN_AGE, WHEELCHAIR"
+            aria-invalid={!!errors.infoTypeCode}
+            {...register("infoTypeCode")}
           />
-          {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+          {errors.infoTypeCode && <p className="text-sm text-destructive">{errors.infoTypeCode.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="name" required>
-            {config.nameLabel}
+          <Label htmlFor="infoTypeName" required>
+            Info type name
           </Label>
           <Input
-            id="name"
+            id="infoTypeName"
             disabled={isReadOnly}
-            placeholder={config.namePlaceholder}
-            aria-invalid={!!errors.name}
-            {...register("name")}
+            placeholder="e.g. Minimum age, Wheelchair accessible"
+            aria-invalid={!!errors.infoTypeName}
+            {...register("infoTypeName")}
           />
-          {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          {errors.infoTypeName && <p className="text-sm text-destructive">{errors.infoTypeName.message}</p>}
         </div>
-        {config.enumField && (
-          <div className="space-y-2">
-            <Label required>{config.enumField.label}</Label>
-            <Controller
-              name="enumValue"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value ?? config.enumField?.defaultValue} onValueChange={field.onChange} disabled={isReadOnly}>
-                  <SelectTrigger className="w-full" aria-invalid={!!errors.enumValue}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {config.enumField?.options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.enumValue && <p className="text-sm text-destructive">{errors.enumValue.message}</p>}
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label required>Value type</Label>
+          <Controller
+            name="valueTypeCode"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange} disabled={isReadOnly}>
+                <SelectTrigger className="w-full" aria-invalid={!!errors.valueTypeCode}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VALUE_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.valueTypeCode && <p className="text-sm text-destructive">{errors.valueTypeCode.message}</p>}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="displayOrder">Display order</Label>
           <Input id="displayOrder" type="number" disabled={isReadOnly} {...register("displayOrder")} />

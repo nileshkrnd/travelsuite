@@ -136,6 +136,7 @@ export * from "./service-product-seo";
 export * from "./content-section-type";
 export * from "./service-product-content-section";
 export * from "./additional-info-type";
+export * from "./contact-type";
 export * from "./service-product-additional-info";
 export * from "./requirement-type";
 export * from "./service-product-requirement";

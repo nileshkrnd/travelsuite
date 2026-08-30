@@ -53,3 +53,43 @@ export async function createAdditionalInfoType(input: {
   if (!res.ok) throw new AdditionalInfoTypesApiError(await parseError(res), res.status);
   return res.json();
 }
+
+export async function updateAdditionalInfoType(
+  additionalInfoTypeId: number,
+  input: {
+    infoTypeCode: string;
+    infoTypeName: string;
+    description?: string | null;
+    valueTypeCode: AdditionalInfoValueTypeCode;
+    displayOrder?: number;
+    isActive?: boolean;
+    modifiedBy: number;
+  }
+): Promise<AdditionalInfoType> {
+  const res = await fetch(`/api/additional-info-types/${additionalInfoTypeId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new AdditionalInfoTypesApiError(await parseError(res), res.status);
+  return res.json();
+}
+
+export async function setAdditionalInfoTypeActive(
+  additionalInfoTypeId: number,
+  isActive: boolean,
+  modifiedBy: number
+): Promise<AdditionalInfoType> {
+  const res = await fetch(`/api/additional-info-types/${additionalInfoTypeId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isActive, modifiedBy }),
+  });
+  if (!res.ok) throw new AdditionalInfoTypesApiError(await parseError(res), res.status);
+  return res.json();
+}
+
+export async function deleteAdditionalInfoType(additionalInfoTypeId: number): Promise<void> {
+  const res = await fetch(`/api/additional-info-types/${additionalInfoTypeId}`, { method: "DELETE" });
+  if (!res.ok) throw new AdditionalInfoTypesApiError(await parseError(res), res.status);
+}

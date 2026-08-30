@@ -1,7 +1,7 @@
 export interface B2BCustomerContact {
   b2bCustomerContactId: number;
   b2bCustomerId: number;
-  b2bCustomerContactTypeId: number;
+  contactTypeId: number;
   contactTypeName?: string;
   firstName: string;
   lastName: string;

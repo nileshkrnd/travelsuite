@@ -7,7 +7,7 @@ import { toAppB2BCustomerContact } from "@/lib/mappers/b2b-customer-related.mapp
 
 const createSchema = z.object({
   b2bCustomerId: z.number().int().positive(),
-  b2bCustomerContactTypeId: z.number().int().positive(),
+  contactTypeId: z.number().int().positive(),
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
   designation: z.string().trim().max(150).nullable().optional(),
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       return tx.b2BCustomerContact.create({
         data: {
           b2bCustomerId: BigInt(data.b2bCustomerId),
-          b2bCustomerContactTypeId: BigInt(data.b2bCustomerContactTypeId),
+          contactTypeId: BigInt(data.contactTypeId),
           firstName: data.firstName.trim(),
           lastName: data.lastName.trim(),
           designation: data.designation?.trim() || null,

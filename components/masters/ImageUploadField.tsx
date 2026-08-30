@@ -16,8 +16,8 @@ type Props = {
   /** Optional — logos are not mandatory unless marked. */
   required?: boolean;
   hint?: string;
-  /** Upload folder under /uploads (companies | employees). */
-  folder?: "companies" | "employees";
+  /** Upload folder under /uploads (companies | employees | tenants). */
+  folder?: "companies" | "employees" | "tenants";
 };
 
 export function ImageUploadField({

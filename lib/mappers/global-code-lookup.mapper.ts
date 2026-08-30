@@ -33,5 +33,6 @@ export function toAppGlobalCodeLookup(
     createdAt: toIso(row.createdDtTm) ?? new Date().toISOString(),
     modifiedBy: row.modifiedBy,
     modifiedDtTm: toIso(row.modifiedDtTm),
+    contactTypeCategory: row.contactTypeCategory != null ? String(row.contactTypeCategory) : undefined,
   };
 }

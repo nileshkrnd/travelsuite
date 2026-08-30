@@ -40,9 +40,9 @@ import {
 } from "@/lib/services/b2b-customers.service";
 import {
   addressTypesService,
-  b2bCustomerContactTypesService,
+  contactTypesService,
+  documentTypesService,
   b2bCustomerCreditStatusesService,
-  b2bCustomerDocumentTypesService,
 } from "@/lib/services/global-code-lookup.service";
 import { B2BCustomerRelatedSections } from "@/components/masters/B2BCustomerRelatedSections";
 import { can } from "@/config/permissions";
@@ -699,9 +699,9 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
           listEmployees({ tenantId: scopeTenantId, activeOnly: true }),
           listCommonStatusTypes({ tenantId: scopeTenantId, activeOnly: true }),
           listB2BCustomers({ tenantId: scopeTenantId }),
-          b2bCustomerContactTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
+          contactTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
           addressTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
-          b2bCustomerDocumentTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
+          documentTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
           b2bCustomerCreditStatusesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
         ]);
       setTypes(typeRows);

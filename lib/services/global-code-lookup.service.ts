@@ -33,6 +33,7 @@ export type GlobalCodeLookupWriteInput = {
   description?: string | null;
   displayOrder?: number;
   isActive?: boolean;
+  extras?: Record<string, string | number | boolean | null>;
 };
 
 function toPayload(config: GlobalCodeLookupServiceConfig, input: GlobalCodeLookupWriteInput) {
@@ -42,6 +43,7 @@ function toPayload(config: GlobalCodeLookupServiceConfig, input: GlobalCodeLooku
     description: input.description ?? null,
     displayOrder: input.displayOrder,
     isActive: input.isActive,
+    ...input.extras,
   };
 }
 
@@ -146,9 +148,9 @@ export const furnishedStatusesService = createGlobalCodeLookupService({
   nameField: "furnishedStatusName",
 });
 
-export const b2bCustomerContactTypesService = createGlobalCodeLookupService({
-  path: "/api/b2b-customer-contact-types",
-  idField: "b2bCustomerContactTypeId",
+export const contactTypesService = createGlobalCodeLookupService({
+  path: "/api/contact-types",
+  idField: "contactTypeId",
   codeField: "contactTypeCode",
   nameField: "contactTypeName",
 });
@@ -160,8 +162,8 @@ export const addressTypesService = createGlobalCodeLookupService({
   nameField: "addressTypeName",
 });
 
-export const b2bCustomerDocumentTypesService = createGlobalCodeLookupService({
-  path: "/api/b2b-customer-document-types",
+export const documentTypesService = createGlobalCodeLookupService({
+  path: "/api/document-types",
   idField: "documentTypeId",
   codeField: "documentTypeCode",
   nameField: "documentTypeName",

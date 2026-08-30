@@ -66,7 +66,12 @@ function adminClientIsStale(client: AdminPrismaClient): boolean {
     !("blackoutReason" in client) ||
     !("propertyContractBlackout" in client) ||
     !("propertySetupNote" in client) ||
-    !("propertyRoomAvailabilityRate" in client)
+    !("propertyRoomAvailabilityRate" in client) ||
+    !("contactTypeMaster" in client) ||
+    !("addressTypeMaster" in client) ||
+    !("documentTypeMaster" in client) ||
+    !("b2BCustomerCreditStatus" in client) ||
+    !("additionalInfoTypeMaster" in client)
   );
 }
 

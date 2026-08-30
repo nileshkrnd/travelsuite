@@ -173,12 +173,21 @@ async function main() {
     { code: "OTHER", name: "Other" },
   ];
   for (const [index, item] of CONTACT_TYPES.entries()) {
-    const row = await prisma.b2BCustomerContactType.upsert({
+    const row = await prisma.contactTypeMaster.upsert({
       where: { tenantId_companyId_contactTypeCode: { tenantId: TENANT_ID, companyId: COMPANY_ID, contactTypeCode: item.code } },
-      create: { tenantId: TENANT_ID, companyId: COMPANY_ID, contactTypeCode: item.code, contactTypeName: item.name, displayOrder: index, isActive: true, createdBy: CREATED_BY },
+      create: {
+        tenantId: TENANT_ID,
+        companyId: COMPANY_ID,
+        contactTypeCode: item.code,
+        contactTypeName: item.name,
+        contactTypeCategory: "BOTH",
+        displayOrder: index,
+        isActive: true,
+        createdBy: CREATED_BY,
+      },
       update: { contactTypeName: item.name, displayOrder: index, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
     });
-    console.log("B2BCustomerContactType", row.contactTypeCode, Number(row.b2bCustomerContactTypeId));
+    console.log("ContactTypeMaster", row.contactTypeCode, Number(row.contactTypeId));
   }
 
   const ADDRESS_TYPES = [
@@ -209,12 +218,12 @@ async function main() {
     { code: "OTHER", name: "Other" },
   ];
   for (const [index, item] of DOCUMENT_TYPES.entries()) {
-    const row = await prisma.b2BCustomerDocumentType.upsert({
+    const row = await prisma.documentTypeMaster.upsert({
       where: { tenantId_companyId_documentTypeCode: { tenantId: TENANT_ID, companyId: COMPANY_ID, documentTypeCode: item.code } },
       create: { tenantId: TENANT_ID, companyId: COMPANY_ID, documentTypeCode: item.code, documentTypeName: item.name, displayOrder: index, isActive: true, createdBy: CREATED_BY },
       update: { documentTypeName: item.name, displayOrder: index, modifiedBy: CREATED_BY, modifiedDtTm: new Date() },
     });
-    console.log("B2BCustomerDocumentType", row.documentTypeCode, Number(row.documentTypeId));
+    console.log("DocumentTypeMaster", row.documentTypeCode, Number(row.documentTypeId));
   }
 
   const CREDIT_STATUSES = [

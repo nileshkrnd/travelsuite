@@ -12,6 +12,12 @@ type TenantCodeDelegate = {
   delete: (args: unknown) => Promise<Record<string, unknown>>;
 };
 
+export type TenantCodeExtraEnum = {
+  field: string;
+  values: readonly [string, ...string[]];
+  defaultValue: string;
+};
+
 export type TenantCodeMasterConfig = {
   model: keyof typeof prisma;
   idField: string;
@@ -20,6 +26,7 @@ export type TenantCodeMasterConfig = {
   label: string;
   descriptionMax?: number;
   nameMax?: number;
+  extraEnums?: TenantCodeExtraEnum[];
 };
 
 function delegate(config: TenantCodeMasterConfig): TenantCodeDelegate {
@@ -36,6 +43,22 @@ function serializeRow(row: Record<string, unknown>, idField: string) {
   return { ...row, [idField]: Number(row[idField] as bigint) };
 }
 
+function extraEnumShape(extras: TenantCodeExtraEnum[] | undefined) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const extra of extras ?? []) {
+    shape[extra.field] = z.enum(extra.values).optional();
+  }
+  return shape;
+}
+
+function extraEnumData(extras: TenantCodeExtraEnum[] | undefined, data: Record<string, unknown>) {
+  const result: Record<string, unknown> = {};
+  for (const extra of extras ?? []) {
+    result[extra.field] = data[extra.field] ?? extra.defaultValue;
+  }
+  return result;
+}
+
 export function createTenantCodeListHandlers(config: TenantCodeMasterConfig) {
   const descriptionMax = config.descriptionMax ?? 250;
   const nameMax = config.nameMax ?? 100;
@@ -48,6 +71,7 @@ export function createTenantCodeListHandlers(config: TenantCodeMasterConfig) {
     companyId: z.number().int().positive(),
     isActive: z.boolean().optional(),
     createdBy: z.number().int().positive(),
+    ...extraEnumShape(config.extraEnums),
   });
 
   async function GET(request: Request) {
@@ -94,6 +118,7 @@ export function createTenantCodeListHandlers(config: TenantCodeMasterConfig) {
           companyId: data.companyId,
           isActive: (data.isActive as boolean | undefined) ?? true,
           createdBy: data.createdBy,
+          ...extraEnumData(config.extraEnums, data),
         },
       });
       return NextResponse.json(serializeRow(created, config.idField), { status: 201 });
@@ -118,6 +143,7 @@ export function createTenantCodeItemHandlers(config: TenantCodeMasterConfig) {
     displayOrder: z.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
     modifiedBy: z.number().int().positive(),
+    ...extraEnumShape(config.extraEnums),
   });
   const patchSchema = z.object({
     isActive: z.boolean(),
@@ -169,6 +195,7 @@ export function createTenantCodeItemHandlers(config: TenantCodeMasterConfig) {
           isActive: data.isActive,
           modifiedBy: data.modifiedBy,
           modifiedDtTm: new Date(),
+          ...extraEnumData(config.extraEnums, data),
         },
       });
       return NextResponse.json(serializeRow(updated, config.idField));

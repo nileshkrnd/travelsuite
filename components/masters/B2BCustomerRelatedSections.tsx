@@ -33,6 +33,7 @@ import type {
   Country,
   GlobalCodeLookup,
 } from "@/types";
+import { contactTypesForParty } from "@/types";
 
 export function B2BCustomerRelatedSections({
   b2bCustomerId,
@@ -100,6 +101,7 @@ function ContactsSection({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const types = contactTypesForParty(contactTypes, "CUSTOMER");
 
   async function load() {
     setLoading(true);
@@ -126,7 +128,7 @@ function ContactsSection({
     try {
       await createB2BCustomerContact({
         b2bCustomerId,
-        b2bCustomerContactTypeId: typeId,
+        contactTypeId: typeId,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim() || null,
@@ -159,11 +161,11 @@ function ContactsSection({
             <Select value={typeId ? String(typeId) : ""} onValueChange={(v) => setTypeId(v ? Number(v) : null)}>
               <SelectTrigger className="h-9 w-full">
                 <SelectValue>
-                  {(value: string | null) => contactTypes.find((t) => String(t.key) === value)?.name ?? "Select"}
+                  {(value: string | null) => types.find((t) => String(t.key) === value)?.name ?? "Select"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {contactTypes.map((t) => (
+                {types.map((t) => (
                   <SelectItem key={t.key} value={String(t.key)}>
                     {t.name}
                   </SelectItem>

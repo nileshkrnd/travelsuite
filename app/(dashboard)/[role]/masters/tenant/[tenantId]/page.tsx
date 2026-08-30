@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateTenantAdminDialog } from "@/components/masters/CreateTenantAdminDialog";
 import { TenantModuleAccessPanel } from "@/components/masters/TenantModuleAccessPanel";
+import { TenantLogo } from "@/components/layout/TenantLogo";
 import { useTenantsStore } from "@/lib/store/tenants.store";
 import { useTenantStore } from "@/lib/store/tenant.store";
 import { useSessionStore } from "@/lib/store/session.store";
@@ -155,6 +156,13 @@ function TenantView({ roleDef }: { roleDef: RoleDef }) {
               <h3 className="mb-1 text-sm font-semibold text-foreground">Basic details</h3>
               <dl>
                 <DetailRow label="Tenant name">{tenant.branding.name}</DetailRow>
+                <DetailRow label="Logo">
+                  {tenant.branding.logoUrl ? (
+                    <TenantLogo branding={tenant.branding} size="md" />
+                  ) : (
+                    <span className="text-muted-foreground">Not set</span>
+                  )}
+                </DetailRow>
                 <DetailRow label="Holding group">{tenant.groupName}</DetailRow>
                 <DetailRow label="Tenant code">{tenant.slug}</DetailRow>
                 <DetailRow label="Status">
