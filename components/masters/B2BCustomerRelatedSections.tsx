@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Contact, CreditCard, FileCheck2, Loader2, MapPin, Plus, Trash2 } from "lucide-react";
+import { Contact, CreditCard, FileCheck2, Loader2, MapPin, Plus, Trash2, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,27 @@ import type {
 } from "@/types";
 import { contactTypesForParty } from "@/types";
 
+function uniqueDialCountries(countries: Country[]) {
+  const map = new Map<string, Country>();
+  for (const country of countries) {
+    if (country.dialCode && !map.has(country.dialCode)) map.set(country.dialCode, country);
+  }
+  return [...map.values()].sort((a, b) => a.dialCode.localeCompare(b.dialCode));
+}
+
+function formatContactMobile(row: B2BCustomerContact) {
+  const parts = [row.mobileCountryCode, row.mobileNumber].filter(Boolean);
+  return parts.length ? parts.join(" ") : null;
+}
+
+function defaultDialCode(countries: Country[]) {
+  const codes = uniqueDialCountries(countries);
+  return codes.find((c) => c.dialCode === "+974")?.dialCode ?? codes[0]?.dialCode ?? "";
+}
+
+export const B2B_CUSTOMER_RELATED_TABS = ["contacts", "addresses", "documents", "credits"] as const;
+export type B2BCustomerRelatedTab = (typeof B2B_CUSTOMER_RELATED_TABS)[number];
+
 export function B2BCustomerRelatedSections({
   b2bCustomerId,
   contactTypes,
@@ -45,6 +66,7 @@ export function B2BCustomerRelatedSections({
   countries,
   userKey,
   canEdit,
+  section,
 }: {
   b2bCustomerId: number;
   contactTypes: GlobalCodeLookup[];
@@ -55,30 +77,46 @@ export function B2BCustomerRelatedSections({
   countries: Country[];
   userKey: number;
   canEdit: boolean;
+  section?: B2BCustomerRelatedTab;
 }) {
+  const show = (key: B2BCustomerRelatedTab) => section == null || section === key;
   return (
     <div className="space-y-4">
-      <ContactsSection b2bCustomerId={b2bCustomerId} contactTypes={contactTypes} userKey={userKey} canEdit={canEdit} />
-      <AddressesSection
-        b2bCustomerId={b2bCustomerId}
-        addressTypes={addressTypes}
-        countries={countries}
-        userKey={userKey}
-        canEdit={canEdit}
-      />
-      <DocumentsSection
-        b2bCustomerId={b2bCustomerId}
-        documentTypes={documentTypes}
-        documentStatuses={documentStatuses}
-        userKey={userKey}
-        canEdit={canEdit}
-      />
-      <CreditsSection
-        b2bCustomerId={b2bCustomerId}
-        creditStatuses={creditStatuses}
-        userKey={userKey}
-        canEdit={canEdit}
-      />
+      {show("contacts") && (
+        <ContactsSection
+          b2bCustomerId={b2bCustomerId}
+          contactTypes={contactTypes}
+          countries={countries}
+          userKey={userKey}
+          canEdit={canEdit}
+        />
+      )}
+      {show("addresses") && (
+        <AddressesSection
+          b2bCustomerId={b2bCustomerId}
+          addressTypes={addressTypes}
+          countries={countries}
+          userKey={userKey}
+          canEdit={canEdit}
+        />
+      )}
+      {show("documents") && (
+        <DocumentsSection
+          b2bCustomerId={b2bCustomerId}
+          documentTypes={documentTypes}
+          documentStatuses={documentStatuses}
+          userKey={userKey}
+          canEdit={canEdit}
+        />
+      )}
+      {show("credits") && (
+        <CreditsSection
+          b2bCustomerId={b2bCustomerId}
+          creditStatuses={creditStatuses}
+          userKey={userKey}
+          canEdit={canEdit}
+        />
+      )}
     </div>
   );
 }
@@ -86,22 +124,42 @@ export function B2BCustomerRelatedSections({
 function ContactsSection({
   b2bCustomerId,
   contactTypes,
+  countries,
   userKey,
   canEdit,
 }: {
   b2bCustomerId: number;
   contactTypes: GlobalCodeLookup[];
+  countries: Country[];
   userKey: number;
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<B2BCustomerContact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
   const [typeId, setTypeId] = useState<number | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobileCountryCode, setMobileCountryCode] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const types = contactTypesForParty(contactTypes, "CUSTOMER");
+  const dialCountries = useMemo(() => uniqueDialCountries(countries), [countries]);
+
+  function resetForm() {
+    setTypeId(null);
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setMobileCountryCode(defaultDialCode(countries));
+    setMobileNumber("");
+  }
+
+  function openForm() {
+    resetForm();
+    setAdding(true);
+  }
 
   async function load() {
     setLoading(true);
@@ -132,13 +190,13 @@ function ContactsSection({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim() || null,
+        mobileCountryCode: mobileNumber.trim() ? mobileCountryCode.trim() || null : null,
+        mobileNumber: mobileNumber.trim() || null,
         isPrimary: rows.length === 0,
         createdBy: userKey,
       });
-      setTypeId(null);
-      setFirstName("");
-      setLastName("");
-      setEmail("");
+      resetForm();
+      setAdding(false);
       await load();
       toast.success("Contact added");
     } catch {
@@ -154,71 +212,145 @@ function ContactsSection({
         <Contact className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Contacts</h3>
       </div>
-      {canEdit && (
-        <div className="mb-3 grid gap-2 sm:grid-cols-5 sm:items-end">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Type</Label>
-            <Select value={typeId ? String(typeId) : ""} onValueChange={(v) => setTypeId(v ? Number(v) : null)}>
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue>
-                  {(value: string | null) => types.find((t) => String(t.key) === value)?.name ?? "Select"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {types.map((t) => (
-                  <SelectItem key={t.key} value={String(t.key)}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">First name</Label>
-            <Input className="h-9" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Last name</Label>
-            <Input className="h-9" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Email</Label>
-            <Input className="h-9" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <Button type="button" size="sm" onClick={() => void add()} disabled={saving}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            Add
-          </Button>
-        </div>
-      )}
+
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No contacts yet.</p>
-      ) : (
+      ) : rows.length === 0 && !adding ? (
+        <p className="text-xs text-muted-foreground">No contacts yet. Add a sales, accounts, or operations contact.</p>
+      ) : rows.length > 0 ? (
         <ul className="space-y-1.5">
-          {rows.map((c) => (
-            <li key={c.b2bCustomerContactId} className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs">
-              <span>
-                <span className="font-medium">
-                  {c.firstName} {c.lastName}
+          {rows.map((c) => {
+            const mobile = formatContactMobile(c);
+            return (
+              <li
+                key={c.b2bCustomerContactId}
+                className="flex items-start justify-between gap-2 rounded-md border border-border px-2.5 py-2 text-xs"
+              >
+                <span className="min-w-0">
+                  <span className="font-medium">
+                    {c.firstName} {c.lastName}
+                  </span>
+                  <span className="text-muted-foreground"> · {c.contactTypeName ?? "—"}</span>
+                  {c.isPrimary ? (
+                    <Badge variant="outline" className="ms-1.5 text-[10px]">
+                      Primary
+                    </Badge>
+                  ) : null}
+                  <span className="mt-0.5 block text-muted-foreground">
+                    {c.email ?? "No email"}
+                    {mobile ? ` · ${mobile}` : " · No mobile"}
+                  </span>
                 </span>
-                <span className="text-muted-foreground"> · {c.contactTypeName ?? "—"}</span>
-                {c.email ? <span className="text-muted-foreground"> · {c.email}</span> : null}
-                {c.isPrimary ? (
-                  <Badge variant="outline" className="ms-1.5 text-[10px]">
-                    Primary
-                  </Badge>
-                ) : null}
-              </span>
-              {canEdit && (
-                <Button variant="ghost" size="icon-sm" onClick={() => void deleteB2BCustomerContact(c.b2bCustomerContactId).then(load)} aria-label="Remove">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </li>
-          ))}
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => void deleteB2BCustomerContact(c.b2bCustomerContactId).then(load)}
+                    aria-label="Remove"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </li>
+            );
+          })}
         </ul>
+      ) : null}
+
+      {canEdit && adding && (
+        <div className="mt-3 space-y-3 rounded-lg border border-dashed border-border bg-muted/30 p-3">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Type</Label>
+              <Select value={typeId ? String(typeId) : ""} onValueChange={(v) => setTypeId(v ? Number(v) : null)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue>
+                    {(value: string | null) => types.find((t) => String(t.key) === value)?.name ?? "Select"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {types.map((t) => (
+                    <SelectItem key={t.key} value={String(t.key)}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">First name</Label>
+              <Input className="h-9" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Last name</Label>
+              <Input className="h-9" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Email</Label>
+              <Input
+                className="h-9"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@company.com"
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-xs text-muted-foreground">Mobile number</Label>
+              <div className="flex gap-2">
+                <Select value={mobileCountryCode} onValueChange={(v) => setMobileCountryCode(v ?? "")}>
+                  <SelectTrigger className="h-9 w-[8.5rem] shrink-0">
+                    <SelectValue>
+                      {(value: string | null) => value || "Code"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dialCountries.map((c) => (
+                      <SelectItem key={c.countryKey} value={c.dialCode}>
+                        {c.dialCode} {c.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="h-9"
+                  inputMode="tel"
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
+                  placeholder="5555 1234"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" onClick={() => void add()} disabled={saving}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Save contact
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                resetForm();
+                setAdding(false);
+              }}
+              disabled={saving}
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {canEdit && !adding && (
+        <div className="mt-3">
+          <Button type="button" variant="outline" size="sm" onClick={openForm}>
+            <Plus className="h-3.5 w-3.5" />
+            {rows.length === 0 ? "Add contact" : "Add more"}
+          </Button>
+        </div>
       )}
     </Card>
   );

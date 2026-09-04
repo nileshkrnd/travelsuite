@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Landmark, Eye, Pencil, Power, PowerOff, Trash2, X, Search, Loader2 } from "lucide-react";
+import { Plus, Landmark, Eye, Pencil, Power, PowerOff, Trash2, Search, ClipboardList } from "lucide-react";
 import { AccessGate } from "@/components/shared/AccessGate";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -13,644 +12,40 @@ import { SortableTableHead, type SortDirection } from "@/components/shared/Sorta
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useSessionStore } from "@/lib/store/session.store";
 import { useTenantStore, isPlatformMode } from "@/lib/store/tenant.store";
 import { useUsersStore } from "@/lib/store/users.store";
-import { resolveSessionCompanyKey } from "@/lib/session-company";
 import { listB2BCustomerTypes, B2BCustomerTypesApiError } from "@/lib/services/b2b-customer-types.service";
-import { listB2BCustomerCategories, B2BCustomerCategoriesApiError } from "@/lib/services/b2b-customer-categories.service";
-import { listCountries } from "@/lib/services/countries.service";
-import { listCurrencies } from "@/lib/services/currencies.service";
-import { listPaymentTerms } from "@/lib/services/payment-terms.service";
-import { listEmployees } from "@/lib/services/employees.service";
-import { listCommonStatusTypes } from "@/lib/services/common-status-types.service";
-import { listCommonStatuses } from "@/lib/services/common-statuses.service";
 import {
   listB2BCustomers,
-  createB2BCustomer,
-  updateB2BCustomer,
   setB2BCustomerActive,
   deleteB2BCustomer,
   B2BCustomersApiError,
 } from "@/lib/services/b2b-customers.service";
-import {
-  addressTypesService,
-  contactTypesService,
-  documentTypesService,
-  b2bCustomerCreditStatusesService,
-} from "@/lib/services/global-code-lookup.service";
-import { B2BCustomerRelatedSections } from "@/components/masters/B2BCustomerRelatedSections";
+import { b2bCustomerPaths } from "@/components/masters/B2BCustomerForm";
+import { cn } from "@/lib/utils";
 import { can } from "@/config/permissions";
 import { SUPER_ADMIN_ROLE_ID } from "@/mock/data/roles";
-import type {
-  RoleDef,
-  B2BCustomer,
-  B2BCustomerType,
-  B2BCustomerCategory,
-  Country,
-  Currency,
-  PaymentTerm,
-  Employee,
-  CommonStatus,
-  GlobalCodeLookup,
-} from "@/types";
+import type { RoleDef, B2BCustomer, B2BCustomerType } from "@/types";
 
-type PanelMode = "closed" | "create" | "edit" | "view";
 type SortKey = "b2bCustomerCode" | "b2bCustomerName";
 type StatusFilter = "all" | "active" | "inactive";
 
-const NONE_OPTION = "__none__";
-const STATUS_TYPE_CODE = "B2B_CUSTOMER";
-
-function useB2BCustomerSchema(rows: B2BCustomer[], currentId?: number) {
-  return z
-    .object({
-      b2bCustomerCode: z.string().trim().min(1, "Code is required").max(50, "Must be 50 characters or fewer"),
-      b2bCustomerName: z.string().trim().min(1, "Name is required").max(250, "Must be 250 characters or fewer"),
-      b2bCustomerTypeId: z.number().int().positive({ message: "Type is required" }),
-      b2bCustomerCategoryId: z.number().int().positive().nullable(),
-      parentB2bCustomerId: z.number().int().positive().nullable(),
-      registrationNumber: z.string().trim().max(100).optional().or(z.literal("")),
-      taxRegistrationNumber: z.string().trim().max(100).optional().or(z.literal("")),
-      countryId: z.number().int().positive({ message: "Country is required" }),
-      currencyId: z.number().int().positive({ message: "Currency is required" }),
-      paymentTermId: z.number().int().positive().nullable(),
-      creditLimit: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable()),
-      creditDays: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable()),
-      accountManagerId: z.number().int().positive().nullable(),
-      statusId: z.number().int().positive({ message: "Status is required" }),
-    })
-    .superRefine((values, ctx) => {
-      const duplicateCode = rows.some(
-        (r) =>
-          r.b2bCustomerId !== currentId && r.b2bCustomerCode.toLowerCase() === values.b2bCustomerCode.trim().toLowerCase()
-      );
-      if (duplicateCode) {
-        ctx.addIssue({ code: "custom", path: ["b2bCustomerCode"], message: "This customer code already exists" });
-      }
-    });
-}
-
-type FormValues = z.infer<ReturnType<typeof useB2BCustomerSchema>>;
-
-/** Excludes a customer and its full descendant chain — those can't be picked as its own parent. */
-function parentOptionsFor(rows: B2BCustomer[], excludeId: number | undefined) {
-  if (excludeId == null) return rows;
-  const excluded = new Set<number>([excludeId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const r of rows) {
-      if (r.parentB2bCustomerId != null && excluded.has(r.parentB2bCustomerId) && !excluded.has(r.b2bCustomerId)) {
-        excluded.add(r.b2bCustomerId);
-        changed = true;
-      }
-    }
-  }
-  return rows.filter((r) => !excluded.has(r.b2bCustomerId));
-}
-
-function CustomerPanel({
-  mode,
-  row,
-  rows,
-  types,
-  categories,
-  countries,
-  currencies,
-  paymentTerms,
-  employees,
-  statuses,
-  contactTypes,
-  addressTypes,
-  documentTypes,
-  creditStatuses,
-  documentStatuses,
-  userKey,
-  tenantId,
-  companyId,
-  onClose,
-  onSaved,
-}: {
-  mode: Exclude<PanelMode, "closed">;
-  row?: B2BCustomer;
-  rows: B2BCustomer[];
-  types: B2BCustomerType[];
-  categories: B2BCustomerCategory[];
-  countries: Country[];
-  currencies: Currency[];
-  paymentTerms: PaymentTerm[];
-  employees: Employee[];
-  statuses: CommonStatus[];
-  contactTypes: GlobalCodeLookup[];
-  addressTypes: GlobalCodeLookup[];
-  documentTypes: GlobalCodeLookup[];
-  creditStatuses: GlobalCodeLookup[];
-  documentStatuses: CommonStatus[];
-  userKey: number;
-  tenantId: number;
-  companyId: number;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const schema = useB2BCustomerSchema(rows, row?.b2bCustomerId);
-  const isReadOnly = mode === "view";
-  const parentOptions = useMemo(() => parentOptionsFor(rows, row?.b2bCustomerId), [rows, row?.b2bCustomerId]);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema as any),
-    values: {
-      b2bCustomerCode: row?.b2bCustomerCode ?? "",
-      b2bCustomerName: row?.b2bCustomerName ?? "",
-      b2bCustomerTypeId: row?.b2bCustomerTypeId ?? 0,
-      b2bCustomerCategoryId: row?.b2bCustomerCategoryId ?? null,
-      parentB2bCustomerId: row?.parentB2bCustomerId ?? null,
-      registrationNumber: row?.registrationNumber ?? "",
-      taxRegistrationNumber: row?.taxRegistrationNumber ?? "",
-      countryId: row?.countryId ?? 0,
-      currencyId: row?.currencyId ?? 0,
-      paymentTermId: row?.paymentTermId ?? null,
-      creditLimit: row?.creditLimit ?? null,
-      creditDays: row?.creditDays ?? null,
-      accountManagerId: row?.accountManagerId ?? null,
-      statusId: row?.statusId ?? 0,
-    },
-  });
-
-  const typeIdWatch = watch("b2bCustomerTypeId");
-  const categoryOptions = useMemo(
-    () => categories.filter((c) => c.b2bCustomerTypeId === typeIdWatch),
-    [categories, typeIdWatch]
-  );
-
-  function blankValues(): FormValues {
-    return {
-      b2bCustomerCode: "",
-      b2bCustomerName: "",
-      b2bCustomerTypeId: 0,
-      b2bCustomerCategoryId: null,
-      parentB2bCustomerId: null,
-      registrationNumber: "",
-      taxRegistrationNumber: "",
-      countryId: 0,
-      currencyId: 0,
-      paymentTermId: null,
-      creditLimit: null,
-      creditDays: null,
-      accountManagerId: null,
-      statusId: 0,
-    };
-  }
-
-  async function submit(values: FormValues, keepOpenForMore: boolean) {
-    if (!userKey) {
-      toast.error("Missing user key — sign in again.");
-      return;
-    }
-    const payload = {
-      b2bCustomerCode: values.b2bCustomerCode.trim(),
-      b2bCustomerName: values.b2bCustomerName.trim(),
-      b2bCustomerTypeId: values.b2bCustomerTypeId,
-      b2bCustomerCategoryId: values.b2bCustomerCategoryId,
-      parentB2bCustomerId: values.parentB2bCustomerId,
-      registrationNumber: values.registrationNumber || undefined,
-      taxRegistrationNumber: values.taxRegistrationNumber || undefined,
-      countryId: values.countryId,
-      currencyId: values.currencyId,
-      paymentTermId: values.paymentTermId,
-      creditLimit: values.creditLimit,
-      creditDays: values.creditDays,
-      accountManagerId: values.accountManagerId,
-      statusId: values.statusId,
-      tenantId,
-      companyId,
-    };
-    try {
-      if (mode === "edit" && row) {
-        await updateB2BCustomer(row.b2bCustomerId, { ...payload, isActive: row.isActive, modifiedBy: userKey });
-        toast.success("B2B customer updated");
-        await onSaved();
-        onClose();
-      } else if (mode === "create") {
-        await createB2BCustomer({ ...payload, createdBy: userKey });
-        toast.success("B2B customer created");
-        await onSaved();
-        if (keepOpenForMore) {
-          reset(blankValues());
-        } else {
-          onClose();
-        }
-      }
-    } catch (error) {
-      toast.error(error instanceof B2BCustomersApiError ? error.message : "Could not save B2B customer");
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-    <Card className="p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <h2 className="text-base font-semibold">
-          {mode === "create" ? "Add B2B customer" : mode === "edit" ? "Edit B2B customer" : "B2B customer details"}
-        </h2>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      <form onSubmit={handleSubmit((values) => submit(values, false))} className="grid grid-cols-2 gap-3 sm:grid-cols-4" noValidate>
-        <div className="space-y-1">
-          <Label htmlFor="b2bCustomerCode" required>
-            Code
-          </Label>
-          <Input
-            id="b2bCustomerCode"
-            autoFocus={!isReadOnly}
-            disabled={isReadOnly}
-            placeholder="e.g. CORP-0001"
-            aria-invalid={!!errors.b2bCustomerCode}
-            {...register("b2bCustomerCode")}
-          />
-          {errors.b2bCustomerCode && <p className="text-sm text-destructive">{errors.b2bCustomerCode.message}</p>}
-        </div>
-
-        <div className="col-span-2 space-y-1 sm:col-span-3">
-          <Label htmlFor="b2bCustomerName" required>
-            Name
-          </Label>
-          <Input
-            id="b2bCustomerName"
-            disabled={isReadOnly}
-            placeholder="e.g. Acme Corporation"
-            aria-invalid={!!errors.b2bCustomerName}
-            {...register("b2bCustomerName")}
-          />
-          {errors.b2bCustomerName && <p className="text-sm text-destructive">{errors.b2bCustomerName.message}</p>}
-        </div>
-
-        <div className="space-y-1">
-          <Label required>Type</Label>
-          <Controller
-            control={control}
-            name="b2bCustomerTypeId"
-            render={({ field }) => (
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(v) => {
-                  field.onChange(v ? Number(v) : 0);
-                }}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.b2bCustomerTypeId}>
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value) return "Select type";
-                      return types.find((t) => String(t.b2bCustomerTypeId) === value)?.customerTypeName ?? "Select type";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {types.map((t) => (
-                    <SelectItem key={t.b2bCustomerTypeId} value={String(t.b2bCustomerTypeId)}>
-                      {t.customerTypeName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.b2bCustomerTypeId && <p className="text-sm text-destructive">{errors.b2bCustomerTypeId.message}</p>}
-        </div>
-
-        <div className="space-y-1">
-          <Label>Category</Label>
-          <Controller
-            control={control}
-            name="b2bCustomerCategoryId"
-            render={({ field }) => (
-              <Select
-                value={field.value == null ? NONE_OPTION : String(field.value)}
-                onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))}
-                disabled={isReadOnly || !typeIdWatch}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === NONE_OPTION) return "None";
-                      return categoryOptions.find((c) => String(c.b2bCustomerCategoryId) === value)?.categoryName ?? "None";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_OPTION}>None</SelectItem>
-                  {categoryOptions.map((c) => (
-                    <SelectItem key={c.b2bCustomerCategoryId} value={String(c.b2bCustomerCategoryId)}>
-                      {c.categoryName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label>Parent customer</Label>
-          <Controller
-            control={control}
-            name="parentB2bCustomerId"
-            render={({ field }) => (
-              <Select
-                value={field.value == null ? NONE_OPTION : String(field.value)}
-                onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === NONE_OPTION) return "None";
-                      return (
-                        parentOptions.find((p) => String(p.b2bCustomerId) === value)?.b2bCustomerName ?? "None"
-                      );
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_OPTION}>None</SelectItem>
-                  {parentOptions.map((p) => (
-                    <SelectItem key={p.b2bCustomerId} value={String(p.b2bCustomerId)}>
-                      {p.b2bCustomerName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="registrationNumber">Registration number</Label>
-          <Input id="registrationNumber" disabled={isReadOnly} {...register("registrationNumber")} />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="taxRegistrationNumber">Tax registration number</Label>
-          <Input id="taxRegistrationNumber" disabled={isReadOnly} {...register("taxRegistrationNumber")} />
-        </div>
-
-        <div className="space-y-1">
-          <Label required>Country</Label>
-          <Controller
-            control={control}
-            name="countryId"
-            render={({ field }) => (
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(v) => field.onChange(v ? Number(v) : 0)}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.countryId}>
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value) return "Select country";
-                      return countries.find((c) => String(c.countryKey) === value)?.name ?? "Select country";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((c) => (
-                    <SelectItem key={c.countryKey} value={String(c.countryKey)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.countryId && <p className="text-sm text-destructive">{errors.countryId.message}</p>}
-        </div>
-
-        <div className="space-y-1">
-          <Label required>Currency</Label>
-          <Controller
-            control={control}
-            name="currencyId"
-            render={({ field }) => (
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(v) => field.onChange(v ? Number(v) : 0)}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.currencyId}>
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value) return "Select currency";
-                      return currencies.find((c) => String(c.currencyKey) === value)?.code ?? "Select currency";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {currencies.map((c) => (
-                    <SelectItem key={c.currencyKey} value={String(c.currencyKey)}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.currencyId && <p className="text-sm text-destructive">{errors.currencyId.message}</p>}
-        </div>
-
-        <div className="space-y-1">
-          <Label>Payment term</Label>
-          <Controller
-            control={control}
-            name="paymentTermId"
-            render={({ field }) => (
-              <Select
-                value={field.value == null ? NONE_OPTION : String(field.value)}
-                onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === NONE_OPTION) return "None";
-                      return paymentTerms.find((p) => String(p.paymentTermId) === value)?.paymentTermName ?? "None";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_OPTION}>None</SelectItem>
-                  {paymentTerms.map((p) => (
-                    <SelectItem key={p.paymentTermId} value={String(p.paymentTermId)}>
-                      {p.paymentTermName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="creditLimit">Credit limit</Label>
-          <Input id="creditLimit" type="number" min={0} step="0.01" disabled={isReadOnly} {...register("creditLimit")} />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="creditDays">Credit days</Label>
-          <Input id="creditDays" type="number" min={0} disabled={isReadOnly} {...register("creditDays")} />
-        </div>
-
-        <div className="space-y-1">
-          <Label>Account manager</Label>
-          <Controller
-            control={control}
-            name="accountManagerId"
-            render={({ field }) => (
-              <Select
-                value={field.value == null ? NONE_OPTION : String(field.value)}
-                onValueChange={(v) => field.onChange(!v || v === NONE_OPTION ? null : Number(v))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0">
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === NONE_OPTION) return "None";
-                      const emp = employees.find((e) => String(e.employeeId) === value);
-                      return emp ? `${emp.firstName} ${emp.lastName}` : "None";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_OPTION}>None</SelectItem>
-                  {employees.map((e) => (
-                    <SelectItem key={e.employeeId} value={String(e.employeeId)}>
-                      {e.firstName} {e.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label required>Status</Label>
-          <Controller
-            control={control}
-            name="statusId"
-            render={({ field }) => (
-              <Select
-                value={field.value ? String(field.value) : ""}
-                onValueChange={(v) => field.onChange(v ? Number(v) : 0)}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="h-10 w-full max-w-full min-w-0" aria-invalid={!!errors.statusId}>
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value) return "Select status";
-                      return statuses.find((s) => String(s.commonStatusId) === value)?.statusName ?? "Select status";
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.commonStatusId} value={String(s.commonStatusId)}>
-                      {s.statusName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.statusId && <p className="text-sm text-destructive">{errors.statusId.message}</p>}
-        </div>
-
-        {mode === "view" && row && (
-          <div className="space-y-1">
-            <Label>Active</Label>
-            <div>
-              <Badge variant={row.isActive ? "default" : "secondary"}>{row.isActive ? "active" : "inactive"}</Badge>
-            </div>
-          </div>
-        )}
-
-        {!isReadOnly && (
-          <div className="col-span-2 flex items-center gap-2 sm:col-span-4">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "edit" ? "Save" : "Create"}
-            </Button>
-            {mode === "create" && (
-              <Button type="button" variant="secondary" disabled={isSubmitting} onClick={handleSubmit((values) => submit(values, true))}>
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create &amp; add more
-              </Button>
-            )}
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
-        )}
-      </form>
-    </Card>
-
-      {row && (mode === "view" || mode === "edit") && (
-        <B2BCustomerRelatedSections
-          b2bCustomerId={row.b2bCustomerId}
-          contactTypes={contactTypes}
-          addressTypes={addressTypes}
-          documentTypes={documentTypes}
-          creditStatuses={creditStatuses}
-          documentStatuses={documentStatuses}
-          countries={countries}
-          userKey={userKey}
-          canEdit={mode === "edit"}
-        />
-      )}
-    </div>
-  );
-}
-
 function CustomerList({ roleDef }: { roleDef: RoleDef }) {
+  const { role } = useParams<{ role: string }>();
   const user = useSessionStore((s) => s.user);
   const users = useUsersStore((s) => s.users);
   const activeTenantId = useTenantStore((s) => s.tenantId);
   const activeTenant = useTenantStore((s) => s.tenant);
 
   const [types, setTypes] = useState<B2BCustomerType[]>([]);
-  const [categories, setCategories] = useState<B2BCustomerCategory[]>([]);
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [statuses, setStatuses] = useState<CommonStatus[]>([]);
-  const [documentStatuses, setDocumentStatuses] = useState<CommonStatus[]>([]);
-  const [contactTypes, setContactTypes] = useState<GlobalCodeLookup[]>([]);
-  const [addressTypes, setAddressTypes] = useState<GlobalCodeLookup[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<GlobalCodeLookup[]>([]);
-  const [creditStatuses, setCreditStatuses] = useState<GlobalCodeLookup[]>([]);
   const [rows, setRows] = useState<B2BCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [panelMode, setPanelMode] = useState<PanelMode>("closed");
-  const [target, setTarget] = useState<B2BCustomer | undefined>();
   const [typeFilter, setTypeFilter] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -660,12 +55,12 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
   const isSuperAdmin = roleDef.id === SUPER_ADMIN_ROLE_ID;
   const platformMode = isSuperAdmin && isPlatformMode(activeTenantId);
   const scopeTenantId = platformMode ? 0 : (user?.tenantKey ?? activeTenant.tenantKey ?? 0);
-  const scopeCompanyId = resolveSessionCompanyKey(user) ?? 0;
 
   const canEdit = can(roleDef, "b2bCustomer", "edit");
   const canCreate = can(roleDef, "b2bCustomer", "create");
   const canDelete = can(roleDef, "b2bCustomer", "delete");
   const userKey = user ? (users.find((u) => u.id === user.id)?.userKey ?? user.userKey ?? 0) : 0;
+  const paths = b2bCustomerPaths(role);
 
   async function loadAll() {
     if (scopeTenantId <= 0) {
@@ -677,62 +72,15 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [
-        typeRows,
-        categoryRows,
-        countryRows,
-        currencyRows,
-        paymentTermRows,
-        employeeRows,
-        statusTypeRows,
-        customerRows,
-        contactTypeRows,
-        addressTypeRows,
-        documentTypeRows,
-        creditStatusRows,
-      ] = await Promise.all([
-          listB2BCustomerTypes({ tenantId: scopeTenantId, activeOnly: true }),
-          listB2BCustomerCategories({ tenantId: scopeTenantId, activeOnly: true }),
-          listCountries({ activeOnly: true }),
-          listCurrencies({ activeOnly: true }),
-          listPaymentTerms({ tenantId: scopeTenantId, activeOnly: true }),
-          listEmployees({ tenantId: scopeTenantId, activeOnly: true }),
-          listCommonStatusTypes({ tenantId: scopeTenantId, activeOnly: true }),
-          listB2BCustomers({ tenantId: scopeTenantId }),
-          contactTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
-          addressTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
-          documentTypesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
-          b2bCustomerCreditStatusesService.list({ tenantId: scopeTenantId, companyId: scopeCompanyId, activeOnly: true }),
-        ]);
+      const [typeRows, customerRows] = await Promise.all([
+        listB2BCustomerTypes({ tenantId: scopeTenantId, activeOnly: true }),
+        listB2BCustomers({ tenantId: scopeTenantId }),
+      ]);
       setTypes(typeRows);
-      setCategories(categoryRows);
-      setCountries(countryRows);
-      setCurrencies(currencyRows);
-      setPaymentTerms(paymentTermRows);
-      setEmployees(employeeRows);
       setRows(customerRows);
-      setContactTypes(contactTypeRows);
-      setAddressTypes(addressTypeRows);
-      setDocumentTypes(documentTypeRows);
-      setCreditStatuses(creditStatusRows);
-
-      const statusType = statusTypeRows.find((t) => t.statusTypeCode === STATUS_TYPE_CODE);
-      if (statusType) {
-        setStatuses(await listCommonStatuses({ tenantId: scopeTenantId, commonStatusTypeId: statusType.commonStatusTypeId, activeOnly: true }));
-      } else {
-        setStatuses([]);
-      }
-      const docStatusType = statusTypeRows.find((t) => t.statusTypeCode === "B2B_CUSTOMER_DOCUMENT");
-      setDocumentStatuses(
-        docStatusType
-          ? await listCommonStatuses({ tenantId: scopeTenantId, commonStatusTypeId: docStatusType.commonStatusTypeId, activeOnly: true })
-          : []
-      );
     } catch (error) {
       setLoadError(
-        error instanceof B2BCustomerTypesApiError ||
-          error instanceof B2BCustomerCategoriesApiError ||
-          error instanceof B2BCustomersApiError
+        error instanceof B2BCustomerTypesApiError || error instanceof B2BCustomersApiError
           ? error.message
           : "Failed to load B2B customers"
       );
@@ -807,12 +155,7 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
         description="Corporate and Sub-Agent accounts — credit terms, account manager, and status in one place."
         actions={
           canCreate ? (
-            <Button
-              onClick={() => {
-                setTarget(undefined);
-                setPanelMode("create");
-              }}
-            >
+            <Button nativeButton={false} render={<Link href={paths.create} />}>
               <Plus className="h-4 w-4" />
               Add B2B customer
             </Button>
@@ -859,34 +202,6 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
         </div>
       )}
 
-      {panelMode !== "closed" && (
-        <CustomerPanel
-          mode={panelMode}
-          row={target}
-          rows={rows}
-          types={types}
-          categories={categories}
-          countries={countries}
-          currencies={currencies}
-          paymentTerms={paymentTerms}
-          employees={employees}
-          statuses={statuses}
-          contactTypes={contactTypes}
-          addressTypes={addressTypes}
-          documentTypes={documentTypes}
-          creditStatuses={creditStatuses}
-          documentStatuses={documentStatuses}
-          userKey={userKey}
-          tenantId={scopeTenantId}
-          companyId={target?.companyId ?? scopeCompanyId}
-          onSaved={loadAll}
-          onClose={() => {
-            setPanelMode("closed");
-            setTarget(undefined);
-          }}
-        />
-      )}
-
       <Card>
         {loading ? (
           <p className="p-6 text-sm text-muted-foreground">Loading B2B customers…</p>
@@ -919,90 +234,102 @@ function CustomerList({ roleDef }: { roleDef: RoleDef }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((row) => (
-                <TableRow key={row.b2bCustomerId}>
-                  <TableCell className="px-2 py-1.5 font-mono font-medium leading-tight">{row.b2bCustomerCode}</TableCell>
-                  <TableCell className="px-2 py-1.5 font-medium leading-tight">{row.b2bCustomerName}</TableCell>
-                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.customerTypeName ?? "—"}</TableCell>
-                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.categoryName ?? "—"}</TableCell>
-                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.countryName ?? "—"}</TableCell>
-                  <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.currencyCode ?? "—"}</TableCell>
-                  <TableCell className="px-2 py-1.5">
-                    <Badge variant={row.isActive ? "default" : "secondary"} className="px-1.5 py-0 text-[11px]">
-                      {row.statusName ?? (row.isActive ? "active" : "inactive")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-2 py-1.5 text-right">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="View"
-                              onClick={() => {
-                                setTarget(row);
-                                setPanelMode("view");
-                              }}
-                            />
-                          }
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent>View</TooltipContent>
-                      </Tooltip>
-                      {canEdit && (
-                        <>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Edit"
-                                  onClick={() => {
-                                    setTarget(row);
-                                    setPanelMode("edit");
-                                  }}
-                                />
-                              }
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </TooltipTrigger>
-                            <TooltipContent>Edit</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={row.isActive ? "Deactivate" : "Activate"}
-                                  onClick={() => void toggleActive(row)}
-                                />
-                              }
-                            >
-                              {row.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
-                            </TooltipTrigger>
-                            <TooltipContent>{row.isActive ? "Deactivate" : "Activate"}</TooltipContent>
-                          </Tooltip>
-                        </>
-                      )}
-                      {canDelete && (
+              {visible.map((row) => {
+                const rowPaths = b2bCustomerPaths(role, row.b2bCustomerId);
+                return (
+                  <TableRow key={row.b2bCustomerId}>
+                    <TableCell className="px-2 py-1.5 font-mono font-medium leading-tight">{row.b2bCustomerCode}</TableCell>
+                    <TableCell className="px-2 py-1.5 font-medium leading-tight">{row.b2bCustomerName}</TableCell>
+                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.customerTypeName ?? "—"}</TableCell>
+                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.categoryName ?? "—"}</TableCell>
+                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.countryName ?? "—"}</TableCell>
+                    <TableCell className="px-2 py-1.5 leading-tight text-muted-foreground">{row.currencyCode ?? "—"}</TableCell>
+                    <TableCell className="px-2 py-1.5">
+                      <Badge variant={row.isActive ? "default" : "secondary"} className="px-1.5 py-0 text-[11px]">
+                        {row.statusName ?? (row.isActive ? "active" : "inactive")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5 text-right">
+                      <div className="flex items-center justify-end gap-0.5">
                         <Tooltip>
                           <TooltipTrigger
-                            render={<Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => void removeRow(row)} />}
+                            nativeButton={false}
+                            render={
+                              <Link
+                                href={rowPaths.view}
+                                aria-label="View"
+                                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                              />
+                            }
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5" />
                           </TooltipTrigger>
-                          <TooltipContent>Delete</TooltipContent>
+                          <TooltipContent>View</TooltipContent>
                         </Tooltip>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Tooltip>
+                          <TooltipTrigger
+                            nativeButton={false}
+                            render={
+                              <Link
+                                href={rowPaths.details}
+                                aria-label="Details"
+                                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                              />
+                            }
+                          >
+                            <ClipboardList className="h-3.5 w-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent>Details</TooltipContent>
+                        </Tooltip>
+                        {canEdit && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger
+                                nativeButton={false}
+                                render={
+                                  <Link
+                                    href={rowPaths.edit}
+                                    aria-label="Edit"
+                                    className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                                  />
+                                }
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </TooltipTrigger>
+                              <TooltipContent>Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={row.isActive ? "Deactivate" : "Activate"}
+                                    onClick={() => void toggleActive(row)}
+                                  />
+                                }
+                              >
+                                {row.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                              </TooltipTrigger>
+                              <TooltipContent>{row.isActive ? "Deactivate" : "Activate"}</TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                        {canDelete && (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={<Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => void removeRow(row)} />}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
